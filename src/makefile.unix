@@ -126,12 +126,8 @@ OBJS= \
     obj/net.o \
     obj/protocol.o \
     obj/identifirpc.o \
-    obj/rpcdump.o \
     obj/rpcnet.o \
-    obj/rpcmining.o \
-    obj/rpcwallet.o \
-    obj/rpcblockchain.o \
-    obj/rpcrawtransaction.o \
+    obj/rpcrelations.o \
     obj/script.o \
     obj/sync.o \
     obj/util.o \

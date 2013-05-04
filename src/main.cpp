@@ -31,7 +31,7 @@ CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
-uint256 hashGenesisBlock("0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26e");
+uint256 hashGenesisBlock("0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 32);
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -3553,26 +3553,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     }
 
 
-    else if (strCommand == "block" && !fImporting && !fReindex) // Ignore blocks received while importing
-    {
-        CBlock block;
-        vRecv >> block;
-
-        printf("received block %s\n", block.GetHash().ToString().c_str());
-        // block.print();
-
-        CInv inv(MSG_BLOCK, block.GetHash());
-        pfrom->AddInventoryKnown(inv);
-
-        CValidationState state;
-        if (ProcessBlock(state, pfrom, &block))
-            mapAlreadyAskedFor.erase(inv);
-        int nDoS;
-        if (state.IsInvalid(nDoS))
-            pfrom->Misbehaving(nDoS);
-    }
-
-
     else if (strCommand == "getaddr")
     {
         pfrom->vAddrToSend.clear();
@@ -3619,37 +3599,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             // seconds to respond to each, the 5th ping the remote sends would appear to
             // return very quickly.
             pfrom->PushMessage("pong", nonce);
-        }
-    }
-
-
-    else if (strCommand == "alert")
-    {
-        CAlert alert;
-        vRecv >> alert;
-
-        uint256 alertHash = alert.GetHash();
-        if (pfrom->setKnown.count(alertHash) == 0)
-        {
-            if (alert.ProcessAlert())
-            {
-                // Relay
-                pfrom->setKnown.insert(alertHash);
-                {
-                    LOCK(cs_vNodes);
-                    BOOST_FOREACH(CNode* pnode, vNodes)
-                        alert.RelayTo(pnode);
-                }
-            }
-            else {
-                // Small DoS penalty so peers that send us lots of
-                // duplicate/expired/invalid-signature/whatever alerts
-                // eventually get banned.
-                // This isn't a Misbehaving(100) (immediate ban) because the
-                // peer might be an older or different implementation with
-                // a different signature key, etc.
-                pfrom->Misbehaving(10);
-            }
         }
     }
 
