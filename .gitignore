@@ -1,0 +1,33 @@
+src/*.exe
+src/identifi
+src/identifid
+src/test_identifi
+.*.swp
+*.*~*
+*.bak
+*.rej
+*.orig
+*.o
+*.patch
+.identifi
+
+# Compilation and Qt preprocessor part
+*.qm
+Makefile
+identifi-qt
+
+# Unit-tests
+Makefile.test
+identifi-qt_test
+
+# Resources cpp
+qrc_*.cpp
+
+# Qt creator
+*.pro.user
+
+# Mac specific
+.DS_Store
+build
+
+!src/leveldb-*/Makefile
