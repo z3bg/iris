@@ -6,6 +6,7 @@
 #include "txdb.h"
 #include "walletdb.h"
 #include "identifirpc.h"
+#include "identifidb.h"
 #include "net.h"
 #include "init.h"
 #include "util.h"
@@ -97,6 +98,7 @@ void Shutdown()
             pcoinsTip->Flush();
         delete pcoinsTip; pcoinsTip = NULL;
         delete pcoinsdbview; pcoinsdbview = NULL;
+        delete pidentifidb; pidentifidb = NULL;
         delete pblocktree; pblocktree = NULL;
     }
     bitdb.Flush(true);
@@ -794,10 +796,12 @@ bool AppInit2(boost::thread_group& threadGroup)
                 UnloadBlockIndex();
                 delete pcoinsTip;
                 delete pcoinsdbview;
+                delete pidentifidb;
                 delete pblocktree;
 
                 pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex);
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
+                pidentifidb = new CIdentifiDB();
                 pcoinsTip = new CCoinsViewCache(*pcoinsdbview);
 
                 if (fReindex)

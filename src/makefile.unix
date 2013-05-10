@@ -39,6 +39,7 @@ LIBS += \
    -l boost_program_options$(BOOST_LIB_SUFFIX) \
    -l boost_thread$(BOOST_LIB_SUFFIX) \
    -l db_cxx$(BDB_LIB_SUFFIX) \
+   -l sqlite3 \
    -l ssl \
    -l crypto
 
@@ -125,9 +126,11 @@ OBJS= \
     obj/main.o \
     obj/net.o \
     obj/protocol.o \
+    obj/data.o \
     obj/identifirpc.o \
+    obj/identifidb.o \
     obj/rpcnet.o \
-    obj/rpcrelations.o \
+    obj/rpcdb.o \
     obj/script.o \
     obj/sync.o \
     obj/util.o \

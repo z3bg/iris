@@ -9,6 +9,7 @@
 #include "sync.h"
 #include "net.h"
 #include "script.h"
+#include "identifidb.h"
 
 #include <list>
 
@@ -115,6 +116,7 @@ class CCoinsView;
 class CCoinsViewCache;
 class CScriptCheck;
 class CValidationState;
+class CIdentifiDB;
 
 struct CBlockTemplate;
 
@@ -2211,6 +2213,7 @@ struct CBlockTemplate
     std::vector<int64_t> vTxSigOps;
 };
 
+extern CIdentifiDB* pidentifidb;
 
 
 

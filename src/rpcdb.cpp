@@ -16,5 +16,15 @@ Value getrelationcount(const Array& params, bool fHelp)
             "getrelationcount\n"
             "Returns the number of stored relations.");
 
-    return nBestHeight;
+    return pidentifidb->GetRelationCount();
+}
+
+Value getidentifiercount(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getrelationcount\n"
+            "Returns the number of stored relations.");
+
+    return pidentifidb->GetIdentifierCount();
 }
