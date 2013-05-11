@@ -20,7 +20,7 @@ CIdentifiDB::CIdentifiDB(const boost::filesystem::path &filename) {
         subjects.push_back(id1);
         CRelation r(string("o negative"), string("priceless"), subjects, subjects);
         SaveRelation(r);
-        vector<CRelation> results = GetRelationsInvolvingID(id1);
+        vector<CRelation> results = GetRelationsInvolvingIdentifier(id1);
     }
 }
 
@@ -69,7 +69,7 @@ void CIdentifiDB::Initialize() {
     ostringstream sql;
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Identifiers (";
-    sql << "Id      INTEGER         PRIMARY_KEY,";
+    sql << "ID      INTEGER         PRIMARY_KEY,";
     sql << "Type    NVARCHAR(255)   NOT NULL,";
     sql << "Value   NVARCHAR(255)   NOT NULL";
     sql << ");";
@@ -81,47 +81,162 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Relations (";
-    sql << "Id                  INTEGER         PRIMARY_KEY,";
+    sql << "ID                  INTEGER         PRIMARY_KEY,";
     sql << "Type                NVARCHAR(255)   NOT NULL,";
     sql << "Value               NVARCHAR(255)   NOT NULL,";
-    sql << "SubjectIdentifierID INTEGER         NOT NULL,";
-    sql << "ObjectIdentifierID  INTEGER,";
     sql << "Created   DATETIME  DEFAULT CURRENT_TIMESTAMP";
     sql << ");";
     query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS RelationSubjects (";
+    sql << "RelationID          INTEGER         NOT NULL,";
+    sql << "SubjectID           INTEGER         NOT NULL);";
+    query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS RelationObjects (";
+    sql << "RelationID          INTEGER         NOT NULL,";
+    sql << "ObjectID           INTEGER         NOT NULL);";
+    query(sql.str().c_str());
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsInvolvingID(CIdentifier &identifier) {
+vector<CIdentifier> CIdentifiDB::GetSubjectsByRelationID(int relationID) {
+    vector<CIdentifier> subjects;
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "SELECT * FROM Identifiers AS id ";
+    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationID = @relationid ";
+    sql << "WHERE id.ID = rs.ObjectID;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, relationID);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                vector<CIdentifier> subjects;
+                string type = string((char*)sqlite3_column_text(statement, 1));
+                string value = string((char*)sqlite3_column_text(statement, 2));
+                subjects.push_back(CIdentifier(type, value));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return subjects;
+
+    return subjects;
+}
+
+vector<CRelation> CIdentifiDB::GetRelationsInvolvingIdentifier(CIdentifier &identifier) {
+    sqlite3_stmt *statement;
+    vector<CRelation> relations;
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Relations AS rel ";
-    sql << "INNER JOIN Identifiers AS id ON rel.SubjectIdentifierID = id.Id ";
-    sql << "WHERE id.type = '" << identifier.GetType() << "' AND id.value = '" << identifier.GetValue() << "';";
-    vector<vector<string> > result = query(sql.str().c_str());
-    vector<CRelation> retval;
-    return retval;
+    sql << "INNER JOIN Identifiers AS id ON rel.SubjectIdentifierID = id.ID ";
+    sql << "WHERE id.type = @type AND id.value = @value;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, identifier.GetType().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, identifier.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                vector<CIdentifier> subjects;
+                string type = string((char*)sqlite3_column_text(statement, 1));
+                string value = string((char*)sqlite3_column_text(statement, 2));
+                relations.push_back(CRelation(type, value, subjects, subjects));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return relations;
 }
 
-void CIdentifiDB::SaveIdentifier(CIdentifier &identifier) {
-    ostringstream sql;
-    sql.str("");
-    sql << "INSERT OR IGNORE INTO Identifiers (Type, Value) VALUES ";
-    sql << "('" << identifier.GetType() << "', '" << identifier.GetValue() << "');";
-    query(sql.str().c_str());
+int CIdentifiDB::SaveIdentifier(CIdentifier &identifier) {
+    sqlite3_stmt *statement;
+    const char *sql = "INSERT OR IGNORE INTO Identifiers (Type, Value) VALUES (@type, @value);";
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, identifier.GetType().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, identifier.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+    }
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);
+    return sqlite3_last_insert_rowid(db);
 }
 
-void CIdentifiDB::SaveRelation(CRelation &relation) {
+void CIdentifiDB::SaveRelationSubject(int relationID, int subjectID) {
+    sqlite3_stmt *statement;
+    const char *sql = "INSERT OR IGNORE INTO RelationSubjects (RelationID, SubjectID) VALUES (@relationid, @objectid);";
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, relationID);
+        sqlite3_bind_int(statement, 2, subjectID);
+    }
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);    
+}
+
+void CIdentifiDB::SaveRelationObject(int relationID, int objectID) {
+    sqlite3_stmt *statement;
+    const char *sql = "INSERT OR IGNORE INTO RelationObjects (RelationID, ObjectID) VALUES (@relationid, @objectid);";
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, relationID);
+        sqlite3_bind_int(statement, 2, objectID);
+    }
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);    
+}
+
+int CIdentifiDB::SaveRelation(CRelation &relation) {
+    sqlite3_stmt *statement;
+    string sql;
+    int relationID, identifierID;
+
+    sql = "INSERT INTO Relations (Type, Value) VALUES (@type, @value);";
+    if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, relation.GetType().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, relation.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+    }
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);
+    relationID = sqlite3_last_insert_rowid(db);
+
     vector<CIdentifier> subjects = relation.GetSubjects();
     for (vector<CIdentifier>::iterator it = subjects.begin(); it != subjects.end(); ++it) {
-        SaveIdentifier(*it);
+        identifierID = SaveIdentifier(*it);
+        SaveRelationSubject(relationID, identifierID);
+    }
+    vector<CIdentifier> objects = relation.GetObjects();
+    for (vector<CIdentifier>::iterator it = objects.begin(); it != objects.end(); ++it) {
+        identifierID = SaveIdentifier(*it);
+        SaveRelationObject(relationID, identifierID);
     }
 
-    ostringstream sql;
-    sql.str("");
-    sql << "INSERT INTO Relations (Type, Value, SubjectIdentifierID, ObjectIdentifierID) ";
-    sql << "VALUES ('" << relation.GetType() << "', '";
-    sql << relation.GetValue() << "', 1, 2);";
-    query(sql.str().c_str());
+    return relationID;
 }
 
 int CIdentifiDB::GetIdentifierCount() {

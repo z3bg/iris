@@ -24,4 +24,8 @@ vector<CIdentifier> CRelation::GetSubjects() {
 	return subjects;
 }
 
+vector<CIdentifier> CRelation::GetObjects() {
+	return objects;
+}
+
 CRelation::~CRelation() {}

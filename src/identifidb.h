@@ -17,18 +17,21 @@ using namespace std;
 class CIdentifiDB
 {
 public:
-    CIdentifiDB(const boost::filesystem::path &filename = (GetDataDir() / "sqlite.db"));
+    CIdentifiDB(const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
-    vector<CRelation> GetRelationsInvolvingID(CIdentifier &identifier);
+    vector<CRelation> GetRelationsInvolvingIdentifier(CIdentifier &identifier);
     vector<CRelation> GetRelationsBySubject(CIdentifier &subject);
     vector<CRelation> GetRelationsByObject(CIdentifier &object);
-    void SaveIdentifier(CIdentifier &identifier);
-    void SaveRelation(CRelation &relation);
+    int SaveIdentifier(CIdentifier &identifier);
+    int SaveRelation(CRelation &relation);
     int GetRelationCount();
     int GetIdentifierCount();
 private:
     sqlite3 *db;
+    vector<CIdentifier> GetSubjectsByRelationID(int relationID);
+    void SaveRelationSubject(int relationID, int subjectID);
+    void SaveRelationObject(int relationID, int objectID);
     vector<vector<string> > query(const char* query);
 };
 

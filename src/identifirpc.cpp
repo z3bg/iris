@@ -193,16 +193,18 @@ Value stop(const Array& params, bool fHelp)
 
 
 static const CRPCCommand vRPCCommands[] =
-{ //  name                      actor (function)         okSafeMode threadSafe
-  //  ------------------------  -----------------------  ---------- ----------
-    { "help",                   &help,                   true,      true },
-    { "stop",                   &stop,                   true,      true },
-    { "getrelationcount",       &getrelationcount,       true,      false },
-    { "getidentifiercount",     &getidentifiercount,     true,      false },
-    { "getconnectioncount",     &getconnectioncount,     true,      false },
-    { "getpeerinfo",            &getpeerinfo,            true,      false },
-    { "addnode",                &addnode,                true,      true },
-    { "getaddednodeinfo",       &getaddednodeinfo,       true,      true },
+{ //  name                          actor (function)            okSafeMode threadSafe
+  //  ------------------------      -------------------------   ---------- ----------
+    { "help",                       &help,                      true,      true },
+    { "stop",                       &stop,                      true,      true },
+    { "getrelationcount",           &getrelationcount,          true,      false },
+    { "getidentifiercount",         &getidentifiercount,        true,      false },
+    { "getrelationsinvolvingidentifier",   &getrelationsinvolvingidentifier,  true,      false },
+    { "saverelation",               &saverelation,              true,      false },
+    { "getconnectioncount",         &getconnectioncount,        true,      false },
+    { "getpeerinfo",                &getpeerinfo,               true,      false },
+    { "addnode",                    &addnode,                   true,      true },
+    { "getaddednodeinfo",           &getaddednodeinfo,          true,      true },
 };
 
 CRPCTable::CRPCTable()
