@@ -20,7 +20,7 @@ CIdentifiDB::CIdentifiDB(const boost::filesystem::path &filename) {
         subjects.push_back(id1);
         CRelation r(string("o negative"), string("priceless"), subjects, subjects);
         SaveRelation(r);
-        vector<CRelation> results = GetRelationsInvolvingIdentifier(id1);
+        vector<CRelation> results = GetRelationsByIdentifier(id1);
     }
 }
 
@@ -69,7 +69,7 @@ void CIdentifiDB::Initialize() {
     ostringstream sql;
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Identifiers (";
-    sql << "ID      INTEGER         PRIMARY_KEY,";
+    sql << "ID      INTEGER         PRIMARY KEY,";
     sql << "Type    NVARCHAR(255)   NOT NULL,";
     sql << "Value   NVARCHAR(255)   NOT NULL";
     sql << ");";
@@ -81,7 +81,7 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Relations (";
-    sql << "ID                  INTEGER         PRIMARY_KEY,";
+    sql << "ID                  INTEGER         PRIMARY KEY,";
     sql << "Type                NVARCHAR(255)   NOT NULL,";
     sql << "Value               NVARCHAR(255)   NOT NULL,";
     sql << "Created   DATETIME  DEFAULT CURRENT_TIMESTAMP";
@@ -136,11 +136,51 @@ vector<CIdentifier> CIdentifiDB::GetSubjectsByRelationID(int relationID) {
     }
     
     return subjects;
-
-    return subjects;
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsInvolvingIdentifier(CIdentifier &identifier) {
+vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(CIdentifier &identifier) {
+    return GetRelationsBySubject(identifier);
+}
+
+vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
+    sqlite3_stmt *statement;
+    vector<CRelation> relations;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM Relations AS rel ";
+    sql << "INNER JOIN RelationSubjects AS rs ON rs.relationID = rel.ID";
+    sql << "INNER JOIN Identifiers AS id ON rs.subjectID = id.ID ";
+    sql << "WHERE id.type = @type AND id.value = @value;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, subject.GetType().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, subject.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                vector<CIdentifier> subjects;
+                string type = string((char*)sqlite3_column_text(statement, 1));
+                string value = string((char*)sqlite3_column_text(statement, 2));
+                relations.push_back(CRelation(type, value, subjects, subjects));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return relations;
+}
+
+vector<CRelation> CIdentifiDB::GetRelationsByObject(CIdentifier &object) {
     sqlite3_stmt *statement;
     vector<CRelation> relations;
     ostringstream sql;
@@ -150,8 +190,8 @@ vector<CRelation> CIdentifiDB::GetRelationsInvolvingIdentifier(CIdentifier &iden
     sql << "WHERE id.type = @type AND id.value = @value;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, identifier.GetType().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, identifier.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, object.GetType().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, object.GetValue().c_str(), -1, SQLITE_TRANSIENT);
 
         int result = 0;
         while(true)

@@ -30,15 +30,15 @@ Value getidentifiercount(const Array& params, bool fHelp)
     return pidentifidb->GetIdentifierCount();
 }
 
-Value getrelationsinvolvingidentifier(const Array& params, bool fHelp)
+Value getrelationsbyidentifier(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 2)
         throw runtime_error(
-            "getrelationsinvolvingidentifier <id_type> <id_value>\n"
+            "getrelationsbyidentifier <id_type> <id_value>\n"
             "Returns a list of relations associated with the given identifier.");
 
     CIdentifier identifier(params[0].get_str(), params[1].get_str());
-    return pidentifidb->GetRelationsInvolvingIdentifier(identifier).size();
+    return pidentifidb->GetRelationsByIdentifier(identifier).size();
 }
 
 Value saverelation(const Array& params, bool fHelp)
