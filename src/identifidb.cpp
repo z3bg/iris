@@ -147,7 +147,7 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
     vector<CRelation> relations;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Relations AS rel ";
+    sql << "SELECT rel.* FROM Relations AS rel ";
     sql << "INNER JOIN RelationSubjects AS rs ON rs.relationID = rel.ID";
     sql << "INNER JOIN Identifiers AS id ON rs.subjectID = id.ID ";
     sql << "WHERE id.type = @type AND id.value = @value;";
