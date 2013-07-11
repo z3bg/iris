@@ -147,10 +147,10 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
     vector<CRelation> relations;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT rel.* FROM Relations AS rel ";
-    sql << "INNER JOIN RelationSubjects AS rs ON rs.relationID = rel.ID";
-    sql << "INNER JOIN Identifiers AS id ON rs.subjectID = id.ID ";
-    sql << "WHERE id.type = @type AND id.value = @value;";
+    sql << "SELECT * FROM Relations AS rel ";
+    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationID = rel.ID ";
+    sql << "INNER JOIN Identifiers AS id ON rs.SubjectID = id.ID ";
+    sql << "WHERE id.Type = @type AND id.Value = @value;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, subject.GetType().c_str(), -1, SQLITE_TRANSIENT);
@@ -163,10 +163,10 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
              
             if(result == SQLITE_ROW)
             {
-                vector<CIdentifier> subjects;
+                vector<CIdentifier> subjects, objects;
                 string type = string((char*)sqlite3_column_text(statement, 1));
                 string value = string((char*)sqlite3_column_text(statement, 2));
-                relations.push_back(CRelation(type, value, subjects, subjects));
+                relations.push_back(CRelation(type, value, subjects, objects));
             }
             else
             {
@@ -175,6 +175,8 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
         }
         
         sqlite3_finalize(statement);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
     return relations;
@@ -186,8 +188,9 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(CIdentifier &object) {
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Relations AS rel ";
-    sql << "INNER JOIN Identifiers AS id ON rel.SubjectIdentifierID = id.ID ";
-    sql << "WHERE id.type = @type AND id.value = @value;";
+    sql << "INNER JOIN RelationObjects AS rs ON rs.RelationID = rel.ID ";
+    sql << "INNER JOIN Identifiers AS id ON rs.ObjectID = id.ID ";
+    sql << "WHERE id.Type = @type AND id.Value = @value;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, object.GetType().c_str(), -1, SQLITE_TRANSIENT);
@@ -219,14 +222,26 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(CIdentifier &object) {
 
 int CIdentifiDB::SaveIdentifier(CIdentifier &identifier) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO Identifiers (Type, Value) VALUES (@type, @value);";
+
+    const char *sql = "SELECT ID FROM Identifiers WHERE Type = @type AND Value = @value;";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, identifier.GetType().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, identifier.GetValue().c_str(), -1, SQLITE_TRANSIENT);
     }
-    sqlite3_step(statement);
-    sqlite3_finalize(statement);
-    return sqlite3_last_insert_rowid(db);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        int rowid = sqlite3_column_int(statement, 0);
+        sqlite3_finalize(statement);
+        return rowid;
+    } else {
+        sql = "INSERT INTO Identifiers (Type, Value) VALUES (@type, @value);";
+        if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, identifier.GetType().c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, identifier.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+        }
+        sqlite3_step(statement);
+        sqlite3_finalize(statement);
+        return sqlite3_last_insert_rowid(db);
+    }
 }
 
 void CIdentifiDB::SaveRelationSubject(int relationID, int subjectID) {
