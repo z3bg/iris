@@ -14,13 +14,6 @@ using namespace std;
 CIdentifiDB::CIdentifiDB(const boost::filesystem::path &filename) {
     if (sqlite3_open(filename.string().c_str(), &db) == SQLITE_OK) {
         Initialize();
-
-        vector<CIdentifier> subjects;
-        CIdentifier id1("type", "value");
-        subjects.push_back(id1);
-        CRelation r(string("o negative"), string("priceless"), subjects, subjects);
-        SaveRelation(r);
-        vector<CRelation> results = GetRelationsByIdentifier(id1);
     }
 }
 
@@ -82,8 +75,7 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Relations (";
     sql << "ID                  INTEGER         PRIMARY KEY,";
-    sql << "Type                NVARCHAR(255)   NOT NULL,";
-    sql << "Value               NVARCHAR(255)   NOT NULL,";
+    sql << "Data                NVARCHAR(1000)  NOT NULL,";
     sql << "Created   DATETIME  DEFAULT CURRENT_TIMESTAMP";
     sql << ");";
     query(sql.str().c_str());
@@ -97,7 +89,13 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS RelationObjects (";
     sql << "RelationID          INTEGER         NOT NULL,";
-    sql << "ObjectID           INTEGER         NOT NULL);";
+    sql << "ObjectID            INTEGER         NOT NULL);";
+    query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS RelationSignatures (";
+    sql << "RelationID          INTEGER         NOT NULL,";
+    sql << "SignatureID         INTEGER         NOT NULL);";
     query(sql.str().c_str());
 }
 
@@ -138,10 +136,6 @@ vector<CIdentifier> CIdentifiDB::GetSubjectsByRelationID(int relationID) {
     return subjects;
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(CIdentifier &identifier) {
-    return GetRelationsBySubject(identifier);
-}
-
 vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
     sqlite3_stmt *statement;
     vector<CRelation> relations;
@@ -164,9 +158,8 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
             if(result == SQLITE_ROW)
             {
                 vector<CIdentifier> subjects, objects;
-                string type = string((char*)sqlite3_column_text(statement, 1));
-                string value = string((char*)sqlite3_column_text(statement, 2));
-                relations.push_back(CRelation(type, value, subjects, objects));
+                string message = string((char*)sqlite3_column_text(statement, 1));
+                relations.push_back(CRelation(message, subjects, objects));
             }
             else
             {
@@ -204,9 +197,8 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(CIdentifier &object) {
             if(result == SQLITE_ROW)
             {
                 vector<CIdentifier> subjects;
-                string type = string((char*)sqlite3_column_text(statement, 1));
-                string value = string((char*)sqlite3_column_text(statement, 2));
-                relations.push_back(CRelation(type, value, subjects, subjects));
+                string message = string((char*)sqlite3_column_text(statement, 1));
+                relations.push_back(CRelation(message, subjects, subjects));
             }
             else
             {
@@ -266,15 +258,25 @@ void CIdentifiDB::SaveRelationObject(int relationID, int objectID) {
     sqlite3_finalize(statement);    
 }
 
+void CIdentifiDB::SaveRelationSignature(int relationID, int signatureID) {
+    sqlite3_stmt *statement;
+    const char *sql = "INSERT OR IGNORE INTO RelationSignatures (RelationID, SignatureID) VALUES (@relationid, @signatureid);";
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, relationID);
+        sqlite3_bind_int(statement, 2, signatureID);
+    }
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);    
+}
+
 int CIdentifiDB::SaveRelation(CRelation &relation) {
     sqlite3_stmt *statement;
     string sql;
     int relationID, identifierID;
 
-    sql = "INSERT INTO Relations (Type, Value) VALUES (@type, @value);";
+    sql = "INSERT INTO Relations (Data) VALUES (@data);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relation.GetType().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, relation.GetValue().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
     }
     sqlite3_step(statement);
     sqlite3_finalize(statement);
@@ -289,6 +291,11 @@ int CIdentifiDB::SaveRelation(CRelation &relation) {
     for (vector<CIdentifier>::iterator it = objects.begin(); it != objects.end(); ++it) {
         identifierID = SaveIdentifier(*it);
         SaveRelationObject(relationID, identifierID);
+    }
+    vector<CIdentifier> signatures = relation.GetSignatures();
+    for (vector<CIdentifier>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
+        identifierID = SaveIdentifier(*it);
+        SaveRelationSignature(relationID, identifierID);
     }
 
     return relationID;

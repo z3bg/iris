@@ -29,11 +29,11 @@ Data format
 
 Suggested data format for Identifi messages:
 
-    [GMT timestamp] [message sender's identifier] [message target/topic identifier] message content
+    [GMT timestamp] [list of message sender's identifiers] [list of message target/topic identifiers] message content
 
 Messages may contain #hashtags and @identifiers.
 
-    1373924495 email:alice@example.com user@twitter.com:bob Bought a laptop from Bob. Thanks for the trade! #positive #trade
+    1373924495 ['Alice Smith', 'alice@example.com'] ['Bob the Builder', 'http://twitter.com/bob'] Bought a laptop from Bob. Thanks for the trade! #positive #trade
 
 Messages and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be used as message topics or with @ in the message content.
 

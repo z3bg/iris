@@ -20,7 +20,6 @@ public:
     CIdentifiDB(const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
-    vector<CRelation> GetRelationsByIdentifier(CIdentifier &identifier);
     vector<CRelation> GetRelationsBySubject(CIdentifier &subject);
     vector<CRelation> GetRelationsByObject(CIdentifier &object);
     int SaveIdentifier(CIdentifier &identifier);
@@ -32,6 +31,7 @@ private:
     vector<CIdentifier> GetSubjectsByRelationID(int relationID);
     void SaveRelationSubject(int relationID, int subjectID);
     void SaveRelationObject(int relationID, int objectID);
+    void SaveRelationSignature(int relationID, int signatureID);
     vector<vector<string> > query(const char* query);
 };
 

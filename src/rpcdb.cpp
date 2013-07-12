@@ -25,27 +25,38 @@ Value getidentifiercount(const Array& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getrelationcount\n"
-            "Returns the number of stored relations.");
+            "Returns the number of stored identifiers.");
 
     return pidentifidb->GetIdentifierCount();
 }
 
-Value getrelationsbyidentifier(const Array& params, bool fHelp)
+Value getrelationsbysubject(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 2)
         throw runtime_error(
-            "getrelationsbyidentifier <id_type> <id_value>\n"
-            "Returns a list of relations associated with the given identifier.");
+            "getrelationsbysubject <id_type> <id_value>\n"
+            "Returns a list of relations associated with the given subject identifier.");
 
     CIdentifier identifier(params[0].get_str(), params[1].get_str());
-    return pidentifidb->GetRelationsByIdentifier(identifier).size();
+    return pidentifidb->GetRelationsBySubject(identifier).size();
+}
+
+Value getrelationsbyobject(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getrelationsbyobject <id_type> <id_value>\n"
+            "Returns a list of relations associated with the given object identifier.");
+
+    CIdentifier identifier(params[0].get_str(), params[1].get_str());
+    return pidentifidb->GetRelationsByObject(identifier).size();
 }
 
 Value saverelation(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 6)
+    if (fHelp || params.size() != 5)
         throw runtime_error(
-            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_type> <relation_value>\n"
+            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_message>\n"
             "Save a relation");
 
     CIdentifier identifier1(params[0].get_str(), params[1].get_str());
@@ -54,6 +65,6 @@ Value saverelation(const Array& params, bool fHelp)
     vector<CIdentifier> *objects = new vector<CIdentifier>();
     subjects->push_back(identifier1);
     objects->push_back(identifier2);
-    CRelation relation(params[4].get_str(), params[5].get_str(), *subjects, *objects);
+    CRelation relation(params[4].get_str(), *subjects, *objects);
     return pidentifidb->SaveRelation(relation);
 }

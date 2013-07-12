@@ -3,38 +3,36 @@
 
 #include <string>
 #include <vector>
-#include <openssl/rsa.h>
 
 using namespace std;
 
 class CIdentifier {
 public:
-	CIdentifier(string type, string value) : type(type), value(value) {}
-	~CIdentifier();
-	string GetType();
-	string GetValue();
+    CIdentifier(string type, string value) : type(type), value(value) {}
+    ~CIdentifier();
+    string GetType();
+    string GetValue();
 private:
-	string type;
-	string value;
+    string type;
+    string value;
 };
 
 class CRelation {
 public:
-	CRelation(string type, string value, vector<CIdentifier> subjects, vector<CIdentifier> objects) : type(type), value(value), subjects(subjects), objects(objects) {}
-	~CRelation();
-	string GetType();
-	string GetValue();
-	time_t GetTimestamp();
-	vector<CIdentifier> GetSubjects();
-	vector<CIdentifier> GetObjects();
-	vector<RSA> GetSignatures();
+    CRelation(string message, vector<CIdentifier> subjects, vector<CIdentifier> objects) : message(message), subjects(subjects), objects(objects) {}
+    ~CRelation();
+    string GetMessage();
+    string GetData();
+    time_t GetTimestamp();
+    vector<CIdentifier> GetSubjects();
+    vector<CIdentifier> GetObjects();
+    vector<CIdentifier> GetSignatures();
 private:
-	string type;
-	string value;
-	time_t timestamp;
-	vector<CIdentifier> subjects;
-	vector<CIdentifier> objects;
-	vector<RSA> signatures;
+    string message;
+    time_t timestamp;
+    vector<CIdentifier> subjects;
+    vector<CIdentifier> objects;
+    vector<CIdentifier> signatures;
 };
 
 #endif // IDENTIFI_DATA_H
