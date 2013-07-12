@@ -44,7 +44,6 @@ static Value CallRPC(string args)
 
 BOOST_AUTO_TEST_CASE(save_and_read_relations)
 {
-    // Test raw transaction API argument handling
     Value r;
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
