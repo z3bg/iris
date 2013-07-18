@@ -50,6 +50,16 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
     BOOST_CHECK_EQUAL(r.get_int(), 0);
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
+    BOOST_CHECK_EQUAL(r.get_int(), 0);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation email alice@example.com email bob@example.com #friends"));
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
+    BOOST_CHECK_EQUAL(r.get_int(), 1);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
+    BOOST_CHECK_EQUAL(r.get_int(), 2);
 
 /*
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
