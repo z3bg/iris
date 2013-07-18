@@ -2,6 +2,7 @@
 #include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "main.h"
 #include "base58.h"
 #include "util.h"
 #include "identifirpc.h"
@@ -47,7 +48,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     Value r;
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "version").get_int(), 1);
+    BOOST_CHECK_EQUAL(r.get_int(), 0);
 
 
 /*

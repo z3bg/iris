@@ -28,6 +28,7 @@ struct TestingSetup {
         mapArgs["-datadir"] = pathTemp.string();
         pblocktree = new CBlockTreeDB(1 << 20, true);
         pcoinsdbview = new CCoinsViewDB(1 << 23, true);
+        pidentifidb = new CIdentifiDB();
         pcoinsTip = new CCoinsViewCache(*pcoinsdbview);
         InitBlockIndex();
         bool fFirstRun;
