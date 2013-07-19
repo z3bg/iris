@@ -1,5 +1,8 @@
 #include <string>
 #include <sstream>
+#include <openssl/sha.h>
+#include "util.h"
+#include "hash.h"
 #include "data.h"
 
 using namespace std;
@@ -14,8 +17,20 @@ string CIdentifier::GetValue() {
     return value;
 }
 
+string CIdentifier::GetHash() {
+    string typeAndValue = type + value;
+    uint256 hash = Hash(typeAndValue.begin(), typeAndValue.end());
+    return EncodeBase64(hash);
+}
+
 string CRelation::GetMessage() {
     return message;
+}
+
+string CRelation::GetHash() {
+    string data = GetData();
+    uint256 hash = Hash(data.begin(), data.end());
+    return EncodeBase64(hash);
 }
 
 string CRelation::GetData() {

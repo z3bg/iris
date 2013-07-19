@@ -660,6 +660,10 @@ string EncodeBase64(const string& str)
     return EncodeBase64((const unsigned char*)str.c_str(), str.size());
 }
 
+string EncodeBase64(const uint256& hash) {
+    return EncodeBase64((unsigned char*) &hash, sizeof(uint256));
+}
+
 vector<unsigned char> DecodeBase64(const char* p, bool* pfInvalid)
 {
     static const int decode64_table[256] =

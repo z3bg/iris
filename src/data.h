@@ -12,6 +12,7 @@ public:
     ~CIdentifier();
     string GetType();
     string GetValue();
+    string GetHash();
 private:
     string type;
     string value;
@@ -23,6 +24,7 @@ public:
     ~CRelation();
     string GetMessage();
     string GetData();
+    string GetHash();
     time_t GetTimestamp();
     vector<CIdentifier> GetSubjects();
     vector<CIdentifier> GetObjects();

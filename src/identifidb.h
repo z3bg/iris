@@ -23,15 +23,16 @@ public:
     vector<CRelation> GetRelationsBySubject(CIdentifier &subject);
     vector<CRelation> GetRelationsByObject(CIdentifier &object);
     int SaveIdentifier(CIdentifier &identifier);
-    int SaveRelation(CRelation &relation);
+    string SaveRelation(CRelation &relation);
     int GetRelationCount();
     int GetIdentifierCount();
 private:
     sqlite3 *db;
-    vector<CIdentifier> GetSubjectsByRelationID(int relationID);
-    void SaveRelationSubject(int relationID, int subjectID);
-    void SaveRelationObject(int relationID, int objectID);
-    void SaveRelationSignature(int relationID, int signatureID);
+    vector<CIdentifier> GetSubjectsByRelationID(string relationID);
+    void SaveRelationSubject(string relationID, string subjectID);
+    void SaveRelationObject(string relationID, string objectID);
+    void SaveRelationSignature(string relationID, string signatureID);
+    void SaveRelationContentIdentifier(string relationID, string identifierID);
     vector<vector<string> > query(const char* query);
 };
 
