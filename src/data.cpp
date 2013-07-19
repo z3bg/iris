@@ -1,7 +1,7 @@
 #include <string>
 #include <sstream>
-#include <openssl/sha.h>
 #include "util.h"
+#include "key.h"
 #include "hash.h"
 #include "data.h"
 
@@ -62,6 +62,23 @@ string CRelation::GetData() {
     data << "] ";
     data << message;
     return data.str();
+}
+
+bool CRelation::Sign() {
+    CKey newKey;
+    newKey.MakeNewKey(false);
+
+    string data = GetData();
+    uint256 hash = Hash(data.begin(), data.end());
+
+    vector<unsigned char> vchSig;
+    newKey.Sign(hash, vchSig);
+
+    string signatureString = EncodeBase64(&vchSig[0], sizeof(vchSig));
+    CIdentifier signatureIdentifier("ecdsa_sig", signatureString);
+
+    signatures.push_back(signatureIdentifier);
+    return true;
 }
 
 vector<CIdentifier> CRelation::GetSubjects() {

@@ -66,5 +66,6 @@ Value saverelation(const Array& params, bool fHelp)
     subjects->push_back(identifier1);
     objects->push_back(identifier2);
     CRelation relation(params[4].get_str(), *subjects, *objects);
+    relation.Sign();
     return pidentifidb->SaveRelation(relation);
 }

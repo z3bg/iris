@@ -22,6 +22,7 @@ class CRelation {
 public:
     CRelation(string message, vector<CIdentifier> subjects, vector<CIdentifier> objects) : message(message), subjects(subjects), objects(objects) {}
     ~CRelation();
+    bool Sign();
     string GetMessage();
     string GetData();
     string GetHash();
