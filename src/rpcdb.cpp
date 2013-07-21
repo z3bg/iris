@@ -38,7 +38,14 @@ Value getrelationsbysubject(const Array& params, bool fHelp)
             "Returns a list of relations associated with the given subject identifier.");
 
     CIdentifier identifier(params[0].get_str(), params[1].get_str());
-    return pidentifidb->GetRelationsBySubject(identifier).size();
+
+    Array relationsJSON;
+    vector<CRelation> relations = pidentifidb->GetRelationsBySubject(identifier);
+    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
+        relationsJSON.push_back(it->GetJSON());
+    }
+
+    return relationsJSON;
 }
 
 Value getrelationsbyobject(const Array& params, bool fHelp)
@@ -49,7 +56,14 @@ Value getrelationsbyobject(const Array& params, bool fHelp)
             "Returns a list of relations associated with the given object identifier.");
 
     CIdentifier identifier(params[0].get_str(), params[1].get_str());
-    return pidentifidb->GetRelationsByObject(identifier).size();
+
+    Array relationsJSON;
+    vector<CRelation> relations = pidentifidb->GetRelationsByObject(identifier);
+    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
+        relationsJSON.push_back(it->GetJSON());
+    }
+
+    return relationsJSON;
 }
 
 Value saverelation(const Array& params, bool fHelp)
@@ -63,9 +77,10 @@ Value saverelation(const Array& params, bool fHelp)
     CIdentifier identifier2(params[2].get_str(), params[3].get_str());
     vector<CIdentifier> *subjects = new vector<CIdentifier>();
     vector<CIdentifier> *objects = new vector<CIdentifier>();
+    vector<CSignature> *signatures = new vector<CSignature>();
     subjects->push_back(identifier1);
     objects->push_back(identifier2);
-    CRelation relation(params[4].get_str(), *subjects, *objects);
+    CRelation relation(params[4].get_str(), *subjects, *objects, *signatures);
     relation.Sign();
     return pidentifidb->SaveRelation(relation);
 }

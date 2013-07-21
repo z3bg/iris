@@ -95,7 +95,8 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS RelationSignatures (";
     sql << "RelationID          NVARCHAR(45)    NOT NULL,";
-    sql << "SignatureID         NVARCHAR(45)    NOT NULL);";
+    sql << "Signature           NVARCHAR(45)    NOT NULL,";
+    sql << "PubKeyID            NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
@@ -111,35 +112,101 @@ vector<CIdentifier> CIdentifiDB::GetSubjectsByRelationID(string relationID) {
     ostringstream sql;
 
     sql.str("");
-    sql << "SELECT * FROM Identifiers AS id ";
+    sql << "SELECT id.Type, id.Value FROM Identifiers AS id ";
     sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationID = @relationid ";
-    sql << "WHERE id.ID = rs.ObjectID;";
+    sql << "WHERE id.ID = rs.SubjectID;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationID.c_str(), -1, SQLITE_TRANSIENT);
 
         int result = 0;
-        while(true)
-        {
+        while(true) {
             result = sqlite3_step(statement);
              
-            if(result == SQLITE_ROW)
-            {
-                vector<CIdentifier> subjects;
-                string type = string((char*)sqlite3_column_text(statement, 1));
-                string value = string((char*)sqlite3_column_text(statement, 2));
+            if(result == SQLITE_ROW) {
+                string type = string((char*)sqlite3_column_text(statement, 0));
+                string value = string((char*)sqlite3_column_text(statement, 1));
                 subjects.push_back(CIdentifier(type, value));
-            }
-            else
-            {
+            } else {
                 break;  
             }
         }
         
         sqlite3_finalize(statement);
     }
-    
+
     return subjects;
+}
+
+vector<CIdentifier> CIdentifiDB::GetObjectsByRelationID(string relationID) {
+    vector<CIdentifier> objects;
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "SELECT id.Type, id.Value FROM Identifiers AS id ";
+    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationID = @relationid ";
+    sql << "WHERE id.ID = ro.ObjectID;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, relationID.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true) {
+            result = sqlite3_step(statement);
+            
+            printf("hei");
+            if(result == SQLITE_ROW) {
+                string type = string((char*)sqlite3_column_text(statement, 0));
+                string value = string((char*)sqlite3_column_text(statement, 1));
+                printf("type: %s, value: %s", type.c_str(), value.c_str());
+                objects.push_back(CIdentifier(type, value));
+            } else {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+    }
+    
+    return objects;
+}
+
+vector<CSignature> CIdentifiDB::GetSignaturesByRelationID(string relationID) {
+    vector<CSignature> signatures;
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "SELECT PubKeyID, Signature FROM RelationSignatures ";
+    sql << "WHERE RelationID = @relationid;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, relationID.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true) {
+            result = sqlite3_step(statement);
+            
+            printf("hei");
+            if(result == SQLITE_ROW) {
+                string pubKeyID = string((char*)sqlite3_column_text(statement, 0));
+                string signature = string((char*)sqlite3_column_text(statement, 1));
+                printf("pubKeyID: %s, signature: %s", pubKeyID.c_str(), signature.c_str());
+                signatures.push_back(CSignature(relationID, pubKeyID, signature));
+            } else {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+    }
+    
+    return signatures;
 }
 
 vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
@@ -163,9 +230,12 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(CIdentifier &subject) {
              
             if(result == SQLITE_ROW)
             {
-                vector<CIdentifier> subjects, objects;
+                string relationID = string((char*)sqlite3_column_text(statement, 0));
+                vector<CIdentifier> subjects = GetSubjectsByRelationID(relationID);
+                vector<CIdentifier> objects = GetObjectsByRelationID(relationID);
+                vector<CSignature> signatures = GetSignaturesByRelationID(relationID);
                 string message = string((char*)sqlite3_column_text(statement, 1));
-                relations.push_back(CRelation(message, subjects, objects));
+                relations.push_back(CRelation(message, subjects, objects, signatures));
             }
             else
             {
@@ -202,9 +272,12 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(CIdentifier &object) {
              
             if(result == SQLITE_ROW)
             {
-                vector<CIdentifier> subjects;
+                string relationID = string((char*)sqlite3_column_text(statement, 0));
+                vector<CIdentifier> subjects = GetSubjectsByRelationID(relationID);
+                vector<CIdentifier> objects = GetObjectsByRelationID(relationID);
+                vector<CSignature> signatures = GetSignaturesByRelationID(relationID);
                 string message = string((char*)sqlite3_column_text(statement, 1));
-                relations.push_back(CRelation(message, subjects, subjects));
+                relations.push_back(CRelation(message, subjects, subjects, signatures));
             }
             else
             {
@@ -265,12 +338,13 @@ void CIdentifiDB::SaveRelationObject(string relationID, string objectID) {
     }   
 }
 
-void CIdentifiDB::SaveRelationSignature(string relationID, string signatureID) {
+void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationSignatures (RelationID, SignatureID) VALUES (@relationid, @signatureid);";
+    const char *sql = "INSERT OR IGNORE INTO RelationSignatures (RelationID, PubKeyID, Signature) VALUES (@relationid, @pubkeyid, @signature);";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationID.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, signatureID.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
         sqlite3_finalize(statement); 
     }   
@@ -311,10 +385,9 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
         SaveIdentifier(*it);
         SaveRelationObject(relationHash, it->GetHash());
     }
-    vector<CIdentifier> signatures = relation.GetSignatures();
-    for (vector<CIdentifier>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
-        SaveIdentifier(*it);
-        SaveRelationSignature(relationHash, it->GetHash());
+    vector<CSignature> signatures = relation.GetSignatures();
+    for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
+        SaveRelationSignature(*it);
     }
 
     return relationHash;
