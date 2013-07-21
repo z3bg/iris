@@ -29,16 +29,30 @@ Data format
 
 Suggested data format for Identifi messages:
 
-    [GMT timestamp] [list of message sender's identifiers] [list of message target/topic identifiers] message content
+	[
+		<timestamp>,
+		<dictionary of message sender's identifiers>,
+		<list of message recipients or topics>,
+		<message content>
+	]
 
-Messages may contain #hashtags and @identifiers.
+Example:
 
-    1373924495 ['Alice Smith', 'alice@example.com'] ['Bob the Builder', 'http://twitter.com/bob'] Bought a laptop from Bob. Thanks for the trade! #positive #trade
+    [
+    	1373924495,
+	    { 	name:'Alice Smith', mbox:'mailto:alice@example.com'},
+		[
+	    	{ 	nick:'Bob the Builder',
+	    		homepage:'http://twitter.com/bob',
+	    		homepage:'http://www.facebook.com/bob',
+	    		depiction:'magnet:<photo hash>?xs=http://example.com/1.jpg'},
+	    	{	responseTo:'magnet:<hash of bob's message>'}
+		],
+    	'Bought a laptop from Bob. Thanks for the trade! #positive #trade'
+	]
 
-Messages and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be used as message topics or with @ in the message content.
+Messages and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be refered to with magnet URIs.
 
-    1373924495 user@twitter.com:bob [hash of Alice's message] #positive
-
-Messages are digitally signed by the entity that verifies that the message originated from the claimed sender. For example, this could be a website where the sender logged in with a Facebook account, or a Twitter crawler.
+Messages are digitally signed by the entity that verifies that the message originated from the claimed sender. For example, this could be a website where the sender logged in with a Facebook account, or a crawler that read the sender's message from Twitter.
 
 Message encoding is UTF-8.

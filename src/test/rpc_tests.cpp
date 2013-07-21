@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 0);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation email alice@example.com email bob@example.com #friends"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com #friends"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
     BOOST_CHECK_EQUAL(r.get_int(), 1);
@@ -61,11 +61,23 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 2);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject email alice@example.com"));
-    BOOST_CHECK_EQUAL(r.get_int(), 1);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject mbox mailto:alice@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    Object firstRelation = r.get_array().front().get_obj();
+    BOOST_CHECK_NO_THROW(find_value(firstRelation, "timestamp").get_int());
+    BOOST_CHECK(!find_value(firstRelation, "subjects").get_array().empty());
+    BOOST_CHECK(!find_value(firstRelation, "objects").get_array().empty());
+    BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
+    BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyobject email bob@example.com"));
-    BOOST_CHECK_EQUAL(r.get_int(), 1);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyobject mbox mailto:bob@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    firstRelation = r.get_array().front().get_obj();
+    BOOST_CHECK_NO_THROW(find_value(firstRelation, "timestamp").get_int());
+    BOOST_CHECK(!find_value(firstRelation, "subjects").get_array().empty());
+    BOOST_CHECK(!find_value(firstRelation, "objects").get_array().empty());
+    BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
+    BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
 /*
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
