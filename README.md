@@ -27,12 +27,14 @@ Identifi is released under the terms of the MIT license. See `COPYING` for more 
 Data format
 -----------
 
+Using JSON serialization for the prototype.
+
 Suggested data format for Identifi messages:
 
 	[
 		<timestamp>,
-		<dictionary of message sender's identifiers>,
-		<list of message recipients or topics>,
+		<pair array of message sender's identifiers>,
+		<array of message recipients (as pair arrays) or topics>,
 		<message content>
 	]
 
@@ -40,13 +42,13 @@ Example:
 
     [
     	1373924495,
-	    { 	name:'Alice Smith', mbox:'mailto:alice@example.com'},
+	    [ 	name:'Alice Smith', mbox:'mailto:alice@example.com' ],
 		[
-	    	{ 	nick:'Bob the Builder',
-	    		homepage:'http://twitter.com/bob',
-	    		homepage:'http://www.facebook.com/bob',
-	    		depiction:'magnet:<photo hash>?xs=http://example.com/1.jpg'},
-	    	{	responseTo:'magnet:<hash of bob's message>'}
+	    	[ 	['nick', 'Bob the Builder'],
+	    		['homepage','http://twitter.com/bob'],
+	    		['homepage','http://www.facebook.com/bob'],
+	    		['depiction','magnet:<photo hash>?xs=http://example.com/1.jpg' ]],
+	    	[	['responseTo','magnet:<hash of bob's message>']]
 		],
     	'Bought a laptop from Bob. Thanks for the trade! #positive #trade'
 	]
@@ -56,3 +58,10 @@ Messages and identifiers are to be stored locally in a hash table (or maybe late
 Messages are digitally signed by the entity that verifies that the message originated from the claimed sender. For example, this could be a website where the sender logged in with a Facebook account, or a crawler that read the sender's message from Twitter.
 
 Message encoding is UTF-8.
+
+Future considerations
+---------------------
+
+Use [Redland](http://librdf.org) triple storage and/or [HDT](http://www.rdfhdt.org) serialization?
+
+Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html)?
