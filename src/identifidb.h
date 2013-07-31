@@ -20,21 +20,22 @@ public:
     CIdentifiDB(const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
-    vector<CRelation> GetRelationsBySubject(CIdentifier &subject);
-    vector<CRelation> GetRelationsByObject(CIdentifier &object);
-    int SaveIdentifier(CIdentifier &identifier);
+    vector<CRelation> GetRelationsBySubject(string subject);
+    vector<CRelation> GetRelationsByObject(string object);
+    string SaveIdentifier(string identifier);
+    int SavePredicate(string predicate);
     string SaveRelation(CRelation &relation);
     void SaveRelationSignature(CSignature &signature);
     int GetRelationCount();
     int GetIdentifierCount();
 private:
     sqlite3 *db;
-    vector<CIdentifier> GetSubjectsByRelationID(string relationID);
-    vector<CIdentifier> GetObjectsByRelationID(string relationID);
-    vector<CSignature> GetSignaturesByRelationID(string relationID);
-    void SaveRelationSubject(string relationID, string subjectID);
-    void SaveRelationObject(string relationID, string objectID);
-    void SaveRelationContentIdentifier(string relationID, string identifierID);
+    vector<pair<string, string> > GetSubjectsByRelationHash(string relationHash);
+    vector<pair<string, string> > GetObjectsByRelationHash(string relationHash);
+    vector<CSignature> GetSignaturesByRelationHash(string relationHash);
+    void SaveRelationSubject(string relationHash, int predicateID, string subjectHash);
+    void SaveRelationObject(string relationHash, int predicateID, string objectHash);
+    void SaveRelationContentIdentifier(string relationHash, string identifierID);
     vector<vector<string> > query(const char* query);
 };
 

@@ -32,15 +32,13 @@ Value getidentifiercount(const Array& params, bool fHelp)
 
 Value getrelationsbysubject(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getrelationsbysubject <id_type> <id_value>\n"
+            "getrelationsbysubject <id_value>\n"
             "Returns a list of relations associated with the given subject identifier.");
 
-    CIdentifier identifier(params[0].get_str(), params[1].get_str());
-
     Array relationsJSON;
-    vector<CRelation> relations = pidentifidb->GetRelationsBySubject(identifier);
+    vector<CRelation> relations = pidentifidb->GetRelationsBySubject(params[0].get_str());
     for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
         relationsJSON.push_back(it->GetJSON());
     }
@@ -50,15 +48,13 @@ Value getrelationsbysubject(const Array& params, bool fHelp)
 
 Value getrelationsbyobject(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getrelationsbyobject <id_type> <id_value>\n"
+            "getrelationsbyobject <id_value>\n"
             "Returns a list of relations associated with the given object identifier.");
 
-    CIdentifier identifier(params[0].get_str(), params[1].get_str());
-
     Array relationsJSON;
-    vector<CRelation> relations = pidentifidb->GetRelationsByObject(identifier);
+    vector<CRelation> relations = pidentifidb->GetRelationsByObject(params[0].get_str());
     for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
         relationsJSON.push_back(it->GetJSON());
     }
@@ -73,13 +69,11 @@ Value saverelation(const Array& params, bool fHelp)
             "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_message>\n"
             "Save a relation");
 
-    CIdentifier identifier1(params[0].get_str(), params[1].get_str());
-    CIdentifier identifier2(params[2].get_str(), params[3].get_str());
-    vector<CIdentifier> *subjects = new vector<CIdentifier>();
-    vector<CIdentifier> *objects = new vector<CIdentifier>();
+    vector<pair<string, string> > *subjects = new vector<pair<string, string> >();
+    vector<pair<string, string> > *objects = new vector<pair<string, string> >();
     vector<CSignature> *signatures = new vector<CSignature>();
-    subjects->push_back(identifier1);
-    objects->push_back(identifier2);
+    subjects->push_back(make_pair(params[0].get_str(),params[1].get_str()));
+    objects->push_back(make_pair(params[2].get_str(),params[3].get_str()));
     CRelation relation(params[4].get_str(), *subjects, *objects, *signatures);
     relation.Sign();
     return pidentifidb->SaveRelation(relation);

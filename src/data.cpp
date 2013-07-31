@@ -8,27 +8,6 @@
 using namespace std;
 using namespace json_spirit;
 
-string CIdentifier::GetType() {
-    return type;
-}
-
-string CIdentifier::GetValue() {
-    return value;
-}
-
-string CIdentifier::GetHash() {
-    string typeAndValue = type + value;
-    uint256 hash = Hash(typeAndValue.begin(), typeAndValue.end());
-    return EncodeBase64(hash);
-}
-
-Value CIdentifier::GetJSON() {
-    Object identifierJSON;
-    identifierJSON.push_back(Pair("type", type));
-    identifierJSON.push_back(Pair("value", value));
-    return identifierJSON;
-}
-
 string CRelation::GetMessage() {
     return message;
 }
@@ -40,37 +19,32 @@ string CRelation::GetHash() {
 }
 
 string CRelation::GetData() {
-    ostringstream data;
-    data.str("");
-    data << timestamp;
-    data << " [";
+    Array data, subjectsJSON, objectsJSON;
 
-    for (vector<CIdentifier>::iterator it = subjects.begin(); it != subjects.end(); ++it) {
-        data << it->GetType();
-        data << ":";
-        data << it->GetValue();
-        if (it != subjects.end() - 1) {
-            data << ",";
-        }
+    for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
+        Array subject;
+        subject.push_back(it->first);
+        subject.push_back(it->second);
+        subjectsJSON.push_back(subject);
     }
 
-    data << "] [";
-
-    for (vector<CIdentifier>::iterator it = objects.begin(); it != objects.end(); ++it) {
-        data << it->GetType();
-        data << ":";
-        data << it->GetValue();
-        if (it != objects.end() - 1) {
-            data << ",";
-        }
+    for (vector<pair<string, string> >::iterator it = objects.begin(); it != objects.end(); ++it) {
+        Array object;
+        object.push_back(it->first);
+        object.push_back(it->second);
+        objectsJSON.push_back(object);
     }
 
-    data << "] ";
-    data << message;
-    return data.str();
+    data.push_back(timestamp);
+    data.push_back(subjectsJSON);
+    data.push_back(objectsJSON);
+    data.push_back(message);
+
+    return write_string(Value(data), false);
 }
 
 bool CRelation::Sign() {
+    // Create a mock ECDSA signature
     CKey newKey;
     newKey.MakeNewKey(false);
 
@@ -90,11 +64,15 @@ bool CRelation::Sign() {
     return true;
 }
 
-vector<CIdentifier> CRelation::GetSubjects() {
+bool CRelation::AddSignature(CSignature signature) {
+    return false;
+}
+
+vector<pair<string, string> > CRelation::GetSubjects() {
     return subjects;
 }
 
-vector<CIdentifier> CRelation::GetObjects() {
+vector<pair<string, string> > CRelation::GetObjects() {
     return objects;
 }
 
@@ -106,13 +84,18 @@ Value CRelation::GetJSON() {
     Object relationJSON;
     Array subjectsJSON, objectsJSON, signaturesJSON;
 
-    for (vector<CIdentifier>::iterator it = subjects.begin(); it != subjects.end(); ++it) {
-        subjectsJSON.push_back(it->GetJSON());
+    for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
+        Array arr;
+        arr.push_back(it->first);
+        arr.push_back(it->second);
+        subjectsJSON.push_back(arr);
     }
 
-    for (vector<CIdentifier>::iterator it = objects.begin(); it != objects.end(); ++it) {
-        objectsJSON.push_back(it->GetJSON());
-    }
+    for (vector<pair<string, string> >::iterator it = objects.begin(); it != objects.end(); ++it) {
+        Array arr;
+        arr.push_back(it->first);
+        arr.push_back(it->second);
+        objectsJSON.push_back(arr);    }
 
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
         signaturesJSON.push_back(it->GetJSON());

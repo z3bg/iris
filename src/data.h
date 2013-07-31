@@ -10,18 +10,6 @@
 
 using namespace std;
 
-class CIdentifier {
-public:
-    CIdentifier(string type, string value) : type(type), value(value) {}
-    string GetType();
-    string GetValue();
-    string GetHash();
-    json_spirit::Value GetJSON();
-private:
-    string type;
-    string value;
-};
-
 class CSignature {
 public:
     CSignature(string signedHash, string signerPubKeyHash, string signature) : signedHash(signedHash), signerPubKeyHash(signerPubKeyHash), signature(signature) {}
@@ -37,21 +25,22 @@ private:
 
 class CRelation {
 public:
-    CRelation(string message, vector<CIdentifier> subjects, vector<CIdentifier> objects, vector<CSignature> signatures) : message(message), subjects(subjects), objects(objects), signatures(signatures) {}
+    CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures) : message(message), subjects(subjects), objects(objects), signatures(signatures) {}
     bool Sign();
+    bool AddSignature(CSignature signature);
     string GetMessage();
     string GetData();
     string GetHash();
     time_t GetTimestamp();
-    vector<CIdentifier> GetSubjects();
-    vector<CIdentifier> GetObjects();
+    vector<pair<string, string> > GetSubjects();
+    vector<pair<string, string> > GetObjects();
     vector<CSignature> GetSignatures();
     json_spirit::Value GetJSON();
 private:
     string message;
     time_t timestamp;
-    vector<CIdentifier> subjects;
-    vector<CIdentifier> objects;
+    vector<pair<string, string> > subjects;
+    vector<pair<string, string> > objects;
     vector<CSignature> signatures;
 };
 
