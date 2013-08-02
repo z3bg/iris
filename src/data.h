@@ -25,7 +25,7 @@ private:
 
 class CRelation {
 public:
-    CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures) : message(message), subjects(subjects), objects(objects), signatures(signatures) {}
+    CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures, time_t timestamp = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp) {}
     static CRelation fromData(string data);
     bool Sign();
     bool AddSignature(CSignature signature);
@@ -39,10 +39,10 @@ public:
     json_spirit::Value GetJSON();
 private:
     string message;
-    time_t timestamp;
     vector<pair<string, string> > subjects;
     vector<pair<string, string> > objects;
     vector<CSignature> signatures;
+    time_t timestamp;
 };
 
 #endif // IDENTIFI_DATA_H

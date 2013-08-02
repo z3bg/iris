@@ -54,23 +54,29 @@ CRelation CRelation::fromData(string data) {
     array = json.get_array();
 
     if (array.size() != 4)
-        throw 0;
+        throw runtime_error("Invalid JSON array length");
 
     int timestamp = array[0].get_int();
     subjectsArray = array[1].get_array();
     objectsArray = array[2].get_array();
 
+    if (subjectsArray.empty())
+        throw runtime_error("Relations must have at least 1 subject");
+
+    if (objectsArray.empty())
+        throw runtime_error("Relations must have at least 1 object");
+
     for (Array::iterator it = subjectsArray.begin(); it != subjectsArray.end(); it++) {
         Array subject = it->get_array();
         if (subject.size() != 2)
-            throw 0;
+            throw runtime_error("Invalid relation subject length");
         subjects.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
     }
 
     for (Array::iterator it = objectsArray.begin(); it != objectsArray.end(); it++) {
         Array object = it->get_array();
         if (object.size() != 2)
-            throw 0;
+            throw runtime_error("Invalid relation object length");
         objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
@@ -121,17 +127,17 @@ Value CRelation::GetJSON() {
     Array subjectsJSON, objectsJSON, signaturesJSON;
 
     for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
-        Array arr;
-        arr.push_back(it->first);
-        arr.push_back(it->second);
-        subjectsJSON.push_back(arr);
+        Array pairArray;
+        pairArray.push_back(it->first);
+        pairArray.push_back(it->second);
+        subjectsJSON.push_back(pairArray);
     }
 
     for (vector<pair<string, string> >::iterator it = objects.begin(); it != objects.end(); ++it) {
-        Array arr;
-        arr.push_back(it->first);
-        arr.push_back(it->second);
-        objectsJSON.push_back(arr);    }
+        Array pairArray;
+        pairArray.push_back(it->first);
+        pairArray.push_back(it->second);
+        objectsJSON.push_back(pairArray);    }
 
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
         signaturesJSON.push_back(it->GetJSON());

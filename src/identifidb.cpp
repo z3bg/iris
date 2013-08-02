@@ -117,7 +117,7 @@ vector<pair<string, string> > CIdentifiDB::GetSubjectsByRelationHash(string rela
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = @relationid ";
+    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = @relationhash ";
     sql << "INNER JOIN Predicates AS p ON rs.PredicateID = p.ID ";
     sql << "WHERE id.Hash = rs.SubjectHash;";
 
@@ -150,9 +150,9 @@ vector<pair<string, string> > CIdentifiDB::GetObjectsByRelationHash(string relat
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationHash = @relationid ";
+    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationHash = @relationhash ";
     sql << "INNER JOIN Predicates AS p ON ro.PredicateID = p.ID ";
-    sql << "WHERE id.Hash = ro.SubjectHash;";
+    sql << "WHERE id.Hash = ro.ObjectHash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -161,7 +161,6 @@ vector<pair<string, string> > CIdentifiDB::GetObjectsByRelationHash(string relat
         while(true) {
             result = sqlite3_step(statement);
             
-            printf("hei");
             if(result == SQLITE_ROW) {
                 string predicate = string((char*)sqlite3_column_text(statement, 0));
                 string identifier = string((char*)sqlite3_column_text(statement, 1));
@@ -186,7 +185,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
 
     sql.str("");
     sql << "SELECT PubKeyHash, Signature FROM RelationSignatures ";
-    sql << "WHERE RelationHash = @relationid;";
+    sql << "WHERE RelationHash = @relationhash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -195,11 +194,9 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
         while(true) {
             result = sqlite3_step(statement);
             
-            printf("hei");
             if(result == SQLITE_ROW) {
                 string pubKeyHash = string((char*)sqlite3_column_text(statement, 0));
                 string signature = string((char*)sqlite3_column_text(statement, 1));
-                printf("pubKeyHash: %s, signature: %s", pubKeyHash.c_str(), signature.c_str());
                 signatures.push_back(CSignature(relationHash, pubKeyHash, signature));
             } else {
                 break;  
@@ -280,7 +277,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
                 string message = string((char*)sqlite3_column_text(statement, 1));
-                relations.push_back(CRelation(message, subjects, subjects, signatures));
+                relations.push_back(CRelation(message, subjects, objects, signatures));
             }
             else
             {
@@ -342,7 +339,7 @@ string CIdentifiDB::SaveIdentifier(string identifier) {
 
 void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, string subjectHash) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationSubjects (RelationHash, PredicateID, SubjectHash) VALUES (@relationid, @predicateid, @objectid);";
+    const char *sql = "INSERT OR IGNORE INTO RelationSubjects (RelationHash, PredicateID, SubjectHash) VALUES (@relationhash, @predicateid, @objectid);";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
@@ -354,7 +351,7 @@ void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, stri
 
 void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, string objectHash) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationObjects (RelationHash, PredicateID, ObjectHash) VALUES (@relationid, @predicateid, @objectid);";
+    const char *sql = "INSERT OR IGNORE INTO RelationObjects (RelationHash, PredicateID, ObjectHash) VALUES (@relationhash, @predicateid, @objectid);";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
@@ -366,7 +363,7 @@ void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, strin
 
 void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) VALUES (@relationid, @pubkeyid, @signature);";
+    const char *sql = "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) VALUES (@relationhash, @pubkeyid, @signature);";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
@@ -378,7 +375,7 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
 
 void CIdentifiDB::SaveRelationContentIdentifier(string relationHash, string identifierHash) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationContentIdentifiers (RelationHash, IdentifierHash) VALUES (@relationid, @identifierid);";
+    const char *sql = "INSERT OR IGNORE INTO RelationContentIdentifiers (RelationHash, IdentifierHash) VALUES (@relationhash, @identifierid);";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
