@@ -202,6 +202,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getrelationsbysubject",      &getrelationsbysubject,     true,      false },
     { "getrelationsbyobject",       &getrelationsbyobject,      true,      false },
     { "saverelation",               &saverelation,              true,      false },
+    { "saverelationfromdata",       &saverelationfromdata,              true,      false },
     { "getconnectioncount",         &getconnectioncount,        true,      false },
     { "getpeerinfo",                &getpeerinfo,               true,      false },
     { "addnode",                    &addnode,                   true,      true },

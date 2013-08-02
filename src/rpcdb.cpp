@@ -78,3 +78,15 @@ Value saverelation(const Array& params, bool fHelp)
     relation.Sign();
     return pidentifidb->SaveRelation(relation);
 }
+
+Value saverelationfromdata(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "saverelationfromdata <relation_json_data>\n"
+            "Save a relation");
+
+    CRelation relation = CRelation::fromData(params[0].get_str());
+    relation.Sign();
+    return pidentifidb->SaveRelation(relation);
+}

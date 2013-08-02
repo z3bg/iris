@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 2);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject mbox mailto:alice@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject mailto:alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     Object firstRelation = r.get_array().front().get_obj();
     BOOST_CHECK_NO_THROW(find_value(firstRelation, "timestamp").get_int());
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
     BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyobject mbox mailto:bob@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyobject mailto:bob@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     firstRelation = r.get_array().front().get_obj();
     BOOST_CHECK_NO_THROW(find_value(firstRelation, "timestamp").get_int());
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
     BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation \"[12345678,['mbox', 'mailto:alice@example.com'],['mbox', 'mailto:bob@example.com'],'Nice guy #positive']\""));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata '[6865346651654554112,[[\"mbox\",\"mailto:alice@example.com\"]],[[\"mbox\",\"mailto:bob@example.com\"]],\"#positive\"]'"));
 
 
 /*

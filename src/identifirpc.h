@@ -141,6 +141,7 @@ extern json_spirit::Value getidentifiercount(const json_spirit::Array& params, b
 extern json_spirit::Value getrelationsbysubject(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getrelationsbyobject(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value saverelation(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value saverelationfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 
 
 #endif

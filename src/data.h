@@ -26,6 +26,7 @@ private:
 class CRelation {
 public:
     CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures) : message(message), subjects(subjects), objects(objects), signatures(signatures) {}
+    static CRelation fromData(string data);
     bool Sign();
     bool AddSignature(CSignature signature);
     string GetMessage();

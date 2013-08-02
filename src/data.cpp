@@ -43,6 +43,42 @@ string CRelation::GetData() {
     return write_string(Value(data), false);
 }
 
+CRelation CRelation::fromData(string data) {
+    Value json;
+    Array array, subjectsArray, objectsArray;
+    vector<pair<string, string> > subjects, objects;
+    vector<CSignature> signatures;
+
+    read_string(data, json);
+
+    array = json.get_array();
+
+    if (array.size() != 4)
+        throw 0;
+
+    int timestamp = array[0].get_int();
+    subjectsArray = array[1].get_array();
+    objectsArray = array[2].get_array();
+
+    for (Array::iterator it = subjectsArray.begin(); it != subjectsArray.end(); it++) {
+        Array subject = it->get_array();
+        if (subject.size() != 2)
+            throw 0;
+        subjects.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
+    }
+
+    for (Array::iterator it = objectsArray.begin(); it != objectsArray.end(); it++) {
+        Array object = it->get_array();
+        if (object.size() != 2)
+            throw 0;
+        objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
+    }
+
+    string message = array[3].get_str();
+
+    return CRelation(message, subjects, objects, signatures);
+}
+
 bool CRelation::Sign() {
     // Create a mock ECDSA signature
     CKey newKey;
