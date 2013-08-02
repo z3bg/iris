@@ -235,7 +235,7 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
                 vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-                string message = string((char*)sqlite3_column_text(statement, 1));
+                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
                 relations.push_back(CRelation(message, subjects, objects, signatures));
             }
             else
@@ -276,7 +276,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
                 vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-                string message = string((char*)sqlite3_column_text(statement, 1));
+                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
                 relations.push_back(CRelation(message, subjects, objects, signatures));
             }
             else
@@ -414,13 +414,34 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
 
 void CIdentifiDB::SaveRelationContentIdentifier(string relationHash, string identifierHash) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationContentIdentifiers (RelationHash, IdentifierHash) VALUES (@relationhash, @identifierid);";
-    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+
+    ostringstream sql;
+    sql.str("");
+
+    sql << "SELECT * FROM RelationContentIdentifiers ";
+    sql << "WHERE RelationHash = @relationhash ";
+    sql << "AND IdentifierHash = @identifierhash";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-        sqlite3_finalize(statement); 
-    }  
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+    }
+    if (sqlite3_step(statement) != SQLITE_ROW) {
+        sql.str("");
+        sql << "INSERT OR IGNORE INTO RelationContentIdentifiers (RelationHash, IdentifierHash) ";
+        sql << "VALUES (@relationhash, @identifierhash);";
+        
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(statement);
+        } else {
+            printf("DB Error: %s\n", sqlite3_errmsg(db));
+        }
+    }
+    sqlite3_finalize(statement); 
 }
 
 string CIdentifiDB::SaveRelation(CRelation &relation) {
@@ -451,6 +472,11 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
         int predicateID = SavePredicate(it->first);
         string objectHash = SaveIdentifier(it->second);
         SaveRelationObject(relationHash, predicateID, objectHash);
+    }
+    vector<string> contentIdentifiers = relation.GetContentIdentifiers();
+    for (vector<string>::iterator it = contentIdentifiers.begin(); it != contentIdentifiers.end(); ++it) {
+        string identifierHash = SaveIdentifier(*it);
+        SaveRelationContentIdentifier(relationHash, identifierHash);
     }
     vector<CSignature> signatures = relation.GetSignatures();
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {

@@ -85,6 +85,13 @@ CRelation CRelation::fromData(string data) {
     return CRelation(message, subjects, objects, signatures, timestamp);
 }
 
+string CRelation::GetMessageFromData(string data) {
+    Value json;
+    read_string(data, json);
+    Array arr = json.get_array();
+    return arr.back().get_str();    
+}
+
 bool CRelation::Sign() {
     // Create a mock ECDSA signature
     CKey newKey;
@@ -118,6 +125,10 @@ vector<pair<string, string> > CRelation::GetObjects() {
     return objects;
 }
 
+vector<string> CRelation::GetContentIdentifiers() {
+    return contentIdentifiers;
+}
+
 vector<CSignature> CRelation::GetSignatures() {
     return signatures;
 }
@@ -128,7 +139,7 @@ time_t CRelation::GetTimestamp() {
 
 Value CRelation::GetJSON() {
     Object relationJSON;
-    Array subjectsJSON, objectsJSON, signaturesJSON;
+    Array subjectsJSON, objectsJSON, signaturesJSON, hashtagsJSON;
 
     for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
         Array pairArray;
@@ -143,6 +154,10 @@ Value CRelation::GetJSON() {
         pairArray.push_back(it->second);
         objectsJSON.push_back(pairArray);    }
 
+    for (vector<string>::iterator it = contentIdentifiers.begin(); it != contentIdentifiers.end(); ++it) {
+        hashtagsJSON.push_back(*it);
+    }
+
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
         signaturesJSON.push_back(it->GetJSON());
     }
@@ -151,9 +166,24 @@ Value CRelation::GetJSON() {
     relationJSON.push_back(Pair("subjects", subjectsJSON));
     relationJSON.push_back(Pair("objects", objectsJSON));
     relationJSON.push_back(Pair("message", message));
+    relationJSON.push_back(Pair("hashtags", hashtagsJSON));
     relationJSON.push_back(Pair("signatures", signaturesJSON));
 
     return relationJSON;
+}
+
+vector<string> CRelation::FindHashtags(string text) {
+    vector<string> results;
+    //regex hashtagExp("(^|[^0-9A-Z&/]+)(#|\uFF03)([0-9A-Z_]*[A-Z_]+[a-z0-9_\\u00c0-\\u00d6\\u00d8-\\u00f6\\u00f8-\\u00ff]*)");
+    regex hashtagExp("#\\w\\w+");
+    sregex_iterator it(text.begin(), text.end(), hashtagExp);
+    sregex_iterator end;
+
+    for (; it != end; it++) {
+        results.push_back(it->str());
+    }
+
+    return results;
 }
 
 string CSignature::GetSignedHash() {

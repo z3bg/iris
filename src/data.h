@@ -3,12 +3,14 @@
 
 #include <string>
 #include <vector>
+#include <boost/regex.hpp>
 
 #include "json/json_spirit_reader_template.h"
 #include "json/json_spirit_writer_template.h"
 #include "json/json_spirit_utils.h"
 
 using namespace std;
+using namespace boost;
 
 class CSignature {
 public:
@@ -25,8 +27,11 @@ private:
 
 class CRelation {
 public:
-    CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures, time_t timestamp = time(NULL)) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp) {}
+    CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures, time_t timestamp = time(NULL)) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp) {
+        contentIdentifiers = FindHashtags(message);
+    }
     static CRelation fromData(string data);
+    static string GetMessageFromData(string data);
     bool Sign();
     bool AddSignature(CSignature signature);
     string GetMessage();
@@ -35,13 +40,16 @@ public:
     time_t GetTimestamp();
     vector<pair<string, string> > GetSubjects();
     vector<pair<string, string> > GetObjects();
+    vector<string> GetContentIdentifiers();
     vector<CSignature> GetSignatures();
     json_spirit::Value GetJSON();
 private:
     string message;
     vector<pair<string, string> > subjects;
     vector<pair<string, string> > objects;
+    vector<string> contentIdentifiers;
     vector<CSignature> signatures;
+    vector<string> FindHashtags(string text);
     time_t timestamp;
 };
 

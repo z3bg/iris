@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_EQUAL(r.get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 2);
+    BOOST_CHECK_EQUAL(r.get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject mailto:alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -68,6 +68,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK(!find_value(firstRelation, "subjects").get_array().empty());
     BOOST_CHECK(!find_value(firstRelation, "objects").get_array().empty());
     BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
+    BOOST_CHECK(!find_value(firstRelation, "hashtags").get_array().empty());
     BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyobject mailto:bob@example.com"));
@@ -81,7 +82,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata [1234567,[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],\"#positive\"]"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 4);    
+    BOOST_CHECK_EQUAL(r.get_int(), 6);    
 
 /*
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
