@@ -56,7 +56,7 @@ CRelation CRelation::fromData(string data) {
     if (array.size() != 4)
         throw runtime_error("Invalid JSON array length");
 
-    int timestamp = array[0].get_int();
+    time_t timestamp = array[0].get_int();
     subjectsArray = array[1].get_array();
     objectsArray = array[2].get_array();
 
@@ -82,7 +82,7 @@ CRelation CRelation::fromData(string data) {
 
     string message = array[3].get_str();
 
-    return CRelation(message, subjects, objects, signatures);
+    return CRelation(message, subjects, objects, signatures, timestamp);
 }
 
 bool CRelation::Sign() {
@@ -120,6 +120,10 @@ vector<pair<string, string> > CRelation::GetObjects() {
 
 vector<CSignature> CRelation::GetSignatures() {
     return signatures;
+}
+
+time_t CRelation::GetTimestamp() {
+    return timestamp;
 }
 
 Value CRelation::GetJSON() {

@@ -78,7 +78,7 @@ void CIdentifiDB::Initialize() {
     sql << "CREATE TABLE IF NOT EXISTS Relations (";
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "Data                NVARCHAR(1000)  NOT NULL,";
-    sql << "Created             DATETIME  DEFAULT CURRENT_TIMESTAMP";
+    sql << "Created             DATETIME";
     sql << ");";
     query(sql.str().c_str());
 
@@ -293,15 +293,15 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
 
 int CIdentifiDB::SavePredicate(string predicate) {
     sqlite3_stmt *statement;
+    int rowid = -1;
 
-    const char *sql = "SELECT ID FROM Predicates WHERE Value = @value;";
+    const char *sql = "SELECT rowid FROM Predicates WHERE Value = @value;";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, predicate.c_str(), -1, SQLITE_TRANSIENT);
     }
     if (sqlite3_step(statement) == SQLITE_ROW) {
-        int rowid = sqlite3_column_int(statement, 0);
+        rowid = sqlite3_column_int(statement, 0);
         sqlite3_finalize(statement);
-        return rowid;
     } else {
         sql = "INSERT INTO Predicates (Value) VALUES (@value);";
         if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
@@ -309,8 +309,9 @@ int CIdentifiDB::SavePredicate(string predicate) {
             sqlite3_step(statement);
             sqlite3_finalize(statement);
         }
-        return sqlite3_last_insert_rowid(db);
+        rowid = sqlite3_last_insert_rowid(db);
     }
+    return rowid;
 }
 
 string CIdentifiDB::SaveIdentifier(string identifier) {
@@ -339,26 +340,64 @@ string CIdentifiDB::SaveIdentifier(string identifier) {
 
 void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, string subjectHash) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationSubjects (RelationHash, PredicateID, SubjectHash) VALUES (@relationhash, @predicateid, @objectid);";
-    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+
+    ostringstream sql;
+    sql.str("");
+
+    sql << "SELECT * FROM RelationSubjects ";
+    sql << "WHERE RelationHash = @relationhash ";
+    sql << "AND PredicateID = @predicateid ";
+    sql << "AND SubjectHash = @subjecthash";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
         sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-        sqlite3_finalize(statement); 
-    }   
+    }
+    if (sqlite3_step(statement) != SQLITE_ROW) {
+        sql.str("");
+        sql << "INSERT OR IGNORE INTO RelationSubjects (RelationHash, PredicateID, SubjectHash) ";
+        sql << "VALUES (@relationhash, @predicateid, @subjectid);";
+        
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 2, predicateID);
+            sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(statement);
+        }
+    }
+    sqlite3_finalize(statement);    
 }
 
 void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, string objectHash) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationObjects (RelationHash, PredicateID, ObjectHash) VALUES (@relationhash, @predicateid, @objectid);";
-    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+
+    ostringstream sql;
+    sql.str("");
+
+    sql << "SELECT * FROM RelationObjects ";
+    sql << "WHERE RelationHash = @relationhash ";
+    sql << "AND PredicateID = @predicateid ";
+    sql << "AND ObjectHash = @objecthash";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
         sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-        sqlite3_finalize(statement); 
     }
+    if (sqlite3_step(statement) != SQLITE_ROW) {
+        sql.str("");
+        sql << "INSERT OR IGNORE INTO RelationObjects (RelationHash, PredicateID, ObjectHash) ";
+        sql << "VALUES (@relationhash, @predicateid, @objectid);";
+        
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 2, predicateID);
+            sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(statement);
+        }
+    }
+    sqlite3_finalize(statement);    
 }
 
 void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
@@ -389,11 +428,14 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     string sql;
     string relationHash;
 
-    sql = "INSERT INTO Relations (Hash, Data) VALUES (@id, @data);";
+    sql = "INSERT INTO Relations (Hash, Data, Created) VALUES (@id, @data, @timestamp);";
     relationHash = relation.GetHash();
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(statement, 3, relation.GetTimestamp());
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     sqlite3_step(statement);
     sqlite3_finalize(statement);

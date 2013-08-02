@@ -22,8 +22,6 @@ public:
     void Initialize();
     vector<CRelation> GetRelationsBySubject(string subject);
     vector<CRelation> GetRelationsByObject(string object);
-    string SaveIdentifier(string identifier);
-    int SavePredicate(string predicate);
     string SaveRelation(CRelation &relation);
     void SaveRelationSignature(CSignature &signature);
     int GetRelationCount();
@@ -35,6 +33,8 @@ private:
     vector<CSignature> GetSignaturesByRelationHash(string relationHash);
     void SaveRelationSubject(string relationHash, int predicateID, string subjectHash);
     void SaveRelationObject(string relationHash, int predicateID, string objectHash);
+    int SavePredicate(string predicate);
+    string SaveIdentifier(string identifier);
     void SaveRelationContentIdentifier(string relationHash, string identifierID);
     vector<vector<string> > query(const char* query);
 };
