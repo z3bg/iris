@@ -62,6 +62,22 @@ Value getrelationsbyobject(const Array& params, bool fHelp)
     return relationsJSON;
 }
 
+Value getpath(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getpath <id1> <id2>\n"
+            "Returns an array of relations that connect id1 and id2.");
+
+    Array relationsJSON;
+    vector<CRelation> relations = pidentifidb->GetPath(params[0].get_str(), params[1].get_str());
+    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
+        relationsJSON.push_back(it->GetJSON());
+    }
+
+    return relationsJSON;
+}
+
 Value saverelation(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 5)

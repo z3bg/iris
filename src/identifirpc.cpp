@@ -198,6 +198,7 @@ static const CRPCCommand vRPCCommands[] =
     { "help",                       &help,                      true,      true },
     { "stop",                       &stop,                      true,      true },
     { "getrelationcount",           &getrelationcount,          true,      false },
+    { "getpath",                    &getpath,                   true,      false },
     { "getidentifiercount",         &getidentifiercount,        true,      false },
     { "getrelationsbysubject",      &getrelationsbysubject,     true,      false },
     { "getrelationsbyobject",       &getrelationsbyobject,      true,      false },

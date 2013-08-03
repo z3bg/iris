@@ -54,12 +54,13 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_EQUAL(r.get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com #friends"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:bob@example.com mbox mailto:carl@example.com #friends"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 1);
+    BOOST_CHECK_EQUAL(r.get_int(), 2);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 4);
+    BOOST_CHECK_EQUAL(r.get_int(), 5);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject mailto:alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -82,9 +83,16 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata [1234567,[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],\"#positive\"]"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 7);    
+    BOOST_CHECK_EQUAL(r.get_int(), 8);    
 
     BOOST_CHECK_NO_THROW(r=CallRPC("listprivatekeys"));
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath nobody1 nobody2"));
+    BOOST_CHECK(r.get_array().empty());
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bob@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
 /*
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);

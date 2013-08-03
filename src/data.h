@@ -27,8 +27,14 @@ private:
 
 class CRelation {
 public:
-    CRelation(string message, vector<pair<string, string> > subjects, vector<pair<string, string> > objects, vector<CSignature> signatures, time_t timestamp = time(NULL)) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp) {
+    CRelation(string message = "", vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL)) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp) {
         contentIdentifiers = FindHashtags(message);
+    }
+    bool operator== (const CRelation &r) const {
+        return (r.message == message && r.timestamp == timestamp);
+    }
+    bool operator!= (const CRelation &r) const {
+        return (r.message != message || r.timestamp != timestamp);
     }
     static CRelation fromData(string data);
     static string GetMessageFromData(string data);

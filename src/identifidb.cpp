@@ -4,7 +4,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <iostream>
+#include <deque>
 #include <boost/lexical_cast.hpp>
+#include <map>
 #include "identifidb.h"
 #include "main.h"
 #include "data.h"
@@ -576,6 +578,57 @@ vector<string> CIdentifiDB::ListPrivateKeys() {
     }
 
     return keys;
+}
+
+vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
+    vector<CRelation> path;
+    vector<string> visitedRelations;
+
+    deque<CRelation> d;
+    map<string, CRelation> previousRelations;
+
+    vector<CRelation> asSubject = GetRelationsBySubject(start);
+    vector<CRelation> asObject = GetRelationsByObject(start);
+    d.insert(d.end(), asSubject.begin(), asSubject.end());
+    d.insert(d.end(), asObject.begin(), asObject.end());
+
+    while (!d.empty()) {
+        CRelation currentNode = d.front();
+        d.pop_front();
+        if (find(visitedRelations.begin(), visitedRelations.end(), currentNode.GetHash()) != visitedRelations.end()) {
+            continue;
+        }
+        visitedRelations.push_back(currentNode.GetHash());
+
+        vector<pair<string, string> > allIdentifiers = currentNode.GetSubjects();
+        vector<pair<string, string> > objects = currentNode.GetObjects();
+        allIdentifiers.insert(allIdentifiers.end(), objects.begin(), objects.end());
+        for (vector<pair<string, string> >::iterator identifier = allIdentifiers.begin(); identifier != allIdentifiers.end(); identifier++) {
+            cout << identifier->second;
+            if (identifier->second == end) {
+                path.push_back(currentNode);
+                
+                CRelation previousRelation = path.back();
+                while (previousRelations.find(previousRelation.GetHash()) != previousRelations.end()) {
+                    previousRelation = previousRelations.at(previousRelation.GetHash());
+                    path.insert(path.begin(), previousRelation);
+                }
+                return path;
+            } else {
+                vector<CRelation> allRelations = GetRelationsBySubject(identifier->second);
+                asObject = GetRelationsByObject(identifier->second);
+                allRelations.insert(allRelations.end(), asObject.begin(), asObject.end());
+                for (vector<CRelation>::iterator r = allRelations.begin(); r != allRelations.end(); r++) {
+                    if (find(visitedRelations.begin(), visitedRelations.end(), r->GetHash()) == visitedRelations.end())
+                        previousRelations[r->GetHash()] = currentNode;
+                }
+
+                d.insert(d.end(), allRelations.begin(), allRelations.end());
+            }
+        }
+    }
+
+    return path;
 }
 
 int CIdentifiDB::GetIdentifierCount() {
