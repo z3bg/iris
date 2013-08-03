@@ -42,13 +42,19 @@ Example:
 
     [
     	1373924495,
-	    [ 	name:'Alice Smith', mbox:'mailto:alice@example.com' ],
+	    [ 	
+	    	name:'Alice Smith', mbox:'mailto:alice@example.com' 
+	    ],
 		[
-	    	[ 	['nick', 'Bob the Builder'],
+	    	[ 	
+	    		['nick', 'Bob the Builder'],
 	    		['homepage','http://twitter.com/bob'],
 	    		['homepage','http://www.facebook.com/bob'],
-	    		['depiction','magnet:<photo hash>?xs=http://example.com/1.jpg' ]],
-	    	[	['responseTo','magnet:<hash of bob's message>']]
+	    		['depiction','magnet:<photo hash>?xs=http://example.com/1.jpg' ]
+	    	],
+	    	[	
+	    		['responseTo','magnet:<hash of bob's message>']
+	    	]
 		],
     	'Bought a laptop from Bob. Thanks for the trade! #positive #trade'
 	]
@@ -62,6 +68,6 @@ Message encoding is UTF-8.
 Future considerations
 ---------------------
 
-Use [Redland](http://librdf.org) triple storage and/or [HDT](http://www.rdfhdt.org) serialization?
+Use [Redland](http://librdf.org) triple storage and/or [HDT](http://www.rdfhdt.org) serialization? This would enable handling of all kinds of RDF documents (standard FOAF for example) and queries by SPARQL.
 
 Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html)?

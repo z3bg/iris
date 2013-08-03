@@ -32,7 +32,7 @@ public:
     }
     static CRelation fromData(string data);
     static string GetMessageFromData(string data);
-    bool Sign();
+    bool Sign(CKey& key);
     bool AddSignature(CSignature signature);
     string GetMessage();
     string GetData();

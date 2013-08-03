@@ -75,7 +75,8 @@ Value saverelation(const Array& params, bool fHelp)
     subjects->push_back(make_pair(params[0].get_str(),params[1].get_str()));
     objects->push_back(make_pair(params[2].get_str(),params[3].get_str()));
     CRelation relation(params[4].get_str(), *subjects, *objects, *signatures);
-    relation.Sign();
+    CKey defaultKey = pidentifidb->GetDefaultKey();
+    relation.Sign(defaultKey);
     return pidentifidb->SaveRelation(relation);
 }
 
@@ -87,6 +88,7 @@ Value saverelationfromdata(const Array& params, bool fHelp)
             "Save a relation");
 
     CRelation relation = CRelation::fromData(params[0].get_str());
-    relation.Sign();
+    CKey defaultKey = pidentifidb->GetDefaultKey();
+    relation.Sign(defaultKey);
     return pidentifidb->SaveRelation(relation);
 }

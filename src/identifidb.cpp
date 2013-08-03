@@ -108,6 +108,19 @@ void CIdentifiDB::Initialize() {
     sql << "RelationHash        NVARCHAR(45)    NOT NULL,";
     sql << "IdentifierHash      NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS PrivateKeys (";
+    sql << "PubKeyHash        NVARCHAR(45)    PRIMARY KEY,";
+    sql << "PrivateKey        NVARCHAR(1000)  NOT NULL);";
+    query(sql.str().c_str());
+
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE rowid = 0");
+    if (boost::lexical_cast<int>(result[0][0]) != 1) {
+        CKey newKey;
+        newKey.MakeNewKey(false);
+        SetDefaultKey(newKey);
+    }
 }
 
 vector<pair<string, string> > CIdentifiDB::GetSubjectsByRelationHash(string relationHash) {
@@ -486,6 +499,71 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     return relationHash;
 }
 
+void CIdentifiDB::SetDefaultKey(CKey &key) {
+    vector<unsigned char> pubKey = key.GetPubKey().Raw();
+    string pubKeyStr = EncodeBase64(&pubKey[0], sizeof(pubKey));
+    string pubKeyHash = SaveIdentifier(pubKeyStr);
+    bool compressed = false;
+    CSecret secret = key.GetSecret(compressed);
+    string privateKey = CIdentifiSecret(secret, false).ToString();
+
+    sqlite3_stmt *statement;
+    string sql;
+    string relationHash;
+
+    sql = "INSERT INTO PrivateKeys (rowid, PubKeyHash, PrivateKey) VALUES (0, @pubkeyhash, @privatekey);";
+    if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, pubKeyHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, privateKey.c_str(), -1, SQLITE_TRANSIENT);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+    }
+    sqlite3_step(statement);
+    sqlite3_finalize(statement);    
+}
+
+CKey CIdentifiDB::GetDefaultKey() {
+    string pubKey, privKey;
+
+    sqlite3_stmt *statement;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT id.Value, pk.PrivateKey FROM PrivateKeys AS pk ";
+    sql << "INNER JOIN Identifiers AS id ON pk.PubKeyHash = id.Hash ";
+    sql << "WHERE pk.rowid = 0;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        int result = sqlite3_step(statement);
+        if(result == SQLITE_ROW)
+        {
+            pubKey = string((char*)sqlite3_column_text(statement, 0));
+            privKey = string((char*)sqlite3_column_text(statement, 1));
+        }
+    }
+    sqlite3_finalize(statement);
+
+    CIdentifiSecret s;
+    s.SetString(privKey);
+    bool compressed = false;
+    CSecret secret = s.GetSecret(compressed);
+
+    CKey key;
+    key.SetSecret(secret, false);
+
+    return key;
+}
+
+vector<string> CIdentifiDB::ListPrivateKeys() {
+    vector<string> keys;
+
+    vector<vector<string> > result = query("SELECT PubKeyHash FROM PrivateKeys");
+    for (vector<vector <string> >::iterator it = result.begin(); it != result.end(); it++) {
+        keys.push_back(it->front());
+    }
+
+    return keys;
+}
+
 int CIdentifiDB::GetIdentifierCount() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Identifiers");
     return boost::lexical_cast<int>(result[0][0]);
@@ -495,3 +573,4 @@ int CIdentifiDB::GetRelationCount() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Relations");
     return boost::lexical_cast<int>(result[0][0]);
 }
+

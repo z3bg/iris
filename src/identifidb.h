@@ -9,6 +9,7 @@
 #include <sqlite3.h>
 #include <vector>
 #include <string>
+#include "base58.h"
 #include "main.h"
 #include "data.h"
 
@@ -24,6 +25,9 @@ public:
     vector<CRelation> GetRelationsByObject(string object);
     string SaveRelation(CRelation &relation);
     void SaveRelationSignature(CSignature &signature);
+    void SetDefaultKey(CKey &key);
+    CKey GetDefaultKey();
+    vector<string> ListPrivateKeys();
     int GetRelationCount();
     int GetIdentifierCount();
 private:

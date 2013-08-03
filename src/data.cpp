@@ -92,19 +92,15 @@ string CRelation::GetMessageFromData(string data) {
     return arr.back().get_str();    
 }
 
-bool CRelation::Sign() {
-    // Create a mock ECDSA signature
-    CKey newKey;
-    newKey.MakeNewKey(false);
-
+bool CRelation::Sign(CKey& key) {
     string data = GetData();
     uint256 signatureHash = Hash(data.begin(), data.end());
 
-    uint256 pubKeyHash = newKey.GetPubKey().GetHash();
+    uint256 pubKeyHash = key.GetPubKey().GetHash();
     string pubKeyString = EncodeBase64(pubKeyHash);
 
     vector<unsigned char> vchSig;
-    newKey.Sign(signatureHash, vchSig);
+    key.Sign(signatureHash, vchSig);
     string signatureString = EncodeBase64(&vchSig[0], sizeof(vchSig));
 
     CSignature signature(GetHash(), pubKeyString, signatureString);
