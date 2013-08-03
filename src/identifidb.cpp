@@ -415,14 +415,28 @@ void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, strin
 
 void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
     sqlite3_stmt *statement;
-    const char *sql = "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) VALUES (@relationhash, @pubkeyid, @signature);";
-    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM RelationSignatures WHERE RelationHash = @relationHash ";
+    sql << "AND PubKeyHash = @pubKeyHash";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-        sqlite3_finalize(statement); 
-    }   
+    }
+    if (sqlite3_step(statement) != SQLITE_ROW) {
+        sql.str("");
+        sql << "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) ";
+        sql << "VALUES (@relationhash, @pubkeyid, @signature);";
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(statement);
+            sqlite3_finalize(statement); 
+        }  
+    } 
 }
 
 void CIdentifiDB::SaveRelationContentIdentifier(string relationHash, string identifierHash) {

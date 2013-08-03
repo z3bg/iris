@@ -92,3 +92,19 @@ Value saverelationfromdata(const Array& params, bool fHelp)
     relation.Sign(defaultKey);
     return pidentifidb->SaveRelation(relation);
 }
+
+Value listprivatekeys(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "listprivatekeys\n"
+            "List public key hashes for private keys you own");
+
+    vector<string> keys = pidentifidb->ListPrivateKeys();
+    Array keysJSON;    
+
+    for (vector<string>::iterator it = keys.begin(); it != keys.end(); ++it) {
+        keysJSON.push_back(*it);
+    }   
+    return keysJSON;
+}

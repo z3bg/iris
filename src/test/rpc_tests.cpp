@@ -84,6 +84,8 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 7);    
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("listprivatekeys"));
+
 /*
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier not_hex"), runtime_error);
