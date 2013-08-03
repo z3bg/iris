@@ -428,7 +428,7 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
         sql << "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) ";
-        sql << "VALUES (@relationhash, @pubkeyid, @signature);";
+        sql << "VALUES (@relationhash, @pubkeyhash, @signature);";
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
@@ -517,9 +517,9 @@ void CIdentifiDB::SetDefaultKey(CKey &key) {
     vector<unsigned char> pubKey = key.GetPubKey().Raw();
     string pubKeyStr = EncodeBase64(&pubKey[0], sizeof(pubKey));
     string pubKeyHash = SaveIdentifier(pubKeyStr);
-    bool compressed = false;
+    bool compressed;
     CSecret secret = key.GetSecret(compressed);
-    string privateKey = CIdentifiSecret(secret, false).ToString();
+    string privateKey = CIdentifiSecret(secret, compressed).ToString();
 
     sqlite3_stmt *statement;
     string sql;

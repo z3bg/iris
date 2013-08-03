@@ -94,16 +94,17 @@ string CRelation::GetMessageFromData(string data) {
 
 bool CRelation::Sign(CKey& key) {
     string data = GetData();
-    uint256 signatureHash = Hash(data.begin(), data.end());
+    uint256 hashToSign = Hash(data.begin(), data.end());
 
-    uint256 pubKeyHash = key.GetPubKey().GetHash();
-    string pubKeyString = EncodeBase64(pubKeyHash);
+    vector<unsigned char> pubKey = key.GetPubKey().Raw();
+    string pubKeyStr = EncodeBase64(&pubKey[0], sizeof(pubKey));
+    string pubKeyHash = EncodeBase64(Hash(pubKeyStr.begin(), pubKeyStr.end()));
 
     vector<unsigned char> vchSig;
-    key.Sign(signatureHash, vchSig);
+    key.Sign(hashToSign, vchSig);
     string signatureString = EncodeBase64(&vchSig[0], sizeof(vchSig));
 
-    CSignature signature(GetHash(), pubKeyString, signatureString);
+    CSignature signature(GetHash(), pubKeyHash, signatureString);
 
     signatures.push_back(signature);
     return true;
