@@ -226,6 +226,49 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
     return signatures;
 }
 
+vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
+    sqlite3_stmt *statement;
+    vector<CRelation> relations;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM Relations AS rel ";
+    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = rel.Hash ";
+    sql << "INNER JOIN RelationObjects AS ro ON rs.RelationHash = rel.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON (rs.SubjectHash = id.Hash ";
+    sql << "OR ro.ObjectHash = id.Hash) ";
+    sql << "WHERE id.Value = @value;";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                string relationHash = string((char*)sqlite3_column_text(statement, 0));
+                vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
+                vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
+                vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
+                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
+                relations.push_back(CRelation(message, subjects, objects, signatures));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+    }
+    
+    return relations;
+}
+
 vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
     sqlite3_stmt *statement;
     vector<CRelation> relations;
@@ -587,10 +630,8 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
     deque<CRelation> d;
     map<string, CRelation> previousRelations;
 
-    vector<CRelation> asSubject = GetRelationsBySubject(start);
-    vector<CRelation> asObject = GetRelationsByObject(start);
-    d.insert(d.end(), asSubject.begin(), asSubject.end());
-    d.insert(d.end(), asObject.begin(), asObject.end());
+    vector<CRelation> relations = GetRelationsByIdentifier(start);
+    d.insert(d.end(), relations.begin(), relations.end());
 
     while (!d.empty()) {
         CRelation currentNode = d.front();
@@ -615,9 +656,7 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
                 }
                 return path;
             } else {
-                vector<CRelation> allRelations = GetRelationsBySubject(identifier->second);
-                asObject = GetRelationsByObject(identifier->second);
-                allRelations.insert(allRelations.end(), asObject.begin(), asObject.end());
+                vector<CRelation> allRelations = GetRelationsByIdentifier(identifier->second);
                 for (vector<CRelation>::iterator r = allRelations.begin(); r != allRelations.end(); r++) {
                     if (find(visitedRelations.begin(), visitedRelations.end(), r->GetHash()) == visitedRelations.end())
                         previousRelations[r->GetHash()] = currentNode;
