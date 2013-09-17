@@ -233,7 +233,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
     sql.str("");
     sql << "SELECT * FROM Relations AS rel ";
     sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = rel.Hash ";
-    sql << "INNER JOIN RelationObjects AS ro ON rs.RelationHash = rel.Hash ";
+    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationHash = rel.Hash ";
     sql << "INNER JOIN Identifiers AS id ON (rs.SubjectHash = id.Hash ";
     sql << "OR ro.ObjectHash = id.Hash) ";
     sql << "WHERE id.Value = @value;";
@@ -645,11 +645,10 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
         vector<pair<string, string> > objects = currentNode.GetObjects();
         allIdentifiers.insert(allIdentifiers.end(), objects.begin(), objects.end());
         for (vector<pair<string, string> >::iterator identifier = allIdentifiers.begin(); identifier != allIdentifiers.end(); identifier++) {
-            cout << identifier->second;
             if (identifier->second == end) {
                 path.push_back(currentNode);
-                
-                CRelation previousRelation = path.back();
+
+                CRelation previousRelation = currentNode;
                 while (previousRelations.find(previousRelation.GetHash()) != previousRelations.end()) {
                     previousRelation = previousRelations.at(previousRelation.GetHash());
                     path.insert(path.begin(), previousRelation);
@@ -658,7 +657,8 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
             } else {
                 vector<CRelation> allRelations = GetRelationsByIdentifier(identifier->second);
                 for (vector<CRelation>::iterator r = allRelations.begin(); r != allRelations.end(); r++) {
-                    if (find(visitedRelations.begin(), visitedRelations.end(), r->GetHash()) == visitedRelations.end())
+                    if (previousRelations.find(r->GetHash()) == previousRelations.end()
+                        && find(visitedRelations.begin(), visitedRelations.end(), r->GetHash()) == visitedRelations.end())
                         previousRelations[r->GetHash()] = currentNode;
                 }
 
