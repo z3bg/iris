@@ -60,12 +60,35 @@ vector<vector<string> > CIdentifiDB::query(const char* query)
     return results; 
 }
 
+void CIdentifiDB::CheckDefaultKey() {
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE rowid = 0");
+    if (boost::lexical_cast<int>(result[0][0]) != 1) {
+        CKey newKey;
+        newKey.MakeNewKey(false);
+        SetDefaultKey(newKey);
+    }
+}
+
+void CIdentifiDB::CheckHashtagValues() {
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#positive', 50)");
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#neutral', 0)");
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#negative', -50)");
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#authentic', 100)");
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#fake', -100)");
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#knows', 100)");
+
+    vector<vector<string> > result = query("SELECT Hashtag, Value FROM HashtagValues");
+    for (vector<vector<string> >::iterator row = result.begin(); row != result.end(); row++) {
+        hashtagValues[row->at(0)] = boost::lexical_cast<int>(row->at(1));
+    }
+}
+
 void CIdentifiDB::Initialize() {
     ostringstream sql;
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Identifiers (";
     sql << "Hash      NVARCHAR(45)    PRIMARY KEY,";
-    sql << "Value   NVARCHAR(255)   NOT NULL";
+    sql << "Value     NVARCHAR(255)   NOT NULL";
     sql << ");";
     query(sql.str().c_str());
 
@@ -117,12 +140,14 @@ void CIdentifiDB::Initialize() {
     sql << "PrivateKey        NVARCHAR(1000)  NOT NULL);";
     query(sql.str().c_str());
 
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE rowid = 0");
-    if (boost::lexical_cast<int>(result[0][0]) != 1) {
-        CKey newKey;
-        newKey.MakeNewKey(false);
-        SetDefaultKey(newKey);
-    }
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS HashtagValues (";
+    sql << "Hashtag           NVARCHAR(45)    PRIMARY KEY,";
+    sql << "Value             INTEGER         NOT NULL CHECK (Value >= -100 AND Value <= 100));";
+    query(sql.str().c_str());
+
+    CheckDefaultKey();
+    CheckHashtagValues();
 }
 
 vector<pair<string, string> > CIdentifiDB::GetSubjectsByRelationHash(string relationHash) {
@@ -623,6 +648,7 @@ vector<string> CIdentifiDB::ListPrivateKeys() {
     return keys;
 }
 
+// Breadth-first search for the shortest trust path from id1 to id2
 vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
     vector<CRelation> path;
     vector<string> visitedRelations;
@@ -640,6 +666,22 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
             continue;
         }
         visitedRelations.push_back(currentNode.GetHash());
+
+        // Discard relations with non-positive trust value
+        bool positiveValue = false;
+        vector<string> hashtags = currentNode.GetContentIdentifiers();
+        for (vector<string>::iterator hashtag = hashtags.begin(); hashtag != hashtags.end(); hashtag++) {
+            try {
+                if (hashtagValues.at(*hashtag) > 0) {
+                    positiveValue = true;
+                } else {
+                    positiveValue = false;
+                    break;
+                }
+            } catch (const out_of_range& e) {}
+        }
+        if (!positiveValue)
+            continue;
 
         vector<pair<string, string> > allIdentifiers = currentNode.GetSubjects();
         vector<pair<string, string> > objects = currentNode.GetObjects();
