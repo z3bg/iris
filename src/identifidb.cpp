@@ -76,6 +76,7 @@ void CIdentifiDB::CheckHashtagValues() {
     query("INSERT OR IGNORE INTO HashtagValues VALUES ('#authentic', 100)");
     query("INSERT OR IGNORE INTO HashtagValues VALUES ('#fake', -100)");
     query("INSERT OR IGNORE INTO HashtagValues VALUES ('#knows', 100)");
+    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#expired', 0)");
 
     vector<vector<string> > result = query("SELECT Hashtag, Value FROM HashtagValues");
     for (vector<vector<string> >::iterator row = result.begin(); row != result.end(); row++) {
@@ -124,7 +125,7 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS RelationSignatures (";
     sql << "RelationHash        NVARCHAR(45)    NOT NULL,";
-    sql << "Signature           NVARCHAR(45)    NOT NULL,";
+    sql << "Signature           NVARCHAR(100)   NOT NULL,";
     sql << "PubKeyHash          NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
@@ -585,7 +586,7 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
 
 void CIdentifiDB::SetDefaultKey(CKey &key) {
     vector<unsigned char> pubKey = key.GetPubKey().Raw();
-    string pubKeyStr = EncodeBase64(&pubKey[0], sizeof(pubKey));
+    string pubKeyStr = EncodeBase58(pubKey);
     string pubKeyHash = SaveIdentifier(pubKeyStr);
     bool compressed;
     CSecret secret = key.GetSecret(compressed);
@@ -710,6 +711,40 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
     }
 
     return path;
+}
+
+CRelation CIdentifiDB::GetRelationByHash(string hash) {
+    sqlite3_stmt *statement;
+    vector<CRelation> relations;
+    const char* sql = "SELECT * FROM Relations WHERE Relations.Hash = @hash;";
+
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, hash.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                string relationHash = string((char*)sqlite3_column_text(statement, 0));
+                vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
+                vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
+                vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
+                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
+                sqlite3_finalize(statement);
+                return CRelation(message, subjects, objects, signatures);
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    throw runtime_error("relation not found");    
 }
 
 int CIdentifiDB::GetIdentifierCount() {

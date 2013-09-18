@@ -31,6 +31,7 @@ public:
     vector<string> ListPrivateKeys();
     int GetRelationCount();
     int GetIdentifierCount();
+    CRelation GetRelationByHash(string hash);
     vector<CRelation> GetPath(string start, string end, int searchDepth = 3);
 private:
     sqlite3 *db;

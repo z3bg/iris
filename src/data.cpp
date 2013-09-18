@@ -1,9 +1,7 @@
 #include <string>
 #include <sstream>
-#include "util.h"
-#include "key.h"
-#include "hash.h"
 #include "data.h"
+#include "base58.h"
 
 using namespace std;
 using namespace json_spirit;
@@ -15,7 +13,7 @@ string CRelation::GetMessage() {
 string CRelation::GetHash() {
     string data = GetData();
     uint256 hash = Hash(data.begin(), data.end());
-    return EncodeBase64(hash);
+    return EncodeBase58((unsigned char*)&hash, (unsigned char*)&hash + sizeof(uint256));
 }
 
 string CRelation::GetData() {
@@ -96,15 +94,14 @@ bool CRelation::Sign(CKey& key) {
     string data = GetData();
     uint256 hashToSign = Hash(data.begin(), data.end());
 
-    vector<unsigned char> pubKey = key.GetPubKey().Raw();
-    string pubKeyStr = EncodeBase64(&pubKey[0], sizeof(pubKey));
-    string pubKeyHash = EncodeBase64(Hash(pubKeyStr.begin(), pubKeyStr.end()));
+    vector<unsigned char> vchPubKey = key.GetPubKey().Raw();
+    string pubKeyStr = EncodeBase58(vchPubKey);
 
     vector<unsigned char> vchSig;
     key.Sign(hashToSign, vchSig);
-    string signatureString = EncodeBase64(&vchSig[0], sizeof(vchSig));
+    string signatureString = EncodeBase58(vchSig);
 
-    CSignature signature(GetHash(), pubKeyHash, signatureString);
+    CSignature signature(GetHash(), pubKeyStr, signatureString);
 
     signatures.push_back(signature);
     return true;
@@ -187,12 +184,38 @@ string CSignature::GetSignedHash() {
     return signedHash;
 }
 
+string CSignature::GetSignerPubKey() {
+    return signerPubKey;
+}
+
 string CSignature::GetSignerPubKeyHash() {
     return signerPubKeyHash;
 }
 
 string CSignature::GetSignature() {
     return signature;
+}
+
+bool CSignature::IsValid() {    
+    vector<unsigned char> vchHash, vchPubKey, vchSig;
+    if (!DecodeBase58(signedHash, vchHash) ||
+        !DecodeBase58(signerPubKey, vchPubKey) ||
+        !DecodeBase58(signature.c_str(), vchSig)) {
+        return false;
+    }
+
+    CKey key;
+    CPubKey pubKey(vchPubKey);
+    key.SetPubKey(pubKey);
+
+    uint256 rawHash;
+
+    if (vchHash.size() > sizeof(uint256)) {
+        return false;
+    } else
+        memcpy(&rawHash, &vchHash[0], vchHash.size());
+
+    return key.Verify(rawHash, vchSig);
 }
 
 Value CSignature::GetJSON() {

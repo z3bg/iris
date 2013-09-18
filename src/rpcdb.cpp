@@ -124,3 +124,21 @@ Value listprivatekeys(const Array& params, bool fHelp)
     }   
     return keysJSON;
 }
+
+Value addsignature(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "addsignature <signed_relation_hash> <signer_pubkey> <signature>\n"
+            "Add a signature to a relation");
+
+    CSignature sig(params[0].get_str(), params[1].get_str(), params[2].get_str());
+    CRelation rel = pidentifidb->GetRelationByHash(params[0].get_str());
+
+    if (!sig.IsValid())
+        throw runtime_error("Invalid signature");
+
+    pidentifidb->SaveRelation(rel);
+
+    return true;
+}

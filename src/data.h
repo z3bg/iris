@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <boost/regex.hpp>
+#include "hash.h"
+#include "util.h"
+#include "key.h"
 
 #include "json/json_spirit_reader_template.h"
 #include "json/json_spirit_writer_template.h"
@@ -14,13 +17,18 @@ using namespace boost;
 
 class CSignature {
 public:
-    CSignature(string signedHash, string signerPubKeyHash, string signature) : signedHash(signedHash), signerPubKeyHash(signerPubKeyHash), signature(signature) {}
+    CSignature(string signedHash, string signerPubKey, string signature) : signedHash(signedHash), signerPubKey(signerPubKey), signature(signature) {
+        signerPubKeyHash = EncodeBase64(Hash(signerPubKey.begin(), signerPubKey.end()));
+    }
     string GetSignedHash();
+    string GetSignerPubKey();
     string GetSignerPubKeyHash();
     string GetSignature();
+    bool IsValid();
     json_spirit::Value GetJSON();
 private:
     string signedHash;
+    string signerPubKey;
     string signerPubKeyHash;
     string signature;
 };

@@ -82,6 +82,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata [1234567,[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],\"#knows\"]"));
+    BOOST_CHECK_EQUAL(r.get_str(), "BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx");
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 8);    
 
@@ -96,7 +97,13 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bill@example.com #negative"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bill@example.com"));
-    BOOST_CHECK(r.get_array().empty());
+
+    BOOST_CHECK_THROW(r=CallRPC("addsignature BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx PjP7e3W8Z1RNXjF1JbnyQWqGBqVaCgTVZUDRmLbKU3Es5GHYwN5bb6xUz8cCQ724mJ4HYUeBS7gdAwdRstbBnf2Y invalidsignature"), runtime_error);
+    BOOST_CHECK_NO_THROW(r=CallRPC("addsignature BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx PjP7e3W8Z1RNXjF1JbnyQWqGBqVaCgTVZUDRmLbKU3Es5GHYwN5bb6xUz8cCQ724mJ4HYUeBS7gdAwdRstbBnf2Y AN1rKpZ4mbxN4Zvc62fLDGxz5Xn9o37VLbrhLv8YZDyf9NjFnyxjt7AK9stUxJ3T6bqNc8cCQhN8v9Kpy6ZnrfYWRKi8oppaF"));
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject http://www.example.com/alice"));
+    Object relation = r.get_array().front().get_obj();
+    BOOST_CHECK_EQUAL(find_value(relation, "signatures").get_array().size(), 2);
 /*
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier not_hex"), runtime_error);

@@ -205,6 +205,7 @@ static const CRPCCommand vRPCCommands[] =
     { "saverelation",               &saverelation,              true,      false },
     { "saverelationfromdata",       &saverelationfromdata,      true,      false },
     { "listprivatekeys",            &listprivatekeys,           true,      false },
+    { "addsignature",               &addsignature,              true,      false },
     { "getconnectioncount",         &getconnectioncount,        true,      false },
     { "getpeerinfo",                &getpeerinfo,               true,      false },
     { "addnode",                    &addnode,                   true,      true },
