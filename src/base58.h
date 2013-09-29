@@ -72,6 +72,12 @@ inline std::string EncodeBase58(const std::vector<unsigned char>& vch)
     return EncodeBase58(&vch[0], &vch[0] + vch.size());
 }
 
+// Encode a uint256 as a base58-encoded string
+inline std::string EncodeBase58(const uint256 param)
+{
+    return EncodeBase58((unsigned char*)&param, (unsigned char*)&param + sizeof(uint256));
+}
+
 // Decode a base58-encoded string psz into byte vector vchRet
 // returns true if decoding is successful
 inline bool DecodeBase58(const char* psz, std::vector<unsigned char>& vchRet)

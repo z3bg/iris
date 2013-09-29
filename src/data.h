@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "util.h"
 #include "key.h"
+#include "base58.h"
 
 #include "json/json_spirit_reader_template.h"
 #include "json/json_spirit_writer_template.h"
@@ -18,7 +19,7 @@ using namespace boost;
 class CSignature {
 public:
     CSignature(string signedHash, string signerPubKey, string signature) : signedHash(signedHash), signerPubKey(signerPubKey), signature(signature) {
-        signerPubKeyHash = EncodeBase64(Hash(signerPubKey.begin(), signerPubKey.end()));
+        signerPubKeyHash = EncodeBase58(Hash(signerPubKey.begin(), signerPubKey.end()));
     }
     string GetSignedHash();
     string GetSignerPubKey();

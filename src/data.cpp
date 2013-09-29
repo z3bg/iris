@@ -12,8 +12,7 @@ string CRelation::GetMessage() {
 
 string CRelation::GetHash() {
     string data = GetData();
-    uint256 hash = Hash(data.begin(), data.end());
-    return EncodeBase58((unsigned char*)&hash, (unsigned char*)&hash + sizeof(uint256));
+    return EncodeBase58(Hash(data.begin(), data.end()));
 }
 
 string CRelation::GetData() {
@@ -108,6 +107,10 @@ bool CRelation::Sign(CKey& key) {
 }
 
 bool CRelation::AddSignature(CSignature signature) {
+    if (signature.GetSignedHash() == GetHash() && signature.IsValid()) {
+        signatures.push_back(signature);
+        return true;
+    }
     return false;
 }
 

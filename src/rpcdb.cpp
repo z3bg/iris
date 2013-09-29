@@ -135,7 +135,7 @@ Value addsignature(const Array& params, bool fHelp)
     CSignature sig(params[0].get_str(), params[1].get_str(), params[2].get_str());
     CRelation rel = pidentifidb->GetRelationByHash(params[0].get_str());
 
-    if (!sig.IsValid())
+    if (!rel.AddSignature(sig))
         throw runtime_error("Invalid signature");
 
     pidentifidb->SaveRelation(rel);

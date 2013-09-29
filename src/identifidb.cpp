@@ -225,8 +225,9 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
     ostringstream sql;
 
     sql.str("");
-    sql << "SELECT PubKeyHash, Signature FROM RelationSignatures ";
-    sql << "WHERE RelationHash = @relationhash;";
+    sql << "SELECT id.Value, rs.Signature FROM RelationSignatures AS rs ";
+    sql << "INNER JOIN Identifiers AS id ON id.Hash = rs.PubKeyHash ";
+    sql << "WHERE rs.RelationHash = @relationhash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -236,9 +237,9 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
             result = sqlite3_step(statement);
             
             if(result == SQLITE_ROW) {
-                string pubKeyHash = string((char*)sqlite3_column_text(statement, 0));
+                string pubKey = string((char*)sqlite3_column_text(statement, 0));
                 string signature = string((char*)sqlite3_column_text(statement, 1));
-                signatures.push_back(CSignature(relationHash, pubKeyHash, signature));
+                signatures.push_back(CSignature(relationHash, pubKey, signature));
             } else {
                 break;  
             }
@@ -279,7 +280,8 @@ vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
                 string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                relations.push_back(CRelation(message, subjects, objects, signatures));
+                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
+                relations.push_back(CRelation(message, subjects, objects, signatures, timestamp));
             }
             else
             {
@@ -320,7 +322,8 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
                 string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                relations.push_back(CRelation(message, subjects, objects, signatures));
+                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
+                relations.push_back(CRelation(message, subjects, objects, signatures, timestamp));
             }
             else
             {
@@ -361,7 +364,8 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
                 string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                relations.push_back(CRelation(message, subjects, objects, signatures));
+                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
+                relations.push_back(CRelation(message, subjects, objects, signatures, timestamp));
             }
             else
             {
@@ -412,7 +416,7 @@ string CIdentifiDB::SaveIdentifier(string identifier) {
     } else {
         sql = "INSERT INTO Identifiers (Value, Hash) VALUES (@value, @hash);";
         if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-            hash = EncodeBase64(Hash(identifier.begin(), identifier.end()));
+            hash = EncodeBase58(Hash(identifier.begin(), identifier.end()));
             sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, hash.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_step(statement);
@@ -507,7 +511,8 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
             sqlite3_step(statement);
             sqlite3_finalize(statement); 
         }  
-    } 
+    }
+    SaveIdentifier(signature.GetSignerPubKey());
 }
 
 void CIdentifiDB::SaveRelationContentIdentifier(string relationHash, string identifierHash) {
@@ -733,8 +738,9 @@ CRelation CIdentifiDB::GetRelationByHash(string hash) {
                 vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
                 vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
                 string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
+                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
                 sqlite3_finalize(statement);
-                return CRelation(message, subjects, objects, signatures);
+                return CRelation(message, subjects, objects, signatures, timestamp);
             }
             else
             {
