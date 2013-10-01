@@ -144,8 +144,6 @@ bool LoadBlockIndex();
 void UnloadBlockIndex();
 /** Verify consistency of the block and coin databases */
 bool VerifyDB();
-/** Print the loaded block tree */
-void PrintBlockTree();
 /** Find a block by height in the currently-connected chain */
 CBlockIndex* FindBlockByHeight(int nHeight);
 /** Process protocol messages received from a given node */
@@ -154,8 +152,6 @@ bool ProcessMessages(CNode* pfrom);
 bool SendMessages(CNode* pto, bool fSendTrickle);
 /** Run an instance of the script checking thread */
 void ThreadScriptCheck();
-/** Run the miner threads */
-void GenerateIdentifis(bool fGenerate, CWallet* pwallet);
 /** Generate a new block, without valid proof-of-work */
 CBlockTemplate* CreateNewBlock(CReserveKey& reservekey);
 /** Modify the extranonce in a block */

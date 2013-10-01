@@ -210,9 +210,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == hashGenesisBlock)
                     pindexGenesisBlock = pindexNew;
 
-                if (!pindexNew->CheckIndex())
-                    return error("LoadBlockIndex() : CheckIndex failed: %s", pindexNew->ToString().c_str());
-
                 pcursor->Next();
             } else {
                 break; // if shutdown requested or finished loading block index

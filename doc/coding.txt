@@ -87,8 +87,6 @@ in 500ms.
 ThreadRPCServer : Remote procedure call handler, listens on port 8332
 for connections and services them.
 
-ThreadIdentifiMiner : Generates identifis
-
 ThreadMapPort : Universal plug-and-play startup/shutdown
 
 Shutdown : Does an orderly shutdown of everything

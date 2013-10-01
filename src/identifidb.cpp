@@ -673,6 +673,8 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
         }
         visitedRelations.push_back(currentNode.GetHash());
 
+        // TODO: Discard relations with untrusted signer
+        
         // Discard relations with non-positive trust value
         bool positiveValue = false;
         vector<string> hashtags = currentNode.GetContentIdentifiers();

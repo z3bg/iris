@@ -283,8 +283,6 @@ std::string HelpMessage()
         "  -?                     " + _("This help message") + "\n" +
         "  -conf=<file>           " + _("Specify configuration file (default: identifi.conf)") + "\n" +
         "  -pid=<file>            " + _("Specify pid file (default: identifid.pid)") + "\n" +
-        "  -gen                   " + _("Generate coins") + "\n" +
-        "  -gen=0                 " + _("Don't generate coins") + "\n" +
         "  -datadir=<dir>         " + _("Specify data directory") + "\n" +
         "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n" +
         "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n" +
@@ -862,12 +860,6 @@ bool AppInit2(boost::thread_group& threadGroup)
     }
     printf(" block index %15"PRI64d"ms\n", GetTimeMillis() - nStart);
 
-    if (GetBoolArg("-printblockindex") || GetBoolArg("-printblocktree"))
-    {
-        PrintBlockTree();
-        return false;
-    }
-
     if (mapArgs.count("-printblock"))
     {
         string strMatch = mapArgs["-printblock"];
@@ -1022,9 +1014,6 @@ bool AppInit2(boost::thread_group& threadGroup)
 
     if (fServer)
         StartRPCThreads();
-
-    // Generate coins in the background
-    GenerateIdentifis(GetBoolArg("-gen", false), pwalletMain);
 
     // ********************************************************* Step 12: finished
 

@@ -1779,7 +1779,6 @@ void StartNode(boost::thread_group& threadGroup)
 bool StopNode()
 {
     printf("StopNode()\n");
-    GenerateIdentifis(false, NULL);
     MapPort(false);
     nTransactionsUpdated++;
     if (semOutbound)
