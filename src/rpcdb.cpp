@@ -6,6 +6,7 @@
 #include "main.h"
 #include "identifirpc.h"
 #include "data.h"
+#include "net.h"
 
 using namespace json_spirit;
 using namespace std;
@@ -93,6 +94,7 @@ Value saverelation(const Array& params, bool fHelp)
     CRelation relation(params[4].get_str(), *subjects, *objects, *signatures);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     relation.Sign(defaultKey);
+    RelayRelation(relation);
     return pidentifidb->SaveRelation(relation);
 }
 
@@ -103,9 +105,11 @@ Value saverelationfromdata(const Array& params, bool fHelp)
             "saverelationfromdata <relation_json_data>\n"
             "Save a relation");
 
-    CRelation relation = CRelation::fromData(params[0].get_str());
+    CRelation relation;
+    relation.SetData(params[0].get_str());
     CKey defaultKey = pidentifidb->GetDefaultKey();
     relation.Sign(defaultKey);
+    RelayRelation(relation);
     return pidentifidb->SaveRelation(relation);
 }
 

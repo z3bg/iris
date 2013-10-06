@@ -93,15 +93,6 @@ void UnregisterWallet(CWallet* pwalletIn)
     }
 }
 
-// get the wallet transaction with the given hash (if it exists)
-bool static GetTransaction(const uint256& hashTx, CWalletTx& wtx)
-{
-    BOOST_FOREACH(CWallet* pwallet, setpwalletRegistered)
-        if (pwallet->GetTransaction(hashTx,wtx))
-            return true;
-    return false;
-}
-
 // erases transaction with the given hash from all wallets
 void static EraseFromWallets(uint256 hash)
 {
@@ -2943,6 +2934,15 @@ bool static AlreadyHave(const CInv& inv)
     case MSG_BLOCK:
         return mapBlockIndex.count(inv.hash) ||
                mapOrphanBlocks.count(inv.hash);
+    case MSG_RELATION:
+        {
+            try {
+                pidentifidb->GetRelationByHash(EncodeBase58(inv.hash));
+                return true;
+            } catch (runtime_error) {
+                return false;
+            }            
+        }
     }
     // Don't know what it is, just say we already got one
     return true;
@@ -3009,7 +3009,7 @@ void static ProcessGetData(CNode* pfrom)
                     if (inv.hash == pfrom->hashContinue)
                     {
                         // Bypass PushInventory, this must send even if redundant,
-                        // and we want it right after the last block so they don't
+                        // and we wasent it right after the last block so they don't
                         // wait for other stuff first.
                         vector<CInv> vInv;
                         vInv.push_back(CInv(MSG_BLOCK, hashBestChain));
@@ -3263,8 +3263,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     }
 
 
-    else if (strCommand == "inv")
-    {
+    else if (strCommand == "inv") {
         vector<CInv> vInv;
         vRecv >> vInv;
         if (vInv.size() > MAX_INV_SZ)
@@ -3273,14 +3272,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             return error("message inv size() = %"PRIszu"", vInv.size());
         }
 
-        // find last block in inv vector
-        unsigned int nLastBlock = (unsigned int)(-1);
-        for (unsigned int nInv = 0; nInv < vInv.size(); nInv++) {
-            if (vInv[vInv.size() - 1 - nInv].type == MSG_BLOCK) {
-                nLastBlock = vInv.size() - 1 - nInv;
-                break;
-            }
-        }
         for (unsigned int nInv = 0; nInv < vInv.size(); nInv++)
         {
             const CInv &inv = vInv[nInv];
@@ -3295,15 +3286,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             if (!fAlreadyHave) {
                 if (!fImporting && !fReindex)
                     pfrom->AskFor(inv);
-            } else if (inv.type == MSG_BLOCK && mapOrphanBlocks.count(inv.hash)) {
-                pfrom->PushGetBlocks(pindexBest, GetOrphanRoot(mapOrphanBlocks[inv.hash]));
-            } else if (nInv == nLastBlock) {
-                // In case we are on a very long side-chain, it is possible that we already have
-                // the last block in an inv bundle sent in response to getblocks. Try to detect
-                // this situation and push another getblocks to continue.
-                pfrom->PushGetBlocks(mapBlockIndex[inv.hash], uint256(0));
-                if (fDebug)
-                    printf("force request: %s\n", inv.ToString().c_str());
             }
 
             // Track requests for our stuff
@@ -3333,23 +3315,63 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     }
 
 
+    else if (strCommand == "getrelations") {
+        printf("getrelations");
 
-    else if (strCommand == "tx")
+        /*        CBlockLocator locator;
+        uint256 hashStop;
+        vRecv >> locator >> hashStop;
+
+        // Find the last block the caller has in the main chain
+        CBlockIndex* pindex = locator.GetBlockIndex();
+
+        // Send the rest of the chain
+        if (pindex)
+            pindex = pindex->GetNextInMainChain();
+        int nLimit = 500;
+        LogPrint("net", "getblocks %d to %s limit %d\n", (pindex ? pindex->nHeight : -1), hashStop.ToString().c_str(), nLimit);
+        for (; pindex; pindex = pindex->GetNextInMainChain())
+        {
+            if (pindex->GetBlockHash() == hashStop)
+            {
+                LogPrint("net", " getblocks stopping at %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
+                break;
+            }
+            pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash()));
+            if (--nLimit <= 0)
+            {
+                // When this block is requested, we'll send an inv that'll make them
+                // getblocks the next batch of inventory.
+                LogPrint("net", " getblocks stopping at limit %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
+                pfrom->hashContinue = pindex->GetBlockHash();
+                break;
+            }
+        }
+        */
+    }
+
+
+
+
+    else if (strCommand == "relation")
     {
         vector<uint256> vWorkQueue;
         vector<uint256> vEraseQueue;
         CDataStream vMsg(vRecv);
-        CTransaction tx;
-        vRecv >> tx;
+        CRelation relation;
+        vRecv >> relation;
 
-        CInv inv(MSG_TX, tx.GetHash());
+        CInv inv(MSG_RELATION, relation.GetHash());
         pfrom->AddInventoryKnown(inv);
 
-        bool fMissingInputs = false;
+        pidentifidb->SaveRelation(relation);
+
+
+/*
         CValidationState state;
-        if (tx.AcceptToMemoryPool(state, true, true, &fMissingInputs))
+        if (relation.AcceptToDB(state))
         {
-            RelayTransaction(tx, inv.hash, vMsg);
+            RelayRelation(relation, inv.hash, vMsg);
             mapAlreadyAskedFor.erase(inv);
             vWorkQueue.push_back(inv.hash);
             vEraseQueue.push_back(inv.hash);
@@ -3390,18 +3412,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             BOOST_FOREACH(uint256 hash, vEraseQueue)
                 EraseOrphanTx(hash);
         }
-        else if (fMissingInputs)
-        {
-            AddOrphanTx(vMsg);
-
-            // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
-            unsigned int nEvicted = LimitOrphanTxSize(MAX_ORPHAN_TRANSACTIONS);
-            if (nEvicted > 0)
-                printf("mapOrphan overflow, removed %u tx\n", nEvicted);
-        }
         int nDoS;
         if (state.IsInvalid(nDoS))
-            pfrom->Misbehaving(nDoS);
+            pfrom->Misbehaving(nDoS);*/
     }
 
 
@@ -3413,24 +3426,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             pfrom->PushAddress(addr);
     }
 
-
-    else if (strCommand == "mempool")
-    {
-        std::vector<uint256> vtxid;
-        LOCK2(mempool.cs, pfrom->cs_filter);
-        mempool.queryHashes(vtxid);
-        vector<CInv> vInv;
-        BOOST_FOREACH(uint256& hash, vtxid) {
-            CInv inv(MSG_TX, hash);
-            if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(mempool.lookup(hash), hash)) ||
-               (!pfrom->pfilter))
-                vInv.push_back(inv);
-            if (vInv.size() == MAX_INV_SZ)
-                break;
-        }
-        if (vInv.size() > 0)
-            pfrom->PushMessage("inv", vInv);
-    }
 
 
     else if (strCommand == "ping")
@@ -3675,42 +3670,13 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         // Message: inventory
         //
         vector<CInv> vInv;
-        vector<CInv> vInvWait;
         {
             LOCK(pto->cs_inventory);
             vInv.reserve(pto->vInventoryToSend.size());
-            vInvWait.reserve(pto->vInventoryToSend.size());
             BOOST_FOREACH(const CInv& inv, pto->vInventoryToSend)
             {
                 if (pto->setInventoryKnown.count(inv))
                     continue;
-
-                // trickle out tx inv to protect privacy
-                if (inv.type == MSG_TX && !fSendTrickle)
-                {
-                    // 1/4 of tx invs blast to all immediately
-                    static uint256 hashSalt;
-                    if (hashSalt == 0)
-                        hashSalt = GetRandHash();
-                    uint256 hashRand = inv.hash ^ hashSalt;
-                    hashRand = Hash(BEGIN(hashRand), END(hashRand));
-                    bool fTrickleWait = ((hashRand & 3) != 0);
-
-                    // always trickle our own transactions
-                    if (!fTrickleWait)
-                    {
-                        CWalletTx wtx;
-                        if (GetTransaction(inv.hash, wtx))
-                            if (wtx.fFromMe)
-                                fTrickleWait = true;
-                    }
-
-                    if (fTrickleWait)
-                    {
-                        vInvWait.push_back(inv);
-                        continue;
-                    }
-                }
 
                 // returns true if wasn't already contained in the set
                 if (pto->setInventoryKnown.insert(inv).second)
@@ -3723,7 +3689,6 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                     }
                 }
             }
-            pto->vInventoryToSend = vInvWait;
         }
         if (!vInv.empty())
             pto->PushMessage("inv", vInv);

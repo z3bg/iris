@@ -1,16 +1,45 @@
-Identifi
-========
+	Identifi
+	========
 
 http://identifi.org
 
-by [Martti Malmi](http://github.com/mmalmi)
 
-About
------
+What
+----
+- Distributed identity and reputation database
+- Web of trust
+- API for integration with various trust or identity dependent applications
+- Anyone can add identifiers and make statements about their relations to others
+  - "user@example.com and http://facebook.com/user belong to the same owner"
+  - "alice@example.com and bob@example.com are friends"
+- Anyone can add reviews with their identity
+  - "alice@example.com says: I successfully traded with bob@example.com"
+- Credibility of statements can be evaluated by their author's reputation (history, social connections, identity verifications, reviews etc.)
 
-WIP. 
+Why
+---
+- Prevent spam (by accepting messages only from trusted / socially connected senders)
+- Prevent astroturfing / sockpuppeting
+- Makes it possible to trust people you have never met
+  - Utilize your good reputation in various services and situations
+  - Reduces risk of trade or loan, thus reducing price
+- Ubiquitous reputation as non-violent, cost-effective and decentralized justice
+  - Everyone can choose whose judgement or review to trust
+  - Incentive against antisocial behavior
+  - Incentive to restore trust by compensation and apology for misdeeds
+- Facilitate gift economy / time banking
+- Distributed public messaging, with trust lists instead of centralized moderator power
+- Censorship-resistance
+- Open database, vs. proprietary information silos of reputation and online identity
 
-Developing a prototype on Bitcoin code. The prototype uses a Bitcoin-like flooding network where all data is sent to every node. Later on, a social network based DHT such as [Whanau](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) could be used for distributed data storage and retrieval.
+How
+---
+- Prototype built on Bitcoin code to utilize existing crypto, network, CLI, etc. functions
+- Data package: [subject identifiers, object identifiers, message][signatures]
+  - Identified by content hash
+- Flood packages throughout the network
+  - Nodes can choose to accept only packages with 1) a trusted signature, 2) trusted subject
+- Crawl initial data from existing social networks and review systems
 
 Building
 --------
@@ -70,4 +99,8 @@ Future considerations
 
 Use [Redland](http://librdf.org) triple storage and/or [HDT](http://www.rdfhdt.org) serialization? This would enable handling of all kinds of RDF documents (standard FOAF for example) and queries by SPARQL.
 
-Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html)?
+Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) instead of a flooding network?
+
+Use external SQL DB instead of sqlite for better multi-application access to data?
+
+Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point to the Identifi WoT for many people.

@@ -21,6 +21,7 @@
 #include "addrman.h"
 #include "hash.h"
 #include "bloom.h"
+#include "data.h"
 
 class CNode;
 class CBlockIndex;
@@ -632,5 +633,8 @@ public:
 class CTransaction;
 void RelayTransaction(const CTransaction& tx, const uint256& hash);
 void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataStream& ss);
+void RelayRelation(CRelation& rel);
+void RelayRelation(CRelation& rel, const CDataStream& ss);
+
 
 #endif

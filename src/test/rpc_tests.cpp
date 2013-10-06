@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata [1234567,[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],\"#knows\"]"));
     BOOST_CHECK_EQUAL(r.get_str(), "BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx");
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 8);    
+    BOOST_CHECK_EQUAL(r.get_int(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("listprivatekeys"));
 

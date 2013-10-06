@@ -6,26 +6,26 @@
 using namespace std;
 using namespace json_spirit;
 
-string CRelation::GetMessage() {
+string CRelation::GetMessage() const {
     return message;
 }
 
-string CRelation::GetHash() {
+uint256 CRelation::GetHash() const {
     string data = GetData();
-    return EncodeBase58(Hash(data.begin(), data.end()));
+    return Hash(data.begin(), data.end());
 }
 
-string CRelation::GetData() {
+string CRelation::GetData() const {
     Array data, subjectsJSON, objectsJSON;
 
-    for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
+    for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
         Array subject;
         subject.push_back(it->first);
         subject.push_back(it->second);
         subjectsJSON.push_back(subject);
     }
 
-    for (vector<pair<string, string> >::iterator it = objects.begin(); it != objects.end(); ++it) {
+    for (vector<pair<string, string> >::const_iterator it = objects.begin(); it != objects.end(); ++it) {
         Array object;
         object.push_back(it->first);
         object.push_back(it->second);
@@ -40,11 +40,19 @@ string CRelation::GetData() {
     return write_string(Value(data), false);
 }
 
-CRelation CRelation::fromData(string data) {
+string CRelation::GetMessageFromData(string data) {
+    Value json;
+    read_string(data, json);
+    Array arr = json.get_array();
+    return arr[3].get_str();    
+}
+
+void CRelation::SetData(string data) {
     Value json;
     Array array, subjectsArray, objectsArray;
-    vector<pair<string, string> > subjects, objects;
-    vector<CSignature> signatures;
+    subjects.clear();
+    objects.clear();
+    signatures.clear();
 
     read_string(data, json);
 
@@ -53,7 +61,7 @@ CRelation CRelation::fromData(string data) {
     if (array.size() != 4)
         throw runtime_error("Invalid JSON array length");
 
-    time_t timestamp = array[0].get_int();
+    timestamp = array[0].get_int();
     subjectsArray = array[1].get_array();
     objectsArray = array[2].get_array();
 
@@ -77,16 +85,8 @@ CRelation CRelation::fromData(string data) {
         objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
-    string message = array[3].get_str();
-
-    return CRelation(message, subjects, objects, signatures, timestamp);
-}
-
-string CRelation::GetMessageFromData(string data) {
-    Value json;
-    read_string(data, json);
-    Array arr = json.get_array();
-    return arr.back().get_str();    
+    message = array[3].get_str();
+    contentIdentifiers = FindHashtags(message);
 }
 
 bool CRelation::Sign(CKey& key) {
@@ -100,62 +100,62 @@ bool CRelation::Sign(CKey& key) {
     key.Sign(hashToSign, vchSig);
     string signatureString = EncodeBase58(vchSig);
 
-    CSignature signature(GetHash(), pubKeyStr, signatureString);
+    CSignature signature(EncodeBase58(GetHash()), pubKeyStr, signatureString);
 
     signatures.push_back(signature);
     return true;
 }
 
 bool CRelation::AddSignature(CSignature signature) {
-    if (signature.GetSignedHash() == GetHash() && signature.IsValid()) {
+    if (signature.GetSignedHash() == EncodeBase58(GetHash()) && signature.IsValid()) {
         signatures.push_back(signature);
         return true;
     }
     return false;
 }
 
-vector<pair<string, string> > CRelation::GetSubjects() {
+vector<pair<string, string> > CRelation::GetSubjects() const {
     return subjects;
 }
 
-vector<pair<string, string> > CRelation::GetObjects() {
+vector<pair<string, string> > CRelation::GetObjects() const {
     return objects;
 }
 
-vector<string> CRelation::GetContentIdentifiers() {
+vector<string> CRelation::GetContentIdentifiers() const {
     return contentIdentifiers;
 }
 
-vector<CSignature> CRelation::GetSignatures() {
+vector<CSignature> CRelation::GetSignatures() const {
     return signatures;
 }
 
-time_t CRelation::GetTimestamp() {
+time_t CRelation::GetTimestamp() const {
     return timestamp;
 }
 
-Value CRelation::GetJSON() {
+Value CRelation::GetJSON() const {
     Object relationJSON;
     Array subjectsJSON, objectsJSON, signaturesJSON, hashtagsJSON;
 
-    for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
+    for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
         Array pairArray;
         pairArray.push_back(it->first);
         pairArray.push_back(it->second);
         subjectsJSON.push_back(pairArray);
     }
 
-    for (vector<pair<string, string> >::iterator it = objects.begin(); it != objects.end(); ++it) {
+    for (vector<pair<string, string> >::const_iterator it = objects.begin(); it != objects.end(); ++it) {
         Array pairArray;
         pairArray.push_back(it->first);
         pairArray.push_back(it->second);
         objectsJSON.push_back(pairArray);    }
 
-    for (vector<string>::iterator it = contentIdentifiers.begin(); it != contentIdentifiers.end(); ++it) {
+    for (vector<string>::const_iterator it = contentIdentifiers.begin(); it != contentIdentifiers.end(); ++it) {
         hashtagsJSON.push_back(*it);
     }
 
-    for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
+    for (vector<CSignature>::const_iterator it = signatures.begin(); it != signatures.end(); ++it) {
         signaturesJSON.push_back(it->GetJSON());
     }
 
@@ -183,23 +183,23 @@ vector<string> CRelation::FindHashtags(string text) {
     return results;
 }
 
-string CSignature::GetSignedHash() {
+string CSignature::GetSignedHash() const {
     return signedHash;
 }
 
-string CSignature::GetSignerPubKey() {
+string CSignature::GetSignerPubKey() const {
     return signerPubKey;
 }
 
-string CSignature::GetSignerPubKeyHash() {
+string CSignature::GetSignerPubKeyHash() const {
     return signerPubKeyHash;
 }
 
-string CSignature::GetSignature() {
+string CSignature::GetSignature() const {
     return signature;
 }
 
-bool CSignature::IsValid() {    
+bool CSignature::IsValid() const {    
     vector<unsigned char> vchHash, vchPubKey, vchSig;
     if (!DecodeBase58(signedHash, vchHash) ||
         !DecodeBase58(signerPubKey, vchPubKey) ||
@@ -221,7 +221,7 @@ bool CSignature::IsValid() {
     return key.Verify(rawHash, vchSig);
 }
 
-Value CSignature::GetJSON() {
+Value CSignature::GetJSON() const {
     Object signatureJSON;
     signatureJSON.push_back(Pair("signerPubKeyHash", signerPubKeyHash));
     signatureJSON.push_back(Pair("signature", signature));

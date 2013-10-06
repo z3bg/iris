@@ -553,7 +553,7 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     string relationHash;
 
     sql = "INSERT INTO Relations (Hash, Data, Created) VALUES (@id, @data, @timestamp);";
-    relationHash = relation.GetHash();
+    relationHash = EncodeBase58(relation.GetHash());
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
@@ -657,10 +657,10 @@ vector<string> CIdentifiDB::ListPrivateKeys() {
 // Breadth-first search for the shortest trust path from id1 to id2
 vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
     vector<CRelation> path;
-    vector<string> visitedRelations;
+    vector<uint256> visitedRelations;
 
     deque<CRelation> d;
-    map<string, CRelation> previousRelations;
+    map<uint256, CRelation> previousRelations;
 
     vector<CRelation> relations = GetRelationsByIdentifier(start);
     d.insert(d.end(), relations.begin(), relations.end());
