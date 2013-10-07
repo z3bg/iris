@@ -19,19 +19,26 @@ using namespace boost;
 
 class CSignature {
 public:
-    CSignature(string signedHash, string signerPubKey, string signature) : signedHash(signedHash), signerPubKey(signerPubKey), signature(signature) {
-        signerPubKeyHash = EncodeBase58(Hash(signerPubKey.begin(), signerPubKey.end()));
-    }
+    CSignature(string signedHash = "", string signerPubKey = "", string signature = "") : signedHash(signedHash), signerPubKey(signerPubKey), signature(signature) {}
     string GetSignedHash() const;
     string GetSignerPubKey() const;
     string GetSignerPubKeyHash() const;
     string GetSignature() const;
     bool IsValid() const;
     json_spirit::Value GetJSON() const;
+
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(signedHash);
+        READWRITE(signerPubKey);
+        READWRITE(signature);
+        if (!IsValid())
+            throw runtime_error("Invalid signature");
+    )
+
 private:
     string signedHash;
     string signerPubKey;
-    string signerPubKeyHash;
     string signature;
 };
 
@@ -66,10 +73,12 @@ public:
         if (fWrite) {
             data = GetData();
             READWRITE(data);
+            READWRITE(signatures);
         } else {
             CRelation *rel = const_cast<CRelation*>(this);
             READWRITE(data);
             rel->SetData(data);
+            READWRITE(signatures);
         }
     )
 

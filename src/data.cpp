@@ -192,7 +192,7 @@ string CSignature::GetSignerPubKey() const {
 }
 
 string CSignature::GetSignerPubKeyHash() const {
-    return signerPubKeyHash;
+    return EncodeBase58(Hash(signerPubKey.begin(), signerPubKey.end()));
 }
 
 string CSignature::GetSignature() const {
@@ -223,7 +223,7 @@ bool CSignature::IsValid() const {
 
 Value CSignature::GetJSON() const {
     Object signatureJSON;
-    signatureJSON.push_back(Pair("signerPubKeyHash", signerPubKeyHash));
+    signatureJSON.push_back(Pair("signerPubKey", signerPubKey));
     signatureJSON.push_back(Pair("signature", signature));
     return signatureJSON;
 }

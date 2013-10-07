@@ -3363,58 +3363,62 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
         CInv inv(MSG_RELATION, relation.GetHash());
         pfrom->AddInventoryKnown(inv);
+        RelayRelation(relation);
+        mapAlreadyAskedFor.erase(inv);
+        vWorkQueue.push_back(inv.hash);
+        vEraseQueue.push_back(inv.hash);
 
         pidentifidb->SaveRelation(relation);
 
 
-/*
-        CValidationState state;
-        if (relation.AcceptToDB(state))
-        {
-            RelayRelation(relation, inv.hash, vMsg);
-            mapAlreadyAskedFor.erase(inv);
-            vWorkQueue.push_back(inv.hash);
-            vEraseQueue.push_back(inv.hash);
-
-            // Recursively process any orphan transactions that depended on this one
-            for (unsigned int i = 0; i < vWorkQueue.size(); i++)
+            /*
+            CValidationState state;
+            if (relation.AcceptToDB(state))
             {
-                uint256 hashPrev = vWorkQueue[i];
-                for (map<uint256, CDataStream*>::iterator mi = mapOrphanTransactionsByPrev[hashPrev].begin();
-                     mi != mapOrphanTransactionsByPrev[hashPrev].end();
-                     ++mi)
-                {
-                    const CDataStream& vMsg = *((*mi).second);
-                    CTransaction tx;
-                    CDataStream(vMsg) >> tx;
-                    CInv inv(MSG_TX, tx.GetHash());
-                    bool fMissingInputs2 = false;
-                    // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get anyone relaying LegitTxX banned)
-                    CValidationState stateDummy;
+                RelayRelation(relation, inv.hash, vMsg);
+                mapAlreadyAskedFor.erase(inv);
+                vWorkQueue.push_back(inv.hash);
+                vEraseQueue.push_back(inv.hash);
 
-                    if (tx.AcceptToMemoryPool(stateDummy, true, true, &fMissingInputs2))
+                // Recursively process any orphan transactions that depended on this one
+                for (unsigned int i = 0; i < vWorkQueue.size(); i++)
+                {
+                    uint256 hashPrev = vWorkQueue[i];
+                    for (map<uint256, CDataStream*>::iterator mi = mapOrphanTransactionsByPrev[hashPrev].begin();
+                         mi != mapOrphanTransactionsByPrev[hashPrev].end();
+                         ++mi)
                     {
-                        printf("   accepted orphan tx %s\n", inv.hash.ToString().c_str());
-                        RelayTransaction(tx, inv.hash, vMsg);
-                        mapAlreadyAskedFor.erase(inv);
-                        vWorkQueue.push_back(inv.hash);
-                        vEraseQueue.push_back(inv.hash);
-                    }
-                    else if (!fMissingInputs2)
-                    {
-                        // invalid or too-little-fee orphan
-                        vEraseQueue.push_back(inv.hash);
-                        printf("   removed orphan tx %s\n", inv.hash.ToString().c_str());
+                        const CDataStream& vMsg = *((*mi).second);
+                        CTransaction tx;
+                        CDataStream(vMsg) >> tx;
+                        CInv inv(MSG_TX, tx.GetHash());
+                        bool fMissingInputs2 = false;
+                        // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get anyone relaying LegitTxX banned)
+                        CValidationState stateDummy;
+
+                        if (tx.AcceptToMemoryPool(stateDummy, true, true, &fMissingInputs2))
+                        {
+                            printf("   accepted orphan tx %s\n", inv.hash.ToString().c_str());
+                            RelayTransaction(tx, inv.hash, vMsg);
+                            mapAlreadyAskedFor.erase(inv);
+                            vWorkQueue.push_back(inv.hash);
+                            vEraseQueue.push_back(inv.hash);
+                        }
+                        else if (!fMissingInputs2)
+                        {
+                            // invalid or too-little-fee orphan
+                            vEraseQueue.push_back(inv.hash);
+                            printf("   removed orphan tx %s\n", inv.hash.ToString().c_str());
+                        }
                     }
                 }
-            }
 
-            BOOST_FOREACH(uint256 hash, vEraseQueue)
-                EraseOrphanTx(hash);
-        }
-        int nDoS;
-        if (state.IsInvalid(nDoS))
-            pfrom->Misbehaving(nDoS);*/
+                BOOST_FOREACH(uint256 hash, vEraseQueue)
+                    EraseOrphanTx(hash);
+            }
+            int nDoS;
+            if (state.IsInvalid(nDoS))
+                pfrom->Misbehaving(nDoS);*/
     }
 
 
