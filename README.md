@@ -37,6 +37,7 @@ How
 - Prototype built on Bitcoin code to utilize existing crypto, network, CLI, etc. functions
 - Data package: [subject identifiers, object identifiers, message][signatures]
   - Identified by content hash
+  - Signed by the entity which verified that the message originates from the named subject. Thus, all end users need not to have a crypto key of their own.
 - Flood packages throughout the network
   - Nodes can choose to accept only packages with 1) a trusted signature, 2) trusted subject
 - Crawl initial data from existing social networks and review systems
