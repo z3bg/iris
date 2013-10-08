@@ -81,9 +81,9 @@ Value getpath(const Array& params, bool fHelp)
 
 Value saverelation(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 5)
+    if (fHelp || params.size() < 5 || params.size() > 6)
         throw runtime_error(
-            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_message>\n"
+            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_message> <publish=false>\n"
             "Save a relation");
 
     vector<pair<string, string> > *subjects = new vector<pair<string, string> >();
@@ -91,25 +91,33 @@ Value saverelation(const Array& params, bool fHelp)
     vector<CSignature> *signatures = new vector<CSignature>();
     subjects->push_back(make_pair(params[0].get_str(),params[1].get_str()));
     objects->push_back(make_pair(params[2].get_str(),params[3].get_str()));
+    bool publish = (params.size() == 6 && params[5].get_str() == "true");
     CRelation relation(params[4].get_str(), *subjects, *objects, *signatures);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     relation.Sign(defaultKey);
-    RelayRelation(relation);
+    if (publish) {
+        relation.SetPublished();
+        RelayRelation(relation);
+    }
     return pidentifidb->SaveRelation(relation);
 }
 
 Value saverelationfromdata(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "saverelationfromdata <relation_json_data>\n"
+            "saverelationfromdata <relation_json_data> <publish=false>\n"
             "Save a relation");
 
     CRelation relation;
     relation.SetData(params[0].get_str());
     CKey defaultKey = pidentifidb->GetDefaultKey();
     relation.Sign(defaultKey);
-    RelayRelation(relation);
+    bool publish = (params.size() == 2 && params[1].get_str() == "true");
+    if (publish) {
+        relation.SetPublished();
+        RelayRelation(relation);
+    }
     return pidentifidb->SaveRelation(relation);
 }
 
@@ -142,6 +150,21 @@ Value addsignature(const Array& params, bool fHelp)
     if (!rel.AddSignature(sig))
         throw runtime_error("Invalid signature");
 
+    pidentifidb->SaveRelation(rel);
+
+    return true;
+}
+
+Value publish(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "publish <relation_hash>\n"
+            "Publish a previously local-only relation to the network");
+
+    CRelation rel = pidentifidb->GetRelationByHash(params[0].get_str());
+    rel.SetPublished();
+    RelayRelation(rel);
     pidentifidb->SaveRelation(rel);
 
     return true;

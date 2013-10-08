@@ -145,6 +145,6 @@ extern json_spirit::Value saverelation(const json_spirit::Array& params, bool fH
 extern json_spirit::Value saverelationfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value listprivatekeys(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value addsignature(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-
+extern json_spirit::Value publish(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 
 #endif

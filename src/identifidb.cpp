@@ -28,26 +28,22 @@ vector<vector<string> > CIdentifiDB::query(const char* query)
     sqlite3_stmt *statement;
     vector<vector<string> > results;
  
-    if(sqlite3_prepare_v2(db, query, -1, &statement, 0) == SQLITE_OK)
+    if (sqlite3_prepare_v2(db, query, -1, &statement, 0) == SQLITE_OK)
     {
         int cols = sqlite3_column_count(statement);
         int result = 0;
-        while(true)
-        {
+        while (true) {
             result = sqlite3_step(statement);
              
-            if(result == SQLITE_ROW)
-            {
+            if (result == SQLITE_ROW) {
                 vector<string> values;
-                for(int col = 0; col < cols; col++)
+                for (int col = 0; col < cols; col++)
                 {
                     values.push_back((char*)sqlite3_column_text(statement, col));
                 }
                 results.push_back(values);
-            }
-            else
-            {
-                break;  
+            } else {
+                break;
             }
         }
         
@@ -55,7 +51,7 @@ vector<vector<string> > CIdentifiDB::query(const char* query)
     }
      
     string error = sqlite3_errmsg(db);
-    if(error != "not an error") cout << query << " " << error << endl;
+    if (error != "not an error") cout << query << " " << error << endl;
      
     return results; 
 }
@@ -104,7 +100,8 @@ void CIdentifiDB::Initialize() {
     sql << "CREATE TABLE IF NOT EXISTS Relations (";
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "Data                NVARCHAR(1000)  NOT NULL,";
-    sql << "Created             DATETIME";
+    sql << "Created             DATETIME,";
+    sql << "Published           BOOL            DEFAULT 0";
     sql << ");";
     query(sql.str().c_str());
 
@@ -275,13 +272,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
              
             if(result == SQLITE_ROW)
             {
-                string relationHash = string((char*)sqlite3_column_text(statement, 0));
-                vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
-                vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
-                vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
-                relations.push_back(CRelation(message, subjects, objects, signatures, timestamp));
+                relations.push_back(GetRelationFromStatement(statement));
             }
             else
             {
@@ -295,6 +286,17 @@ vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
     }
     
     return relations;
+}
+
+CRelation CIdentifiDB::GetRelationFromStatement(sqlite3_stmt *statement) {
+    string relationHash = string((char*)sqlite3_column_text(statement, 0));
+    vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
+    vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
+    vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
+    string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
+    time_t timestamp = time_t(sqlite3_column_int(statement, 2));
+    bool published = sqlite3_column_int(statement, 3);
+    return CRelation(message, subjects, objects, signatures, timestamp, published);
 }
 
 vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
@@ -317,13 +319,7 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
              
             if(result == SQLITE_ROW)
             {
-                string relationHash = string((char*)sqlite3_column_text(statement, 0));
-                vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
-                vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
-                vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
-                relations.push_back(CRelation(message, subjects, objects, signatures, timestamp));
+                relations.push_back(GetRelationFromStatement(statement));
             }
             else
             {
@@ -359,13 +355,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
              
             if(result == SQLITE_ROW)
             {
-                string relationHash = string((char*)sqlite3_column_text(statement, 0));
-                vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
-                vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
-                vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
-                relations.push_back(CRelation(message, subjects, objects, signatures, timestamp));
+                relations.push_back(GetRelationFromStatement(statement));
             }
             else
             {
@@ -552,12 +542,13 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     string sql;
     string relationHash;
 
-    sql = "INSERT INTO Relations (Hash, Data, Created) VALUES (@id, @data, @timestamp);";
+    sql = "INSERT INTO Relations (Hash, Data, Created, Published) VALUES (@id, @data, @timestamp, @published);";
     relationHash = EncodeBase58(relation.GetHash());
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(statement, 3, relation.GetTimestamp());
+        sqlite3_bind_int(statement, 4, relation.IsPublished());
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
@@ -735,17 +726,10 @@ CRelation CIdentifiDB::GetRelationByHash(string hash) {
              
             if(result == SQLITE_ROW)
             {
-                string relationHash = string((char*)sqlite3_column_text(statement, 0));
-                vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
-                vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
-                vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-                string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-                time_t timestamp = time_t(sqlite3_column_int(statement, 2));
+                CRelation relation = GetRelationFromStatement(statement);
                 sqlite3_finalize(statement);
-                return CRelation(message, subjects, objects, signatures, timestamp);
-            }
-            else
-            {
+                return relation;
+            } else {
                 break;
             }
         }

@@ -44,7 +44,7 @@ private:
 
 class CRelation {
 public:
-    CRelation(string message = "", vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL)) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp) {
+    CRelation(string message = "", vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
         contentIdentifiers = FindHashtags(message);
     }
     bool operator== (const CRelation &r) const {
@@ -55,6 +55,8 @@ public:
     }
     static string GetMessageFromData(string data);
     void SetData(string data);
+    void SetPublished();
+    bool IsPublished();
     bool Sign(CKey& key);
     bool AddSignature(CSignature signature);
     string GetMessage() const;
@@ -78,6 +80,7 @@ public:
             CRelation *rel = const_cast<CRelation*>(this);
             READWRITE(data);
             rel->SetData(data);
+            rel->SetPublished();
             READWRITE(signatures);
         }
     )
@@ -90,6 +93,7 @@ private:
     vector<CSignature> signatures;
     vector<string> FindHashtags(string text);
     time_t timestamp;
+    bool published;
 };
 
 #endif // IDENTIFI_DATA_H

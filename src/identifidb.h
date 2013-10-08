@@ -39,6 +39,7 @@ private:
     vector<pair<string, string> > GetSubjectsByRelationHash(string relationHash);
     vector<pair<string, string> > GetObjectsByRelationHash(string relationHash);
     vector<CSignature> GetSignaturesByRelationHash(string relationHash);
+    CRelation GetRelationFromStatement(sqlite3_stmt *statement);
     void SaveRelationSubject(string relationHash, int predicateID, string subjectHash);
     void SaveRelationObject(string relationHash, int predicateID, string objectHash);
     int SavePredicate(string predicate);

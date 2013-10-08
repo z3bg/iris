@@ -159,12 +159,14 @@ Value CRelation::GetJSON() const {
         signaturesJSON.push_back(it->GetJSON());
     }
 
+    relationJSON.push_back(Pair("hash", EncodeBase58(GetHash())));
     relationJSON.push_back(Pair("timestamp", timestamp));
     relationJSON.push_back(Pair("subjects", subjectsJSON));
     relationJSON.push_back(Pair("objects", objectsJSON));
     relationJSON.push_back(Pair("message", message));
     relationJSON.push_back(Pair("hashtags", hashtagsJSON));
     relationJSON.push_back(Pair("signatures", signaturesJSON));
+    relationJSON.push_back(Pair("published", published));
 
     return relationJSON;
 }
@@ -181,6 +183,14 @@ vector<string> CRelation::FindHashtags(string text) {
     }
 
     return results;
+}
+
+void CRelation::SetPublished() {
+    published = true;
+}
+
+bool CRelation::IsPublished() {
+    return published;
 }
 
 string CSignature::GetSignedHash() const {
