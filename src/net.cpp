@@ -1172,7 +1172,8 @@ void MapPort(bool)
 // The first name is used as information source for addrman.
 // The second name should resolve to a list of seed addresses.
 static const char *strMainNetDNSSeed[][2] = {
-    // {"info.identifi.org", "seed.identifi.org"}, // TODO:
+    {"dns1.louhi.fi", "seed1.identifi.org"},
+    {"freedns.afraid.org", "seed2.identifi.org"},
     {NULL, NULL}
 };
 
