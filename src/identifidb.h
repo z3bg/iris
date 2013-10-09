@@ -18,7 +18,7 @@ using namespace std;
 class CIdentifiDB
 {
 public:
-    CIdentifiDB(const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
+    CIdentifiDB(int sqliteMaxSize = 1000, const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
     vector<CRelation> GetRelationsByIdentifier(string identifier);
@@ -48,6 +48,7 @@ private:
     vector<vector<string> > query(const char* query);
     void CheckDefaultKey();
     void CheckHashtagValues();
+    void SetMaxSize(int sqliteMaxSize);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H

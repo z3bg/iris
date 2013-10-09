@@ -285,6 +285,7 @@ std::string HelpMessage()
         "  -pid=<file>            " + _("Specify pid file (default: identifid.pid)") + "\n" +
         "  -datadir=<dir>         " + _("Specify data directory") + "\n" +
         "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n" +
+        "  -dbmaxsize=<n>         " + _("Set database maximum size in megabytes (default: 1000)") + "\n" +
         "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n" +
         "  -proxy=<ip:port>       " + _("Connect through socks proxy") + "\n" +
         "  -socks=<n>             " + _("Select the version of socks proxy to use (4-5, default: 5)") + "\n" +
@@ -781,6 +782,9 @@ bool AppInit2(boost::thread_group& threadGroup)
     nTotalCache -= nCoinDBCache;
     nCoinCacheSize = nTotalCache / 300; // coins in memory require around 300 bytes
 
+    // SQLite size in megabytes
+    int sqliteMaxSize = GetArg("-dbmaxsize", 1000);
+
     bool fLoaded = false;
     while (!fLoaded) {
         bool fReset = fReindex;
@@ -799,7 +803,7 @@ bool AppInit2(boost::thread_group& threadGroup)
 
                 pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex);
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
-                pidentifidb = new CIdentifiDB();
+                pidentifidb = new CIdentifiDB(sqliteMaxSize);
                 pcoinsTip = new CCoinsViewCache(*pcoinsdbview);
 
                 if (fReindex)

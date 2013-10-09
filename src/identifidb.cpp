@@ -12,10 +12,12 @@
 #include "data.h"
 
 using namespace std;
+using namespace boost;
 
-CIdentifiDB::CIdentifiDB(const boost::filesystem::path &filename) {
+CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
     if (sqlite3_open(filename.string().c_str(), &db) == SQLITE_OK) {
         Initialize();
+        SetMaxSize(sqliteMaxSize);
     }
 }
 
@@ -56,9 +58,20 @@ vector<vector<string> > CIdentifiDB::query(const char* query)
     return results; 
 }
 
+void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
+    if (sqliteMaxSize < 1)
+        sqliteMaxSize = 1;
+    int pageSize = lexical_cast<int>(query("PRAGMA page_size")[0][0]);
+    int maxPageCount = sqliteMaxSize * (1 << 20) / pageSize;
+    ostringstream sql;
+    sql.str("");
+    sql << "PRAGMA max_page_count = " << maxPageCount << "\n";
+    query(sql.str().c_str())[0][0];
+}
+
 void CIdentifiDB::CheckDefaultKey() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE rowid = 0");
-    if (boost::lexical_cast<int>(result[0][0]) != 1) {
+    if (lexical_cast<int>(result[0][0]) != 1) {
         CKey newKey;
         newKey.MakeNewKey(false);
         SetDefaultKey(newKey);
@@ -76,7 +89,7 @@ void CIdentifiDB::CheckHashtagValues() {
 
     vector<vector<string> > result = query("SELECT Hashtag, Value FROM HashtagValues");
     for (vector<vector<string> >::iterator row = result.begin(); row != result.end(); row++) {
-        hashtagValues[row->at(0)] = boost::lexical_cast<int>(row->at(1));
+        hashtagValues[row->at(0)] = lexical_cast<int>(row->at(1));
     }
 }
 
@@ -741,11 +754,11 @@ CRelation CIdentifiDB::GetRelationByHash(string hash) {
 
 int CIdentifiDB::GetIdentifierCount() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Identifiers");
-    return boost::lexical_cast<int>(result[0][0]);
+    return lexical_cast<int>(result[0][0]);
 }
 
 int CIdentifiDB::GetRelationCount() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Relations");
-    return boost::lexical_cast<int>(result[0][0]);
+    return lexical_cast<int>(result[0][0]);
 }
 
