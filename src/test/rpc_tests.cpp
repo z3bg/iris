@@ -111,50 +111,31 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject http://www.example.com/alice"));
     relation = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(relation, "signatures").get_array().size(), 2);
-/*
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier not_hex"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier a3b807410df0b60fcb9736768df5823938b2f838694939ba45f3c0a1bff150ed not_int"), runtime_error);
+}
 
-    BOOST_CHECK_NO_THROW(CallRPC("getrelationsbyidentifier"));
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier string"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier 0 string"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier 0 1 not_array"), runtime_error);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyidentifier 0 1 []"));
-    BOOST_CHECK_THROW(r=CallRPC("getrelationsbyidentifier 0 1 [] extra"), runtime_error);
-    BOOST_CHECK(r.get_array().empty());
+BOOST_AUTO_TEST_CASE(db_max_size)
+{
+    delete pidentifidb;
+    pidentifidb = new CIdentifiDB(1);
+    Value r;
+    const char* rpcFormat = "saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com %i";
+    for (int i = 0; i < 1600; i++) {
+        char rpc[100];
+        sprintf(rpc, rpcFormat, i);
+        CallRPC(rpc);
+        if (i % 100 == 0) cout << i << " relations saved\n";
+    }
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
+    int relationCount = r.get_int();
+    for (int i = 0; i < 300; i++) {
+        char rpc[100];
+        sprintf(rpc, rpcFormat, i);
+        CallRPC(rpc);
+        if (i % 100 == 0) cout << i << " relations saved\n";
 
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier null null"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier not_array"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier [] []"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier {} {}"), runtime_error);
-    BOOST_CHECK_NO_THROW(CallRPC("getrelationsbyidentifier [] {}"));
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier [] {} extra"), runtime_error);
-
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier null"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier DEADBEEF"), runtime_error);
-    BOOST_CHECK_NO_THROW(r = CallRPC(string("getrelationsbyidentifier ")+rawtx));
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "version").get_int(), 1);
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "locktime").get_int(), 0);
-    BOOST_CHECK_THROW(r = CallRPC(string("getrelationsbyidentifier ")+rawtx+" extra"), runtime_error);
-
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier null"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier ff00"), runtime_error);
-    BOOST_CHECK_NO_THROW(CallRPC(string("getrelationsbyidentifier ")+rawtx));
-    BOOST_CHECK_NO_THROW(CallRPC(string("getrelationsbyidentifier ")+rawtx+" null null NONE|ANYONECANPAY"));
-    BOOST_CHECK_NO_THROW(CallRPC(string("getrelationsbyidentifier ")+rawtx+" [] [] NONE|ANYONECANPAY"));
-    BOOST_CHECK_THROW(CallRPC(string("getrelationsbyidentifier ")+rawtx+" null null badenum"), runtime_error);
-
-    // Only check failure cases for sendrawtransaction, there's no network to send to...
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier null"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("getrelationsbyidentifier DEADBEEF"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC(string("getrelationsbyidentifier ")+rawtx+" extra"), runtime_error);
-*/
-
+    }
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
+    BOOST_CHECK(relationCount - 100 < r.get_int());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

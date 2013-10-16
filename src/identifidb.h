@@ -33,6 +33,9 @@ public:
     int GetIdentifierCount();
     CRelation GetRelationByHash(string hash);
     vector<CRelation> GetPath(string start, string end, int searchDepth = 3);
+    int GetTrustValue(CRelation &relation);
+    bool MakeFreeSpace(int nFreeBytesNeeded);
+    void DropRelation(string strRelationHash);
 private:
     sqlite3 *db;
     map<string, int> hashtagValues;

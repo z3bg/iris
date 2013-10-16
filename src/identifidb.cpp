@@ -6,6 +6,7 @@
 #include <iostream>
 #include <deque>
 #include <boost/lexical_cast.hpp>
+#include <boost/foreach.hpp>
 #include <map>
 #include "identifidb.h"
 #include "main.h"
@@ -13,6 +14,18 @@
 
 using namespace std;
 using namespace boost;
+
+#ifndef RETRY_IF_DB_FULL
+#define RETRY_IF_DB_FULL(statements)                            \
+    int sqliteReturnCode = -1;                                  \
+    do {                                                        \
+        {statements}                                            \
+        if (sqliteReturnCode == SQLITE_FULL) {                  \
+            if (!MakeFreeSpace(10000))                          \
+                throw runtime_error("Not enough DB space");     \
+        }                                                       \
+    } while (sqliteReturnCode == SQLITE_FULL);
+#endif
 
 CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
     if (sqlite3_open(filename.string().c_str(), &db) == SQLITE_OK) {
@@ -114,7 +127,8 @@ void CIdentifiDB::Initialize() {
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "Data                NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME,";
-    sql << "Published           BOOL            DEFAULT 0";
+    sql << "Published           BOOL            DEFAULT 0,";
+    sql << "TrustValue          INTEGER         DEFAULT 0";
     sql << ");";
     query(sql.str().c_str());
 
@@ -392,16 +406,18 @@ int CIdentifiDB::SavePredicate(string predicate) {
     }
     if (sqlite3_step(statement) == SQLITE_ROW) {
         rowid = sqlite3_column_int(statement, 0);
-        sqlite3_finalize(statement);
     } else {
         sql = "INSERT INTO Predicates (Value) VALUES (@value);";
-        if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, predicate.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-            sqlite3_finalize(statement);
-        }
+        RETRY_IF_DB_FULL(
+            if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, predicate.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(statement);
+                sqliteReturnCode = sqlite3_reset(statement);
+            }
+        )
         rowid = sqlite3_last_insert_rowid(db);
     }
+    sqlite3_finalize(statement);
     return rowid;
 }
 
@@ -412,21 +428,107 @@ string CIdentifiDB::SaveIdentifier(string identifier) {
     const char *sql = "SELECT Hash FROM Identifiers WHERE Value = @value;";
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
-    }
-    if (sqlite3_step(statement) == SQLITE_ROW) {
-        hash = string((char*)sqlite3_column_text(statement, 0));
-        sqlite3_finalize(statement);
-    } else {
-        sql = "INSERT INTO Identifiers (Value, Hash) VALUES (@value, @hash);";
-        if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-            hash = EncodeBase58(Hash(identifier.begin(), identifier.end()));
-            sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, hash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-            sqlite3_finalize(statement);
+        
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            hash = string((char*)sqlite3_column_text(statement, 0));
+        } else {
+            sql = "INSERT INTO Identifiers (Value, Hash) VALUES (@value, @hash);";
+            RETRY_IF_DB_FULL(
+                if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+                    hash = EncodeBase58(Hash(identifier.begin(), identifier.end()));
+                    sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(statement, 2, hash.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_step(statement);
+                    sqliteReturnCode = sqlite3_reset(statement);
+                }
+            )
         }
     }
+    sqlite3_finalize(statement);
     return hash;
+}
+
+void CIdentifiDB::DropRelation(string strRelationHash) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "DELETE FROM Relations WHERE Hash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    // Remove identifiers that were mentioned in this relation only
+    sql.str("");
+    sql << "DELETE FROM Identifiers WHERE Hash IN ";
+    sql << "(SELECT id.Hash FROM Identifiers AS id ";
+    sql << "JOIN RelationObjects AS ro ON ro.ObjectHash = id.Hash ";
+    sql << "JOIN RelationSubjects AS rs ON rs.SubjectHash = id.Hash ";
+    sql << "WHERE ro.RelationHash = @relhash OR rs.RelationHash = @relhash) ";
+    sql << "AND Hash NOT IN ";
+    sql << "(SELECT id.Hash FROM Identifiers AS id ";
+    sql << "JOIN RelationObjects AS ro ON ro.ObjectHash = id.Hash ";
+    sql << "JOIN RelationSubjects AS rs ON rs.SubjectHash = id.Hash ";
+    sql << "WHERE ro.RelationHash != @relhash AND rs.RelationHash != @relhash)";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sql.str("");
+    sql << "DELETE FROM RelationObjects WHERE RelationHash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sql.str("");
+    sql << "DELETE FROM RelationSubjects WHERE RelationHash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sql.str("");
+    sql << "DELETE FROM RelationSignatures WHERE RelationHash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sql.str("");
+    sql << "DELETE FROM RelationContentIdentifiers WHERE RelationHash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sqlite3_finalize(statement);
+}
+
+// This is called to drop the least valuable data when DB is full
+bool CIdentifiDB::MakeFreeSpace(int nFreeBytesNeeded) {
+    ostringstream sql;
+    int nFreePages, nPageSize, nMaxPageCount;
+    nPageSize = lexical_cast<int>(query("PRAGMA page_size")[0][0]);
+    nMaxPageCount = lexical_cast<int>(query("PRAGMA max_page_count")[0][0]);
+
+    if (nFreeBytesNeeded > nMaxPageCount * nPageSize)
+        return false;
+
+    do {
+        sql.str("");
+        sql << "SELECT Hash FROM Relations ORDER BY TrustValue ASC, Created ASC LIMIT 1";
+        string relationToRemove = query(sql.str().c_str())[0][0];
+        DropRelation(relationToRemove);
+        nFreePages = lexical_cast<int>(query("PRAGMA freelist_count")[0][0]);
+    } while (nFreePages * nPageSize < nFreeBytesNeeded);
+
+    return true;
 }
 
 void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, string subjectHash) {
@@ -450,14 +552,17 @@ void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, stri
         sql << "INSERT OR IGNORE INTO RelationSubjects (RelationHash, PredicateID, SubjectHash) ";
         sql << "VALUES (@relationhash, @predicateid, @subjectid);";
         
-        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 2, predicateID);
-            sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-        }
+        RETRY_IF_DB_FULL(
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(statement, 2, predicateID);
+                sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(statement);
+                sqliteReturnCode = sqlite3_reset(statement);
+            }
+        )
     }
-    sqlite3_finalize(statement);    
+    sqlite3_finalize(statement);
 }
 
 void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, string objectHash) {
@@ -481,14 +586,17 @@ void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, strin
         sql << "INSERT OR IGNORE INTO RelationObjects (RelationHash, PredicateID, ObjectHash) ";
         sql << "VALUES (@relationhash, @predicateid, @objectid);";
         
-        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 2, predicateID);
-            sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-        }
+        RETRY_IF_DB_FULL(
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int(statement, 2, predicateID);
+                sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(statement);
+                sqliteReturnCode = sqlite3_reset(statement);
+            }
+        )
     }
-    sqlite3_finalize(statement);    
+    sqlite3_finalize(statement);
 }
 
 void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
@@ -507,14 +615,17 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
         sql.str("");
         sql << "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) ";
         sql << "VALUES (@relationhash, @pubkeyhash, @signature);";
-        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-            sqlite3_finalize(statement); 
-        }  
+        RETRY_IF_DB_FULL(
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(statement);
+                sqliteReturnCode = sqlite3_reset(statement); 
+            }
+        )
     }
+    sqlite3_finalize(statement);
     SaveIdentifier(signature.GetSignerPubKey());
 }
 
@@ -531,23 +642,44 @@ void CIdentifiDB::SaveRelationContentIdentifier(string relationHash, string iden
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
-    } else {
-        printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
         sql << "INSERT OR IGNORE INTO RelationContentIdentifiers (RelationHash, IdentifierHash) ";
         sql << "VALUES (@relationhash, @identifierhash);";
         
-        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-        } else {
-            printf("DB Error: %s\n", sqlite3_errmsg(db));
-        }
+        RETRY_IF_DB_FULL(
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(statement);
+                sqliteReturnCode = sqlite3_reset(statement);
+            }
+        )
     }
-    sqlite3_finalize(statement); 
+    sqlite3_finalize(statement);
+}
+
+// TODO: in addition to the signer, subject should be taken into account too
+int CIdentifiDB::GetTrustValue(CRelation &relation) {
+    const int MAX_TRUST = 100;
+    CKey myKey = GetDefaultKey();
+    string strMyKey = EncodeBase58(myKey.GetPubKey().Raw());
+    int nShortestPath = 1000000;
+    vector<CSignature> sigs = relation.GetSignatures();
+    for (vector<CSignature>::iterator i = sigs.begin(); i != sigs.end(); i++) {
+        string signerPubKey = i->GetSignerPubKey();
+        if (signerPubKey == strMyKey)
+            return MAX_TRUST;
+        int nPath = GetPath(strMyKey, signerPubKey).size();
+        if (nPath < nShortestPath)
+            nShortestPath = nPath;
+    }
+
+    if (nShortestPath > 0)
+        return MAX_TRUST / nShortestPath;
+    else
+        return 0;
 }
 
 string CIdentifiDB::SaveRelation(CRelation &relation) {
@@ -555,18 +687,21 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     string sql;
     string relationHash;
 
-    sql = "INSERT INTO Relations (Hash, Data, Created, Published) VALUES (@id, @data, @timestamp, @published);";
+    sql = "INSERT INTO Relations (Hash, Data, Created, Published, TrustValue) VALUES (@id, @data, @timestamp, @published, @trust);";
     relationHash = EncodeBase58(relation.GetHash());
-    if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(statement, 3, relation.GetTimestamp());
-        sqlite3_bind_int(statement, 4, relation.IsPublished());
-    } else {
-        printf("DB Error: %s\n", sqlite3_errmsg(db));
-    }
-    sqlite3_step(statement);
-    sqlite3_finalize(statement);
+    RETRY_IF_DB_FULL(
+        if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(statement, 3, relation.GetTimestamp());
+            sqlite3_bind_int(statement, 4, relation.IsPublished());
+            sqlite3_bind_int(statement, 5, GetTrustValue(relation));
+        } else {
+            printf("DB Error: %s\n", sqlite3_errmsg(db));
+        }
+        sqlite3_step(statement);
+        sqliteReturnCode = sqlite3_reset(statement);
+    )
 
     vector<pair<string, string> > subjects = relation.GetSubjects();
     for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
@@ -590,6 +725,7 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
         SaveRelationSignature(*it);
     }
 
+    sqlite3_finalize(statement);
     return relationHash;
 }
 
@@ -747,8 +883,8 @@ CRelation CIdentifiDB::GetRelationByHash(string hash) {
             }
         }
         
-        sqlite3_finalize(statement);
     }
+    sqlite3_finalize(statement);
     throw runtime_error("relation not found");    
 }
 
