@@ -101,6 +101,7 @@ TODO
 * Improve in-built trust evaluation algorithm
 * Replace hashtag system with numeric ratings
 * Recalculate old trust ratings when new packets arrive
+* Network method for requesting packets created after a given timestamp
 * Remove unnecessary Bitcoin code
 * Add more signature methods
 * Write performance tests and improve efficiency
