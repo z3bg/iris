@@ -59,7 +59,7 @@ Data format
 
 Using JSON serialization for the prototype.
 
-Suggested data format for Identifi messages:
+Suggested data format for Identifi packets:
 
 	[
 		<timestamp>,
@@ -95,6 +95,19 @@ Messages are digitally signed by the entity that verifies that the message origi
 
 Message encoding is UTF-8.
 
+TODO
+----
+
+* Improve in-built trust evaluation algorithm
+* Replace hashtag system with numeric ratings
+* Recalculate old trust ratings when new packets arrive
+* Remove unnecessary Bitcoin code
+* Add more signature methods
+* Write performance tests and improve efficiency
+* Crawlers
+* Visualizations
+* Trusted sites as entry points to the WoT. Let users authenticate with email, FB, pubkey, etc.
+
 Future considerations
 ---------------------
 
@@ -105,3 +118,5 @@ Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) i
 Use external SQL DB instead of sqlite for better multi-application access to data?
 
 Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point to the Identifi WoT for many people.
+
+Allow messages in Identifi packets to be JSON dicts? ATM limited to strings.
