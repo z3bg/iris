@@ -3323,9 +3323,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
         int nLimit = 500;
 
-        for (int i = 0; i < nLimit; i++) {
-            
-        }
+        vector<CRelation> relations = pidentifidb->GetRelationsAfterTimestamp(afterTimestamp, nLimit);
+        BOOST_FOREACH(const CRelation &rel, relations)
+            pfrom->PushInventory(CInv(MSG_RELATION, rel.GetHash()));
 
         /*        CBlockLocator locator;
         uint256 hashStop;
@@ -3614,18 +3614,9 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 pto->PushMessage("ping");
         }
 
-        // Start block sync
         if (pto->fStartSync && !fImporting && !fReindex) {
             pto->fStartSync = false;
-            pto->PushGetBlocks(pindexBest, uint256(0));
-        }
-
-        // Resend wallet transactions that haven't gotten in a block yet
-        // Except during reindex, importing and IBD, when old wallet
-        // transactions become unconfirmed and spams other nodes.
-        if (!fReindex && !fImporting && !IsInitialBlockDownload())
-        {
-            ResendWalletTransactions();
+            pto->PushGetRelations(pidentifidb->GetLatestRelationTimestamp());
         }
 
         // Address refresh broadcast

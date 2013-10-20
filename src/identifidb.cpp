@@ -965,3 +965,18 @@ vector<CRelation> CIdentifiDB::GetRelationsAfterRelation(string relationHash, in
     
     return relations;
 }
+
+time_t CIdentifiDB::GetLatestRelationTimestamp() {
+    sqlite3_stmt *statement;
+    time_t timestamp = 0;
+    const char* sql = "SELECT Created FROM Relations ORDER BY Created DESC LIMIT 1";
+
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        int result = sqlite3_step(statement);
+        if(result == SQLITE_ROW) {
+            timestamp = sqlite3_column_int64(statement, 0);
+        }
+    }
+    sqlite3_finalize(statement);
+    return timestamp;
+}

@@ -89,6 +89,13 @@ void CNode::PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd)
     PushMessage("getblocks", CBlockLocator(pindexBegin), hashEnd);
 }
 
+void CNode::PushGetRelations(time_t timestamp)
+{
+    if (fDebugNet)
+        printf("PushGetRelations(%lld)\n", (long long) timestamp);
+    PushMessage("getrelations", timestamp);
+}
+
 // find 'best' local address for a particular peer
 bool GetLocal(CService& addr, const CNetAddr *paddrPeer)
 {
@@ -1490,9 +1497,7 @@ void static StartSync(const vector<CNode*> &vNodes) {
     BOOST_FOREACH(CNode* pnode, vNodes) {
         // check preconditions for allowing a sync
         if (!pnode->fClient && !pnode->fOneShot &&
-            !pnode->fDisconnect && pnode->fSuccessfullyConnected &&
-            (pnode->nStartingHeight > (nBestHeight - 144)) &&
-            (pnode->nVersion < NOBLKS_VERSION_START || pnode->nVersion >= NOBLKS_VERSION_END)) {
+            !pnode->fDisconnect && pnode->fSuccessfullyConnected) {
             // if ok, compare node's score with the best so far
             double dScore = NodeSyncScore(pnode);
             if (pnodeNewSync == NULL || dScore > dBestScore) {

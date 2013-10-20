@@ -38,6 +38,7 @@ public:
     int GetTrustValue(CRelation &relation);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropRelation(string strRelationHash);
+    time_t GetLatestRelationTimestamp();
 private:
     sqlite3 *db;
     map<string, int> hashtagValues;
