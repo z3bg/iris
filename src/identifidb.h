@@ -41,7 +41,6 @@ public:
     time_t GetLatestRelationTimestamp();
 private:
     sqlite3 *db;
-    map<string, int> hashtagValues;
     vector<pair<string, string> > GetSubjectsByRelationHash(string relationHash);
     vector<pair<string, string> > GetObjectsByRelationHash(string relationHash);
     vector<CSignature> GetSignaturesByRelationHash(string relationHash);
@@ -50,10 +49,8 @@ private:
     void SaveRelationObject(string relationHash, int predicateID, string objectHash);
     int SavePredicate(string predicate);
     string SaveIdentifier(string identifier);
-    void SaveRelationContentIdentifier(string relationHash, string identifierID);
     vector<vector<string> > query(const char* query);
     void CheckDefaultKey();
-    void CheckHashtagValues();
     void SetMaxSize(int sqliteMaxSize);
 };
 

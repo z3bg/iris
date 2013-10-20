@@ -45,7 +45,6 @@ private:
 class CRelation {
 public:
     CRelation(string message = "", vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
-        contentIdentifiers = FindHashtags(message);
         data = MakeData();
     }
     bool operator== (const CRelation &r) const {
@@ -60,13 +59,16 @@ public:
     bool IsPublished();
     bool Sign(CKey& key);
     bool AddSignature(CSignature signature);
+    int GetRating() const;
+    int GetMinRating() const;
+    int GetMaxRating() const;
+    string GetComment() const;
     string GetMessage() const;
     string GetData() const;
     uint256 GetHash() const;
     time_t GetTimestamp() const;
     vector<pair<string, string> > GetSubjects() const;
     vector<pair<string, string> > GetObjects() const;
-    vector<string> GetContentIdentifiers() const;
     vector<CSignature> GetSignatures() const;
     json_spirit::Value GetJSON() const;
 
@@ -89,12 +91,15 @@ public:
 private:
     string data;
     string message;
+    string comment;
+    string type;
+    int rating;
+    int maxRating;
+    int minRating;
     vector<pair<string, string> > subjects;
     vector<pair<string, string> > objects;
-    vector<string> contentIdentifiers;
     vector<CSignature> signatures;
     string MakeData();
-    vector<string> FindHashtags(string text);
     time_t timestamp;
     bool published;
 };

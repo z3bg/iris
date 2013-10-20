@@ -90,7 +90,6 @@ void CRelation::SetData(string data) {
     }
 
     message = array[3].get_str();
-    contentIdentifiers = FindHashtags(message);
     CRelation::data = data;
 }
 
@@ -127,10 +126,6 @@ vector<pair<string, string> > CRelation::GetObjects() const {
     return objects;
 }
 
-vector<string> CRelation::GetContentIdentifiers() const {
-    return contentIdentifiers;
-}
-
 vector<CSignature> CRelation::GetSignatures() const {
     return signatures;
 }
@@ -141,7 +136,7 @@ time_t CRelation::GetTimestamp() const {
 
 Value CRelation::GetJSON() const {
     Object relationJSON;
-    Array subjectsJSON, objectsJSON, signaturesJSON, hashtagsJSON;
+    Array subjectsJSON, objectsJSON, signaturesJSON;
 
     for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
         Array pairArray;
@@ -156,10 +151,6 @@ Value CRelation::GetJSON() const {
         pairArray.push_back(it->second);
         objectsJSON.push_back(pairArray);    }
 
-    for (vector<string>::const_iterator it = contentIdentifiers.begin(); it != contentIdentifiers.end(); ++it) {
-        hashtagsJSON.push_back(*it);
-    }
-
     for (vector<CSignature>::const_iterator it = signatures.begin(); it != signatures.end(); ++it) {
         signaturesJSON.push_back(it->GetJSON());
     }
@@ -169,25 +160,10 @@ Value CRelation::GetJSON() const {
     relationJSON.push_back(Pair("subjects", subjectsJSON));
     relationJSON.push_back(Pair("objects", objectsJSON));
     relationJSON.push_back(Pair("message", message));
-    relationJSON.push_back(Pair("hashtags", hashtagsJSON));
     relationJSON.push_back(Pair("signatures", signaturesJSON));
     relationJSON.push_back(Pair("published", published));
 
     return relationJSON;
-}
-
-vector<string> CRelation::FindHashtags(string text) {
-    vector<string> results;
-    //regex hashtagExp("(^|[^0-9A-Z&/]+)(#|\uFF03)([0-9A-Z_]*[A-Z_]+[a-z0-9_\\u00c0-\\u00d6\\u00d8-\\u00f6\\u00f8-\\u00ff]*)");
-    regex hashtagExp("#\\w\\w+");
-    sregex_iterator it(text.begin(), text.end(), hashtagExp);
-    sregex_iterator end;
-
-    for (; it != end; it++) {
-        results.push_back(it->str());
-    }
-
-    return results;
 }
 
 void CRelation::SetPublished() {
@@ -196,6 +172,22 @@ void CRelation::SetPublished() {
 
 bool CRelation::IsPublished() {
     return published;
+}
+
+int CRelation::GetRating() const {
+    return rating;
+}
+
+int CRelation::GetMinRating() const {
+    return minRating;
+}
+
+int CRelation::GetMaxRating() const {
+    return maxRating;
+}
+
+string CRelation::GetComment() const {
+    return comment;
 }
 
 string CSignature::GetSignedHash() const {

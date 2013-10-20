@@ -91,21 +91,6 @@ void CIdentifiDB::CheckDefaultKey() {
     }
 }
 
-void CIdentifiDB::CheckHashtagValues() {
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#positive', 50)");
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#neutral', 0)");
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#negative', -50)");
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#authentic', 100)");
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#fake', -100)");
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#knows', 100)");
-    query("INSERT OR IGNORE INTO HashtagValues VALUES ('#expired', 0)");
-
-    vector<vector<string> > result = query("SELECT Hashtag, Value FROM HashtagValues");
-    for (vector<vector<string> >::iterator row = result.begin(); row != result.end(); row++) {
-        hashtagValues[row->at(0)] = lexical_cast<int>(row->at(1));
-    }
-}
-
 void CIdentifiDB::Initialize() {
     ostringstream sql;
     sql.str("");
@@ -157,25 +142,12 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS RelationContentIdentifiers (";
-    sql << "RelationHash        NVARCHAR(45)    NOT NULL,";
-    sql << "IdentifierHash      NVARCHAR(45)    NOT NULL);";
-    query(sql.str().c_str());
-
-    sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PrivateKeys (";
     sql << "PubKeyHash        NVARCHAR(45)    PRIMARY KEY,";
     sql << "PrivateKey        NVARCHAR(1000)  NOT NULL);";
     query(sql.str().c_str());
 
-    sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS HashtagValues (";
-    sql << "Hashtag           NVARCHAR(45)    PRIMARY KEY,";
-    sql << "Value             INTEGER         NOT NULL CHECK (Value >= -100 AND Value <= 100));";
-    query(sql.str().c_str());
-
     CheckDefaultKey();
-    CheckHashtagValues();
 }
 
 vector<pair<string, string> > CIdentifiDB::GetSubjectsByRelationHash(string relationHash) {
@@ -503,13 +475,6 @@ void CIdentifiDB::DropRelation(string strRelationHash) {
         sqlite3_step(statement);
     }
 
-    sql.str("");
-    sql << "DELETE FROM RelationContentIdentifiers WHERE RelationHash = @hash;";
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-    }
-
     sqlite3_finalize(statement);
 }
 
@@ -632,37 +597,6 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
     SaveIdentifier(signature.GetSignerPubKey());
 }
 
-void CIdentifiDB::SaveRelationContentIdentifier(string relationHash, string identifierHash) {
-    sqlite3_stmt *statement;
-
-    ostringstream sql;
-    sql.str("");
-
-    sql << "SELECT * FROM RelationContentIdentifiers ";
-    sql << "WHERE RelationHash = @relationhash ";
-    sql << "AND IdentifierHash = @identifierhash";
-
-    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
-    }
-    if (sqlite3_step(statement) != SQLITE_ROW) {
-        sql.str("");
-        sql << "INSERT OR IGNORE INTO RelationContentIdentifiers (RelationHash, IdentifierHash) ";
-        sql << "VALUES (@relationhash, @identifierhash);";
-        
-        RETRY_IF_DB_FULL(
-            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 2, identifierHash.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_step(statement);
-                sqliteReturnCode = sqlite3_reset(statement);
-            }
-        )
-    }
-    sqlite3_finalize(statement);
-}
-
 // TODO: in addition to the signer, subject should be taken into account too
 int CIdentifiDB::GetTrustValue(CRelation &relation) {
     const int MAX_TRUST = 100;
@@ -717,11 +651,6 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
         int predicateID = SavePredicate(it->first);
         string objectHash = SaveIdentifier(it->second);
         SaveRelationObject(relationHash, predicateID, objectHash);
-    }
-    vector<string> contentIdentifiers = relation.GetContentIdentifiers();
-    for (vector<string>::iterator it = contentIdentifiers.begin(); it != contentIdentifiers.end(); ++it) {
-        string identifierHash = SaveIdentifier(*it);
-        SaveRelationContentIdentifier(relationHash, identifierHash);
     }
     vector<CSignature> signatures = relation.GetSignatures();
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
@@ -818,20 +747,7 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
 
         // TODO: Discard relations with untrusted signer
         
-        // Discard relations with non-positive trust value
-        bool positiveValue = false;
-        vector<string> hashtags = currentNode.GetContentIdentifiers();
-        for (vector<string>::iterator hashtag = hashtags.begin(); hashtag != hashtags.end(); hashtag++) {
-            try {
-                if (hashtagValues.at(*hashtag) > 0) {
-                    positiveValue = true;
-                } else {
-                    positiveValue = false;
-                    break;
-                }
-            } catch (const out_of_range& e) {}
-        }
-        if (!positiveValue)
+        if (currentNode.GetRating() <= (currentNode.GetMaxRating() - currentNode.GetMinRating()) / 2)
             continue;
 
         vector<pair<string, string> > allIdentifiers = currentNode.GetSubjects();
