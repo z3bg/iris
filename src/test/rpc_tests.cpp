@@ -111,6 +111,12 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject http://www.example.com/alice"));
     relation = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(relation, "signatures").get_array().size(), 2);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsafter 0"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 4);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsafter 0 1"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 }
 
 BOOST_AUTO_TEST_CASE(db_max_size)

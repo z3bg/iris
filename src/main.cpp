@@ -3318,6 +3318,15 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     else if (strCommand == "getrelations") {
         printf("getrelations");
 
+        time_t afterTimestamp;
+        vRecv >> afterTimestamp;
+
+        int nLimit = 500;
+
+        for (int i = 0; i < nLimit; i++) {
+            
+        }
+
         /*        CBlockLocator locator;
         uint256 hashStop;
         vRecv >> locator >> hashStop;

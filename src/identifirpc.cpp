@@ -202,6 +202,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getidentifiercount",         &getidentifiercount,        true,      false },
     { "getrelationsbysubject",      &getrelationsbysubject,     true,      false },
     { "getrelationsbyobject",       &getrelationsbyobject,      true,      false },
+    { "getrelationsafter",          &getrelationsafter,         true,      false },
     { "saverelation",               &saverelation,              true,      false },
     { "saverelationfromdata",       &saverelationfromdata,      true,      false },
     { "listprivatekeys",            &listprivatekeys,           true,      false },

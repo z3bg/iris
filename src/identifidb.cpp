@@ -898,3 +898,70 @@ int CIdentifiDB::GetRelationCount() {
     return lexical_cast<int>(result[0][0]);
 }
 
+vector<CRelation> CIdentifiDB::GetRelationsAfterTimestamp(time_t timestamp, int limit) {
+    sqlite3_stmt *statement;
+    vector<CRelation> relations;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM Relations WHERE Created >= @timestamp LIMIT @limit";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int64(statement, 1, timestamp);
+        sqlite3_bind_int(statement, 2, limit);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                relations.push_back(GetRelationFromStatement(statement));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return relations;
+}
+
+vector<CRelation> CIdentifiDB::GetRelationsAfterRelation(string relationHash, int limit) {
+    CRelation rel = GetRelationByHash(relationHash);
+    sqlite3_stmt *statement;
+    vector<CRelation> relations;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM Relations WHERE ";
+    sql << "(Created = @timestamp AND Hash > @relationhash) OR ";
+    sql << "(Created > @timestamp) ORDER BY Created, Hash LIMIT @limit";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
+        sqlite3_bind_int(statement, 3, limit);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                relations.push_back(GetRelationFromStatement(statement));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return relations;
+}

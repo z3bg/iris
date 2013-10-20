@@ -3,6 +3,7 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <boost/lexical_cast.hpp>
 #include "main.h"
 #include "identifirpc.h"
 #include "data.h"
@@ -56,6 +57,29 @@ Value getrelationsbyobject(const Array& params, bool fHelp)
 
     Array relationsJSON;
     vector<CRelation> relations = pidentifidb->GetRelationsByObject(params[0].get_str());
+    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
+        relationsJSON.push_back(it->GetJSON());
+    }
+
+    return relationsJSON;
+}
+
+Value getrelationsafter(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2 )
+        throw runtime_error(
+            "getrelationsafter <timestamp> <limit=20>\n"
+            "Get a list of relations after the given timestamp, limited to the given number of entries.");
+
+    time_t timestamp = boost::lexical_cast<int>(params[0].get_str());
+    int nLimit;
+    if (params.size() == 2)
+        nLimit = boost::lexical_cast<int>(params[1].get_str());
+    else
+        nLimit = 20;
+
+    Array relationsJSON;
+    vector<CRelation> relations = pidentifidb->GetRelationsAfterTimestamp(timestamp, nLimit);
     for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
         relationsJSON.push_back(it->GetJSON());
     }

@@ -21,6 +21,8 @@ public:
     CIdentifiDB(int sqliteMaxSize = 1000, const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
+    vector<CRelation> GetRelationsAfterTimestamp(time_t timestamp, int limit = 500);
+    vector<CRelation> GetRelationsAfterRelation(string relationHash, int limit = 500);
     vector<CRelation> GetRelationsByIdentifier(string identifier);
     vector<CRelation> GetRelationsBySubject(string subject);
     vector<CRelation> GetRelationsByObject(string object);
