@@ -49,6 +49,10 @@ Makefile.unix builds nicely with dependencies from Debian packages (same as Bitc
 
 Other makefiles TBD.
 
+Developing
+----------
+[Sqlite Manager](https://addons.mozilla.org/en-US/firefox/addon/sqlite-manager/) is a nice Firefox plugin for debugging DATADIR/db.sqlite.
+
 License
 -------
 
@@ -101,7 +105,7 @@ TODO
 * Improve in-built trust evaluation algorithm
 * Replace hashtag system with numeric ratings
 * Recalculate old trust ratings when new packets arrive
-* Network method for requesting packets created after a given timestamp
+* Improve network functions, add sanity checks
 * Remove unnecessary Bitcoin code
 * Add more signature methods
 * Write performance tests and improve efficiency
