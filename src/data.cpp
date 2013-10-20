@@ -16,6 +16,10 @@ uint256 CRelation::GetHash() const {
 }
 
 string CRelation::GetData() const {
+    return data;
+}
+
+string CRelation::MakeData() {
     Array data, subjectsJSON, objectsJSON;
 
     for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
@@ -87,6 +91,7 @@ void CRelation::SetData(string data) {
 
     message = array[3].get_str();
     contentIdentifiers = FindHashtags(message);
+    CRelation::data = data;
 }
 
 bool CRelation::Sign(CKey& key) {

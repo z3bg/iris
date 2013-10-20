@@ -125,8 +125,11 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Relations (";
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
-    sql << "Data                NVARCHAR(1000)  NOT NULL,";
+    sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME,";
+    sql << "Rating              INTEGER         DEFAULT 0,";
+    sql << "MinRating           INTEGER         DEFAULT 0,";
+    sql << "MaxRating           INTEGER         DEFAULT 0,";
     sql << "Published           BOOL            DEFAULT 0,";
     sql << "TrustValue          INTEGER         DEFAULT 0";
     sql << ");";
@@ -322,7 +325,7 @@ CRelation CIdentifiDB::GetRelationFromStatement(sqlite3_stmt *statement) {
     vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
     string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
     time_t timestamp = time_t(sqlite3_column_int(statement, 2));
-    bool published = sqlite3_column_int(statement, 3);
+    bool published = sqlite3_column_int(statement, 6);
     return CRelation(message, subjects, objects, signatures, timestamp, published);
 }
 
@@ -687,7 +690,7 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     string sql;
     string relationHash;
 
-    sql = "INSERT INTO Relations (Hash, Data, Created, Published, TrustValue) VALUES (@id, @data, @timestamp, @published, @trust);";
+    sql = "INSERT INTO Relations (Hash, SignedData, Created, Published, TrustValue) VALUES (@id, @data, @timestamp, @published, @trust);";
     relationHash = EncodeBase58(relation.GetHash());
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {

@@ -46,6 +46,7 @@ class CRelation {
 public:
     CRelation(string message = "", vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
         contentIdentifiers = FindHashtags(message);
+        data = MakeData();
     }
     bool operator== (const CRelation &r) const {
         return (r.message == message && r.timestamp == timestamp);
@@ -86,11 +87,13 @@ public:
     )
 
 private:
+    string data;
     string message;
     vector<pair<string, string> > subjects;
     vector<pair<string, string> > objects;
     vector<string> contentIdentifiers;
     vector<CSignature> signatures;
+    string MakeData();
     vector<string> FindHashtags(string text);
     time_t timestamp;
     bool published;
