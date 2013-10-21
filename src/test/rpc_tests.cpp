@@ -12,18 +12,6 @@ using namespace json_spirit;
 
 BOOST_AUTO_TEST_SUITE(rpc_tests)
 
-static Array
-createArgs(int nRequired, const char* address1=NULL, const char* address2=NULL)
-{
-    Array result;
-    result.push_back(nRequired);
-    Array addresses;
-    if (address1) addresses.push_back(address1);
-    if (address2) addresses.push_back(address2);
-    result.push_back(addresses);
-    return result;
-}
-
 static Value CallRPC(string args)
 {
     vector<string> vArgs;
@@ -53,8 +41,8 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 1);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com #positive"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:bob@example.com mbox mailto:carl@example.com #positive"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com positive 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:bob@example.com mbox mailto:carl@example.com positive 1"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationcount"));
     BOOST_CHECK_EQUAL(r.get_int(), 2);
@@ -68,7 +56,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(find_value(firstRelation, "timestamp").get_int());
     BOOST_CHECK(!find_value(firstRelation, "subjects").get_array().empty());
     BOOST_CHECK(!find_value(firstRelation, "objects").get_array().empty());
-    BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
+    BOOST_CHECK(find_value(firstRelation, "message").get_obj().size() > 0);
     BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbyobject mailto:bob@example.com"));
@@ -77,14 +65,14 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(find_value(firstRelation, "timestamp").get_int());
     BOOST_CHECK(!find_value(firstRelation, "subjects").get_array().empty());
     BOOST_CHECK(!find_value(firstRelation, "objects").get_array().empty());
-    BOOST_CHECK(find_value(firstRelation, "message").get_str().size() > 0);
+    BOOST_CHECK(find_value(firstRelation, "message").get_obj().size() > 0);
     BOOST_CHECK(!find_value(firstRelation, "signatures").get_array().empty());
     BOOST_CHECK(find_value(firstRelation, "hash").get_str().size() > 0);
     BOOST_CHECK_EQUAL(find_value(firstRelation, "published").get_bool(), false);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata [1234567,[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],\"#knows\"]"));
-    BOOST_CHECK_EQUAL(r.get_str(), "BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx");
-    BOOST_CHECK_NO_THROW(CallRPC("publish BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelationfromdata [1234567,[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],{\"type\":\"review\",\"comment\":\"thanks\",\"rating\":100,\"minRating\":-100,\"maxRating\":100}]"));
+    BOOST_CHECK_EQUAL(r.get_str(), "BeKdTwAmgnpqycNXDPsMwcKVfpt5LfT54yZKLHdM5gQ6");
+    BOOST_CHECK_NO_THROW(CallRPC("publish BeKdTwAmgnpqycNXDPsMwcKVfpt5LfT54yZKLHdM5gQ6"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 6);
 
@@ -97,15 +85,15 @@ BOOST_AUTO_TEST_CASE(save_and_read_relations)
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bill@example.com #negative"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saverelation mbox mailto:alice@example.com mbox mailto:bill@example.com negative -1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bill@example.com"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject http://www.example.com/alice"));
     Object relation = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(relation, "signatures").get_array().size(), 1);
 
-    BOOST_CHECK_THROW(r=CallRPC("addsignature BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx PjP7e3W8Z1RNXjF1JbnyQWqGBqVaCgTVZUDRmLbKU3Es5GHYwN5bb6xUz8cCQ724mJ4HYUeBS7gdAwdRstbBnf2Y invalidsignature"), runtime_error);
-    BOOST_CHECK_NO_THROW(r=CallRPC("addsignature BydAZxnCRMNeSPYWRjsNWkE1gkjeTtKLazXuDf6MH5tx PjP7e3W8Z1RNXjF1JbnyQWqGBqVaCgTVZUDRmLbKU3Es5GHYwN5bb6xUz8cCQ724mJ4HYUeBS7gdAwdRstbBnf2Y AN1rKpZ4mbxN4Zvc62fLDGxz5Xn9o37VLbrhLv8YZDyf9NjFnyxjt7AK9stUxJ3T6bqNc8cCQhN8v9Kpy6ZnrfYWRKi8oppaF"));
+    BOOST_CHECK_THROW(r=CallRPC("addsignature BeKdTwAmgnpqycNXDPsMwcKVfpt5LfT54yZKLHdM5gQ6 PhWRynVMxMwGXWfy4kyCF17RjuKYLkd3kCPcoEFoHhKmAsvZxK3tj7eDR5u272RwStmFWs15FcHGaMMtHtfM4pbZ invalidsignature"), runtime_error);
+    BOOST_CHECK_NO_THROW(r=CallRPC("addsignature BeKdTwAmgnpqycNXDPsMwcKVfpt5LfT54yZKLHdM5gQ6 PhWRynVMxMwGXWfy4kyCF17RjuKYLkd3kCPcoEFoHhKmAsvZxK3tj7eDR5u272RwStmFWs15FcHGaMMtHtfM4pbZ iKx1CJQEFrrhNajpE7EzCdsLFRCTs7Y4HxeA13t2pZajLcNQD2CrpzhSxvBLFxjsKi95bYqeS4d5RkM73gDA94JrkF5swi5t4j"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getrelationsbysubject http://www.example.com/alice"));
     relation = r.get_array().front().get_obj();
@@ -123,7 +111,7 @@ BOOST_AUTO_TEST_CASE(db_max_size)
     delete pidentifidb;
     pidentifidb = new CIdentifiDB(1);
     Value r;
-    const char* rpcFormat = "saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com %i";
+    const char* rpcFormat = "saverelation mbox mailto:alice@example.com mbox mailto:bob@example.com %i 1";
     for (int i = 0; i < 1600; i++) {
         char rpc[100];
         sprintf(rpc, rpcFormat, i);

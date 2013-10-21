@@ -1,12 +1,14 @@
 #include <string>
 #include <sstream>
+#include <boost/lexical_cast.hpp>
 #include "data.h"
 #include "base58.h"
 
 using namespace std;
+using namespace boost;
 using namespace json_spirit;
 
-string CRelation::GetMessage() const {
+Object CRelation::GetMessage() const {
     return message;
 }
 
@@ -44,11 +46,32 @@ string CRelation::MakeData() {
     return write_string(Value(data), false);
 }
 
-string CRelation::GetMessageFromData(string data) {
+Object CRelation::GetMessageFromData(string data) {
     Value json;
     read_string(data, json);
     Array arr = json.get_array();
-    return arr[3].get_str();    
+    return arr[3].get_obj();
+}
+
+void CRelation::SetVarsFromMessage() {
+    type = find_value(message, "type").get_str();
+
+    bool hasRating;
+    Value val;
+    try {
+        val = find_value(message, "rating");
+        hasRating = true;
+    } catch (json_spirit::Object& objError) {}
+
+    if (hasRating) {
+        rating = val.get_int();
+        minRating = find_value(message, "minRating").get_int();
+        maxRating = find_value(message, "maxRating").get_int();
+        if (maxRating <= minRating ||
+            rating > maxRating ||
+            rating < minRating)
+            throw runtime_error("Invalid rating");
+    }
 }
 
 void CRelation::SetData(string data) {
@@ -68,6 +91,8 @@ void CRelation::SetData(string data) {
     timestamp = array[0].get_int();
     subjectsArray = array[1].get_array();
     objectsArray = array[2].get_array();
+    message = array[3].get_obj();
+    SetVarsFromMessage();
 
     if (subjectsArray.empty())
         throw runtime_error("Relations must have at least 1 subject");
@@ -89,7 +114,6 @@ void CRelation::SetData(string data) {
         objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
-    message = array[3].get_str();
     CRelation::data = data;
 }
 
@@ -188,6 +212,10 @@ int CRelation::GetMaxRating() const {
 
 string CRelation::GetComment() const {
     return comment;
+}
+
+string CRelation::GetType() const {
+    return type;
 }
 
 string CSignature::GetSignedHash() const {

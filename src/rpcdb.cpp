@@ -105,9 +105,9 @@ Value getpath(const Array& params, bool fHelp)
 
 Value saverelation(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 5 || params.size() > 6)
+    if (fHelp || params.size() < 6 || params.size() > 7)
         throw runtime_error(
-            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_message> <publish=false>\n"
+            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_comment> <rating[-10..10]> <publish=false>\n"
             "Save a relation");
 
     vector<pair<string, string> > *subjects = new vector<pair<string, string> >();
@@ -115,8 +115,14 @@ Value saverelation(const Array& params, bool fHelp)
     vector<CSignature> *signatures = new vector<CSignature>();
     subjects->push_back(make_pair(params[0].get_str(),params[1].get_str()));
     objects->push_back(make_pair(params[2].get_str(),params[3].get_str()));
-    bool publish = (params.size() == 6 && params[5].get_str() == "true");
-    CRelation relation(params[4].get_str(), *subjects, *objects, *signatures);
+    bool publish = (params.size() == 7 && params[6].get_str() == "true");
+    Object message;
+    message.push_back(Pair("type", "review"));
+    message.push_back(Pair("comment",params[4].get_str()));
+    message.push_back(Pair("rating",lexical_cast<int>(params[5].get_str())));
+    message.push_back(Pair("maxRating",10));
+    message.push_back(Pair("minRating",-10));
+    CRelation relation(message, *subjects, *objects, *signatures);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     relation.Sign(defaultKey);
     if (publish) {

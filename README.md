@@ -31,6 +31,7 @@ Why
 - Distributed public messaging, with trust lists instead of centralized moderator power
 - Censorship-resistance
 - Open database, vs. proprietary information silos of reputation and online identity
+  - No monopoly on credit ratings
 
 How
 ---
@@ -69,7 +70,7 @@ Suggested data format for Identifi packets:
 		<timestamp>,
 		<pair array of message sender's identifiers>,
 		<array of message recipients (as pair arrays) or topics>,
-		<message content>
+		<message content dict>
 	]
 
 Example:
@@ -77,7 +78,8 @@ Example:
     [
     	1373924495,
 	    [ 	
-	    	name:'Alice Smith', mbox:'mailto:alice@example.com' 
+	    	['name', 'Alice Smith'],
+	    	['mbox', 'mailto:alice@example.com']
 	    ],
 		[
 	    	[ 	
@@ -90,7 +92,13 @@ Example:
 	    		['responseTo','magnet:<hash of bob's message>']
 	    	]
 		],
-    	'Bought a laptop from Bob. Thanks for the trade! #positive #trade'
+    	{
+    		type: 'review',
+    		comment: 'Bought a laptop from Bob. Thanks for the trade!',
+    		rating: 1,
+    		maxRating: 10,
+    		minRating: -10
+    	}
 	]
 
 Messages and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be refered to with magnet URIs.

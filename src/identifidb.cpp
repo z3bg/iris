@@ -8,12 +8,18 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
 #include <map>
+
+#include "json/json_spirit_reader_template.h"
+#include "json/json_spirit_writer_template.h"
+#include "json/json_spirit_utils.h"
+
 #include "identifidb.h"
 #include "main.h"
 #include "data.h"
 
 using namespace std;
 using namespace boost;
+using namespace json_spirit;
 
 #ifndef RETRY_IF_DB_FULL
 #define RETRY_IF_DB_FULL(statements)                            \
@@ -112,6 +118,7 @@ void CIdentifiDB::Initialize() {
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME,";
+    sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "Rating              INTEGER         DEFAULT 0,";
     sql << "MinRating           INTEGER         DEFAULT 0,";
     sql << "MaxRating           INTEGER         DEFAULT 0,";
@@ -295,9 +302,9 @@ CRelation CIdentifiDB::GetRelationFromStatement(sqlite3_stmt *statement) {
     vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
     vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
     vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-    string message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
+    Object message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
     time_t timestamp = time_t(sqlite3_column_int(statement, 2));
-    bool published = sqlite3_column_int(statement, 6);
+    bool published = sqlite3_column_int(statement, 7);
     return CRelation(message, subjects, objects, signatures, timestamp, published);
 }
 
@@ -624,15 +631,19 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
     string sql;
     string relationHash;
 
-    sql = "INSERT INTO Relations (Hash, SignedData, Created, Published, TrustValue) VALUES (@id, @data, @timestamp, @published, @trust);";
+    sql = "INSERT INTO Relations (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, TrustValue) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @trust);";
     relationHash = EncodeBase58(relation.GetHash());
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int64(statement, 3, relation.GetTimestamp());
-            sqlite3_bind_int(statement, 4, relation.IsPublished());
-            sqlite3_bind_int(statement, 5, GetTrustValue(relation));
+            sqlite3_bind_int(statement, 4, SavePredicate(relation.GetType()));
+            sqlite3_bind_int(statement, 5, relation.GetRating());
+            sqlite3_bind_int(statement, 6, relation.GetMaxRating());
+            sqlite3_bind_int(statement, 7, relation.GetMinRating());
+            sqlite3_bind_int(statement, 8, relation.IsPublished());
+            sqlite3_bind_int(statement, 9, GetTrustValue(relation));
         } else {
             printf("DB Error: %s\n", sqlite3_errmsg(db));
         }
@@ -747,7 +758,7 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
 
         // TODO: Discard relations with untrusted signer
         
-        if (currentNode.GetRating() <= (currentNode.GetMaxRating() - currentNode.GetMinRating()) / 2)
+        if (currentNode.GetRating() <= (currentNode.GetMaxRating() + currentNode.GetMinRating()) / 2)
             continue;
 
         vector<pair<string, string> > allIdentifiers = currentNode.GetSubjects();

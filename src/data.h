@@ -44,16 +44,18 @@ private:
 
 class CRelation {
 public:
-    CRelation(string message = "", vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
+    CRelation(json_spirit::Object message = json_spirit::Object(), vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
         data = MakeData();
+        if (!message.empty())
+            SetVarsFromMessage();
     }
     bool operator== (const CRelation &r) const {
-        return (r.message == message && r.timestamp == timestamp);
+        return (r.GetHash() == GetHash() && r.timestamp == timestamp);
     }
     bool operator!= (const CRelation &r) const {
-        return (r.message != message || r.timestamp != timestamp);
+        return (r.GetHash() != GetHash() || r.timestamp != timestamp);
     }
-    static string GetMessageFromData(string data);
+    static json_spirit::Object GetMessageFromData(string data);
     void SetData(string data);
     void SetPublished();
     bool IsPublished();
@@ -63,7 +65,8 @@ public:
     int GetMinRating() const;
     int GetMaxRating() const;
     string GetComment() const;
-    string GetMessage() const;
+    string GetType() const;
+    json_spirit::Object GetMessage() const;
     string GetData() const;
     uint256 GetHash() const;
     time_t GetTimestamp() const;
@@ -90,7 +93,7 @@ public:
 
 private:
     string data;
-    string message;
+    json_spirit::Object message;
     string comment;
     string type;
     int rating;
@@ -100,6 +103,7 @@ private:
     vector<pair<string, string> > objects;
     vector<CSignature> signatures;
     string MakeData();
+    void SetVarsFromMessage();
     time_t timestamp;
     bool published;
 };
