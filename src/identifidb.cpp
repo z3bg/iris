@@ -114,7 +114,7 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS Relations (";
+    sql << "CREATE TABLE IF NOT EXISTS Packets (";
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME,";
@@ -128,22 +128,22 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS RelationSubjects (";
-    sql << "RelationHash        NVARCHAR(45)    NOT NULL,";
+    sql << "CREATE TABLE IF NOT EXISTS PacketSubjects (";
+    sql << "PacketHash        NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "SubjectHash         NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS RelationObjects (";
-    sql << "RelationHash        NVARCHAR(45)    NOT NULL,";
+    sql << "CREATE TABLE IF NOT EXISTS PacketObjects (";
+    sql << "PacketHash        NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "ObjectHash          NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS RelationSignatures (";
-    sql << "RelationHash        NVARCHAR(45)    NOT NULL,";
+    sql << "CREATE TABLE IF NOT EXISTS PacketSignatures (";
+    sql << "PacketHash        NVARCHAR(45)    NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
     sql << "PubKeyHash          NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
@@ -157,19 +157,19 @@ void CIdentifiDB::Initialize() {
     CheckDefaultKey();
 }
 
-vector<pair<string, string> > CIdentifiDB::GetSubjectsByRelationHash(string relationHash) {
+vector<pair<string, string> > CIdentifiDB::GetSubjectsByPacketHash(string packetHash) {
     vector<pair<string, string> > subjects;
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = @relationhash ";
+    sql << "INNER JOIN PacketSubjects AS rs ON rs.PacketHash = @packethash ";
     sql << "INNER JOIN Predicates AS p ON rs.PredicateID = p.ID ";
     sql << "WHERE id.Hash = rs.SubjectHash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
 
         int result = 0;
         while(true) {
@@ -190,19 +190,19 @@ vector<pair<string, string> > CIdentifiDB::GetSubjectsByRelationHash(string rela
     return subjects;
 }
 
-vector<pair<string, string> > CIdentifiDB::GetObjectsByRelationHash(string relationHash) {
+vector<pair<string, string> > CIdentifiDB::GetObjectsByPacketHash(string packetHash) {
     vector<pair<string, string> > objects;
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationHash = @relationhash ";
+    sql << "INNER JOIN PacketObjects AS ro ON ro.PacketHash = @packethash ";
     sql << "INNER JOIN Predicates AS p ON ro.PredicateID = p.ID ";
     sql << "WHERE id.Hash = ro.ObjectHash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
 
         int result = 0;
         while(true) {
@@ -225,18 +225,18 @@ vector<pair<string, string> > CIdentifiDB::GetObjectsByRelationHash(string relat
     return objects;
 }
 
-vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash) {
+vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
     vector<CSignature> signatures;
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
-    sql << "SELECT id.Value, rs.Signature FROM RelationSignatures AS rs ";
+    sql << "SELECT id.Value, rs.Signature FROM PacketSignatures AS rs ";
     sql << "INNER JOIN Identifiers AS id ON id.Hash = rs.PubKeyHash ";
-    sql << "WHERE rs.RelationHash = @relationhash;";
+    sql << "WHERE rs.PacketHash = @packethash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
 
         int result = 0;
         while(true) {
@@ -245,7 +245,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
             if(result == SQLITE_ROW) {
                 string pubKey = string((char*)sqlite3_column_text(statement, 0));
                 string signature = string((char*)sqlite3_column_text(statement, 1));
-                signatures.push_back(CSignature(relationHash, pubKey, signature));
+                signatures.push_back(CSignature(packetHash, pubKey, signature));
             } else {
                 break;  
             }
@@ -259,14 +259,14 @@ vector<CSignature> CIdentifiDB::GetSignaturesByRelationHash(string relationHash)
     return signatures;
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string identifier) {
     sqlite3_stmt *statement;
-    vector<CRelation> relations;
+    vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Relations AS rel ";
-    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = rel.Hash ";
-    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationHash = rel.Hash ";
+    sql << "SELECT * FROM Packets AS rel ";
+    sql << "INNER JOIN PacketSubjects AS rs ON rs.PacketHash = rel.Hash ";
+    sql << "INNER JOIN PacketObjects AS ro ON ro.PacketHash = rel.Hash ";
     sql << "INNER JOIN Identifiers AS id ON (rs.SubjectHash = id.Hash ";
     sql << "OR ro.ObjectHash = id.Hash) ";
     sql << "WHERE id.Value = @value;";
@@ -281,7 +281,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
              
             if(result == SQLITE_ROW)
             {
-                relations.push_back(GetRelationFromStatement(statement));
+                packets.push_back(GetPacketFromStatement(statement));
             }
             else
             {
@@ -294,27 +294,27 @@ vector<CRelation> CIdentifiDB::GetRelationsByIdentifier(string identifier) {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
-    return relations;
+    return packets;
 }
 
-CRelation CIdentifiDB::GetRelationFromStatement(sqlite3_stmt *statement) {
-    string relationHash = string((char*)sqlite3_column_text(statement, 0));
-    vector<pair<string, string> > subjects = GetSubjectsByRelationHash(relationHash);
-    vector<pair<string, string> > objects = GetObjectsByRelationHash(relationHash);
-    vector<CSignature> signatures = GetSignaturesByRelationHash(relationHash);
-    Object message = CRelation::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
+CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
+    string packetHash = string((char*)sqlite3_column_text(statement, 0));
+    vector<pair<string, string> > subjects = GetSubjectsByPacketHash(packetHash);
+    vector<pair<string, string> > objects = GetObjectsByPacketHash(packetHash);
+    vector<CSignature> signatures = GetSignaturesByPacketHash(packetHash);
+    Object message = CIdentifiPacket::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
     time_t timestamp = time_t(sqlite3_column_int(statement, 2));
     bool published = sqlite3_column_int(statement, 7);
-    return CRelation(message, subjects, objects, signatures, timestamp, published);
+    return CIdentifiPacket(message, subjects, objects, signatures, timestamp, published);
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(string subject) {
     sqlite3_stmt *statement;
-    vector<CRelation> relations;
+    vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Relations AS rel ";
-    sql << "INNER JOIN RelationSubjects AS rs ON rs.RelationHash = rel.Hash ";
+    sql << "SELECT * FROM Packets AS rel ";
+    sql << "INNER JOIN PacketSubjects AS rs ON rs.PacketHash = rel.Hash ";
     sql << "INNER JOIN Identifiers AS id ON rs.SubjectHash = id.Hash ";
     sql << "WHERE id.Value = @value;";
 
@@ -328,7 +328,7 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
              
             if(result == SQLITE_ROW)
             {
-                relations.push_back(GetRelationFromStatement(statement));
+                packets.push_back(GetPacketFromStatement(statement));
             }
             else
             {
@@ -341,16 +341,16 @@ vector<CRelation> CIdentifiDB::GetRelationsBySubject(string subject) {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
-    return relations;
+    return packets;
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByObject(string object) {
     sqlite3_stmt *statement;
-    vector<CRelation> relations;
+    vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Relations AS rel ";
-    sql << "INNER JOIN RelationObjects AS ro ON ro.RelationHash = rel.Hash ";
+    sql << "SELECT * FROM Packets AS rel ";
+    sql << "INNER JOIN PacketObjects AS ro ON ro.PacketHash = rel.Hash ";
     sql << "INNER JOIN Identifiers AS id ON ro.ObjectHash = id.Hash ";
     sql << "WHERE id.Value = @value;";
 
@@ -364,7 +364,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
              
             if(result == SQLITE_ROW)
             {
-                relations.push_back(GetRelationFromStatement(statement));
+                packets.push_back(GetPacketFromStatement(statement));
             }
             else
             {
@@ -375,7 +375,7 @@ vector<CRelation> CIdentifiDB::GetRelationsByObject(string object) {
         sqlite3_finalize(statement);
     }
     
-    return relations;
+    return packets;
 }
 
 int CIdentifiDB::SavePredicate(string predicate) {
@@ -430,55 +430,55 @@ string CIdentifiDB::SaveIdentifier(string identifier) {
     return hash;
 }
 
-void CIdentifiDB::DropRelation(string strRelationHash) {
+void CIdentifiDB::DropPacket(string strPacketHash) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
-    sql << "DELETE FROM Relations WHERE Hash = @hash;";
+    sql << "DELETE FROM Packets WHERE Hash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
-    // Remove identifiers that were mentioned in this relation only
+    // Remove identifiers that were mentioned in this packet only
     sql.str("");
     sql << "DELETE FROM Identifiers WHERE Hash IN ";
     sql << "(SELECT id.Hash FROM Identifiers AS id ";
-    sql << "JOIN RelationObjects AS ro ON ro.ObjectHash = id.Hash ";
-    sql << "JOIN RelationSubjects AS rs ON rs.SubjectHash = id.Hash ";
-    sql << "WHERE ro.RelationHash = @relhash OR rs.RelationHash = @relhash) ";
+    sql << "JOIN PacketObjects AS ro ON ro.ObjectHash = id.Hash ";
+    sql << "JOIN PacketSubjects AS rs ON rs.SubjectHash = id.Hash ";
+    sql << "WHERE ro.PacketHash = @relhash OR rs.PacketHash = @relhash) ";
     sql << "AND Hash NOT IN ";
     sql << "(SELECT id.Hash FROM Identifiers AS id ";
-    sql << "JOIN RelationObjects AS ro ON ro.ObjectHash = id.Hash ";
-    sql << "JOIN RelationSubjects AS rs ON rs.SubjectHash = id.Hash ";
-    sql << "WHERE ro.RelationHash != @relhash AND rs.RelationHash != @relhash)";
+    sql << "JOIN PacketObjects AS ro ON ro.ObjectHash = id.Hash ";
+    sql << "JOIN PacketSubjects AS rs ON rs.SubjectHash = id.Hash ";
+    sql << "WHERE ro.PacketHash != @relhash AND rs.PacketHash != @relhash)";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 3, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 4, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
     sql.str("");
-    sql << "DELETE FROM RelationObjects WHERE RelationHash = @hash;";
+    sql << "DELETE FROM PacketObjects WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
     sql.str("");
-    sql << "DELETE FROM RelationSubjects WHERE RelationHash = @hash;";
+    sql << "DELETE FROM PacketSubjects WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
     sql.str("");
-    sql << "DELETE FROM RelationSignatures WHERE RelationHash = @hash;";
+    sql << "DELETE FROM PacketSignatures WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strRelationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
@@ -497,39 +497,39 @@ bool CIdentifiDB::MakeFreeSpace(int nFreeBytesNeeded) {
 
     do {
         sql.str("");
-        sql << "SELECT Hash FROM Relations ORDER BY TrustValue ASC, Created ASC LIMIT 1";
-        string relationToRemove = query(sql.str().c_str())[0][0];
-        DropRelation(relationToRemove);
+        sql << "SELECT Hash FROM Packets ORDER BY TrustValue ASC, Created ASC LIMIT 1";
+        string packetToRemove = query(sql.str().c_str())[0][0];
+        DropPacket(packetToRemove);
         nFreePages = lexical_cast<int>(query("PRAGMA freelist_count")[0][0]);
     } while (nFreePages * nPageSize < nFreeBytesNeeded);
 
     return true;
 }
 
-void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, string subjectHash) {
+void CIdentifiDB::SavePacketSubject(string packetHash, int predicateID, string subjectHash) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT * FROM RelationSubjects ";
-    sql << "WHERE RelationHash = @relationhash ";
+    sql << "SELECT * FROM PacketSubjects ";
+    sql << "WHERE PacketHash = @packethash ";
     sql << "AND PredicateID = @predicateid ";
     sql << "AND SubjectHash = @subjecthash";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
         sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO RelationSubjects (RelationHash, PredicateID, SubjectHash) ";
-        sql << "VALUES (@relationhash, @predicateid, @subjectid);";
+        sql << "INSERT OR IGNORE INTO PacketSubjects (PacketHash, PredicateID, SubjectHash) ";
+        sql << "VALUES (@packethash, @predicateid, @subjectid);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(statement, 2, predicateID);
                 sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_step(statement);
@@ -540,30 +540,30 @@ void CIdentifiDB::SaveRelationSubject(string relationHash, int predicateID, stri
     sqlite3_finalize(statement);
 }
 
-void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, string objectHash) {
+void CIdentifiDB::SavePacketObject(string packetHash, int predicateID, string objectHash) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT * FROM RelationObjects ";
-    sql << "WHERE RelationHash = @relationhash ";
+    sql << "SELECT * FROM PacketObjects ";
+    sql << "WHERE PacketHash = @packethash ";
     sql << "AND PredicateID = @predicateid ";
     sql << "AND ObjectHash = @objecthash";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
         sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO RelationObjects (RelationHash, PredicateID, ObjectHash) ";
-        sql << "VALUES (@relationhash, @predicateid, @objectid);";
+        sql << "INSERT OR IGNORE INTO PacketObjects (PacketHash, PredicateID, ObjectHash) ";
+        sql << "VALUES (@packethash, @predicateid, @objectid);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(statement, 2, predicateID);
                 sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_step(statement);
@@ -574,12 +574,12 @@ void CIdentifiDB::SaveRelationObject(string relationHash, int predicateID, strin
     sqlite3_finalize(statement);
 }
 
-void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
+void CIdentifiDB::SavePacketSignature(CSignature &signature) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM RelationSignatures WHERE RelationHash = @relationHash ";
+    sql << "SELECT * FROM PacketSignatures WHERE PacketHash = @packetHash ";
     sql << "AND PubKeyHash = @pubKeyHash";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -588,8 +588,8 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO RelationSignatures (RelationHash, PubKeyHash, Signature) ";
-        sql << "VALUES (@relationhash, @pubkeyhash, @signature);";
+        sql << "INSERT OR IGNORE INTO PacketSignatures (PacketHash, PubKeyHash, Signature) ";
+        sql << "VALUES (@packethash, @pubkeyhash, @signature);";
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                 sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
@@ -605,12 +605,12 @@ void CIdentifiDB::SaveRelationSignature(CSignature &signature) {
 }
 
 // TODO: in addition to the signer, subject should be taken into account too
-int CIdentifiDB::GetTrustValue(CRelation &relation) {
+int CIdentifiDB::GetTrustValue(CIdentifiPacket &packet) {
     const int MAX_TRUST = 100;
     CKey myKey = GetDefaultKey();
     string strMyKey = EncodeBase58(myKey.GetPubKey().Raw());
     int nShortestPath = 1000000;
-    vector<CSignature> sigs = relation.GetSignatures();
+    vector<CSignature> sigs = packet.GetSignatures();
     for (vector<CSignature>::iterator i = sigs.begin(); i != sigs.end(); i++) {
         string signerPubKey = i->GetSignerPubKey();
         if (signerPubKey == strMyKey)
@@ -626,24 +626,24 @@ int CIdentifiDB::GetTrustValue(CRelation &relation) {
         return 0;
 }
 
-string CIdentifiDB::SaveRelation(CRelation &relation) {
+string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     sqlite3_stmt *statement;
     string sql;
-    string relationHash;
+    string packetHash;
 
-    sql = "INSERT INTO Relations (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, TrustValue) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @trust);";
-    relationHash = EncodeBase58(relation.GetHash());
+    sql = "INSERT INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, TrustValue) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @trust);";
+    packetHash = EncodeBase58(packet.GetHash());
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, relation.GetData().c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int64(statement, 3, relation.GetTimestamp());
-            sqlite3_bind_int(statement, 4, SavePredicate(relation.GetType()));
-            sqlite3_bind_int(statement, 5, relation.GetRating());
-            sqlite3_bind_int(statement, 6, relation.GetMaxRating());
-            sqlite3_bind_int(statement, 7, relation.GetMinRating());
-            sqlite3_bind_int(statement, 8, relation.IsPublished());
-            sqlite3_bind_int(statement, 9, GetTrustValue(relation));
+            sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, packet.GetData().c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(statement, 3, packet.GetTimestamp());
+            sqlite3_bind_int(statement, 4, SavePredicate(packet.GetType()));
+            sqlite3_bind_int(statement, 5, packet.GetRating());
+            sqlite3_bind_int(statement, 6, packet.GetMaxRating());
+            sqlite3_bind_int(statement, 7, packet.GetMinRating());
+            sqlite3_bind_int(statement, 8, packet.IsPublished());
+            sqlite3_bind_int(statement, 9, GetTrustValue(packet));
         } else {
             printf("DB Error: %s\n", sqlite3_errmsg(db));
         }
@@ -651,25 +651,25 @@ string CIdentifiDB::SaveRelation(CRelation &relation) {
         sqliteReturnCode = sqlite3_reset(statement);
     )
 
-    vector<pair<string, string> > subjects = relation.GetSubjects();
+    vector<pair<string, string> > subjects = packet.GetSubjects();
     for (vector<pair<string, string> >::iterator it = subjects.begin(); it != subjects.end(); ++it) {
         int predicateID = SavePredicate(it->first);
         string subjectHash = SaveIdentifier(it->second);
-        SaveRelationSubject(relationHash, predicateID, subjectHash);
+        SavePacketSubject(packetHash, predicateID, subjectHash);
     }
-    vector<pair<string, string> > objects = relation.GetObjects();
+    vector<pair<string, string> > objects = packet.GetObjects();
     for (vector<pair<string, string> >::iterator it = objects.begin(); it != objects.end(); ++it) {
         int predicateID = SavePredicate(it->first);
         string objectHash = SaveIdentifier(it->second);
-        SaveRelationObject(relationHash, predicateID, objectHash);
+        SavePacketObject(packetHash, predicateID, objectHash);
     }
-    vector<CSignature> signatures = relation.GetSignatures();
+    vector<CSignature> signatures = packet.GetSignatures();
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
-        SaveRelationSignature(*it);
+        SavePacketSignature(*it);
     }
 
     sqlite3_finalize(statement);
-    return relationHash;
+    return packetHash;
 }
 
 void CIdentifiDB::SetDefaultKey(CKey &key) {
@@ -682,7 +682,7 @@ void CIdentifiDB::SetDefaultKey(CKey &key) {
 
     sqlite3_stmt *statement;
     string sql;
-    string relationHash;
+    string packetHash;
 
     sql = "INSERT INTO PrivateKeys (rowid, PubKeyHash, PrivateKey) VALUES (0, @pubkeyhash, @privatekey);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -738,25 +738,25 @@ vector<string> CIdentifiDB::ListPrivateKeys() {
 }
 
 // Breadth-first search for the shortest trust path from id1 to id2
-vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
-    vector<CRelation> path;
-    vector<uint256> visitedRelations;
+vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
+    vector<CIdentifiPacket> path;
+    vector<uint256> visitedPackets;
 
-    deque<CRelation> d;
-    map<uint256, CRelation> previousRelations;
+    deque<CIdentifiPacket> d;
+    map<uint256, CIdentifiPacket> previousPackets;
 
-    vector<CRelation> relations = GetRelationsByIdentifier(start);
-    d.insert(d.end(), relations.begin(), relations.end());
+    vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start);
+    d.insert(d.end(), packets.begin(), packets.end());
 
     while (!d.empty()) {
-        CRelation currentNode = d.front();
+        CIdentifiPacket currentNode = d.front();
         d.pop_front();
-        if (find(visitedRelations.begin(), visitedRelations.end(), currentNode.GetHash()) != visitedRelations.end()) {
+        if (find(visitedPackets.begin(), visitedPackets.end(), currentNode.GetHash()) != visitedPackets.end()) {
             continue;
         }
-        visitedRelations.push_back(currentNode.GetHash());
+        visitedPackets.push_back(currentNode.GetHash());
 
-        // TODO: Discard relations with untrusted signer
+        // TODO: Discard packets with untrusted signer
         
         if (currentNode.GetRating() <= (currentNode.GetMaxRating() + currentNode.GetMinRating()) / 2)
             continue;
@@ -768,21 +768,21 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
             if (identifier->second == end) {
                 path.push_back(currentNode);
 
-                CRelation previousRelation = currentNode;
-                while (previousRelations.find(previousRelation.GetHash()) != previousRelations.end()) {
-                    previousRelation = previousRelations.at(previousRelation.GetHash());
-                    path.insert(path.begin(), previousRelation);
+                CIdentifiPacket previousPacket = currentNode;
+                while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
+                    previousPacket = previousPackets.at(previousPacket.GetHash());
+                    path.insert(path.begin(), previousPacket);
                 }
                 return path;
             } else {
-                vector<CRelation> allRelations = GetRelationsByIdentifier(identifier->second);
-                for (vector<CRelation>::iterator r = allRelations.begin(); r != allRelations.end(); r++) {
-                    if (previousRelations.find(r->GetHash()) == previousRelations.end()
-                        && find(visitedRelations.begin(), visitedRelations.end(), r->GetHash()) == visitedRelations.end())
-                        previousRelations[r->GetHash()] = currentNode;
+                vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier->second);
+                for (vector<CIdentifiPacket>::iterator r = allPackets.begin(); r != allPackets.end(); r++) {
+                    if (previousPackets.find(r->GetHash()) == previousPackets.end()
+                        && find(visitedPackets.begin(), visitedPackets.end(), r->GetHash()) == visitedPackets.end())
+                        previousPackets[r->GetHash()] = currentNode;
                 }
 
-                d.insert(d.end(), allRelations.begin(), allRelations.end());
+                d.insert(d.end(), allPackets.begin(), allPackets.end());
             }
         }
     }
@@ -790,10 +790,10 @@ vector<CRelation> CIdentifiDB::GetPath(string start, string end, int searchDepth
     return path;
 }
 
-CRelation CIdentifiDB::GetRelationByHash(string hash) {
+CIdentifiPacket CIdentifiDB::GetPacketByHash(string hash) {
     sqlite3_stmt *statement;
-    vector<CRelation> relations;
-    const char* sql = "SELECT * FROM Relations WHERE Relations.Hash = @hash;";
+    vector<CIdentifiPacket> packets;
+    const char* sql = "SELECT * FROM Packets WHERE Packets.Hash = @hash;";
 
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, hash.c_str(), -1, SQLITE_TRANSIENT);
@@ -805,9 +805,9 @@ CRelation CIdentifiDB::GetRelationByHash(string hash) {
              
             if(result == SQLITE_ROW)
             {
-                CRelation relation = GetRelationFromStatement(statement);
+                CIdentifiPacket packet = GetPacketFromStatement(statement);
                 sqlite3_finalize(statement);
-                return relation;
+                return packet;
             } else {
                 break;
             }
@@ -815,7 +815,7 @@ CRelation CIdentifiDB::GetRelationByHash(string hash) {
         
     }
     sqlite3_finalize(statement);
-    throw runtime_error("relation not found");    
+    throw runtime_error("packet not found");    
 }
 
 int CIdentifiDB::GetIdentifierCount() {
@@ -823,17 +823,17 @@ int CIdentifiDB::GetIdentifierCount() {
     return lexical_cast<int>(result[0][0]);
 }
 
-int CIdentifiDB::GetRelationCount() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM Relations");
+int CIdentifiDB::GetPacketCount() {
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM Packets");
     return lexical_cast<int>(result[0][0]);
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsAfterTimestamp(time_t timestamp, int limit) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, int limit) {
     sqlite3_stmt *statement;
-    vector<CRelation> relations;
+    vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Relations WHERE Created >= @timestamp LIMIT @limit";
+    sql << "SELECT * FROM Packets WHERE Created >= @timestamp LIMIT @limit";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int64(statement, 1, timestamp);
@@ -846,7 +846,7 @@ vector<CRelation> CIdentifiDB::GetRelationsAfterTimestamp(time_t timestamp, int 
              
             if(result == SQLITE_ROW)
             {
-                relations.push_back(GetRelationFromStatement(statement));
+                packets.push_back(GetPacketFromStatement(statement));
             }
             else
             {
@@ -857,21 +857,21 @@ vector<CRelation> CIdentifiDB::GetRelationsAfterTimestamp(time_t timestamp, int 
         sqlite3_finalize(statement);
     }
     
-    return relations;
+    return packets;
 }
 
-vector<CRelation> CIdentifiDB::GetRelationsAfterRelation(string relationHash, int limit) {
-    CRelation rel = GetRelationByHash(relationHash);
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, int limit) {
+    CIdentifiPacket rel = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
-    vector<CRelation> relations;
+    vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Relations WHERE ";
-    sql << "(Created = @timestamp AND Hash > @relationhash) OR ";
+    sql << "SELECT * FROM Packets WHERE ";
+    sql << "(Created = @timestamp AND Hash > @packethash) OR ";
     sql << "(Created > @timestamp) ORDER BY Created, Hash LIMIT @limit";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, relationHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
         sqlite3_bind_int(statement, 3, limit);
 
@@ -882,7 +882,7 @@ vector<CRelation> CIdentifiDB::GetRelationsAfterRelation(string relationHash, in
              
             if(result == SQLITE_ROW)
             {
-                relations.push_back(GetRelationFromStatement(statement));
+                packets.push_back(GetPacketFromStatement(statement));
             }
             else
             {
@@ -893,13 +893,13 @@ vector<CRelation> CIdentifiDB::GetRelationsAfterRelation(string relationHash, in
         sqlite3_finalize(statement);
     }
     
-    return relations;
+    return packets;
 }
 
-time_t CIdentifiDB::GetLatestRelationTimestamp() {
+time_t CIdentifiDB::GetLatestPacketTimestamp() {
     sqlite3_stmt *statement;
     time_t timestamp = 0;
-    const char* sql = "SELECT Created FROM Relations ORDER BY Created DESC LIMIT 1";
+    const char* sql = "SELECT Created FROM Packets ORDER BY Created DESC LIMIT 1";
 
     if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
         int result = sqlite3_step(statement);

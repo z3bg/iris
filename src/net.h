@@ -601,7 +601,7 @@ public:
     }
 
     void PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd);
-    void PushGetRelations(time_t timestamp);
+    void PushGetPackets(time_t timestamp);
     bool IsSubscribed(unsigned int nChannel);
     void Subscribe(unsigned int nChannel, unsigned int nHops=0);
     void CancelSubscribe(unsigned int nChannel);
@@ -634,8 +634,8 @@ public:
 class CTransaction;
 void RelayTransaction(const CTransaction& tx, const uint256& hash);
 void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataStream& ss);
-void RelayRelation(CRelation& rel);
-void RelayRelation(CRelation& rel, const CDataStream& ss);
+void RelayPacket(CIdentifiPacket& rel);
+void RelayPacket(CIdentifiPacket& rel, const CDataStream& ss);
 
 
 #endif

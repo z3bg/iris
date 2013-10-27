@@ -8,20 +8,20 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
-Object CRelation::GetMessage() const {
+Object CIdentifiPacket::GetMessage() const {
     return message;
 }
 
-uint256 CRelation::GetHash() const {
+uint256 CIdentifiPacket::GetHash() const {
     string data = GetData();
     return Hash(data.begin(), data.end());
 }
 
-string CRelation::GetData() const {
+string CIdentifiPacket::GetData() const {
     return data;
 }
 
-string CRelation::MakeData() {
+string CIdentifiPacket::MakeData() {
     Array data, subjectsJSON, objectsJSON;
 
     for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
@@ -46,14 +46,14 @@ string CRelation::MakeData() {
     return write_string(Value(data), false);
 }
 
-Object CRelation::GetMessageFromData(string data) {
+Object CIdentifiPacket::GetMessageFromData(string data) {
     Value json;
     read_string(data, json);
     Array arr = json.get_array();
     return arr[3].get_obj();
 }
 
-void CRelation::SetVarsFromMessage() {
+void CIdentifiPacket::SetVarsFromMessage() {
     type = find_value(message, "type").get_str();
 
     bool hasRating;
@@ -74,7 +74,7 @@ void CRelation::SetVarsFromMessage() {
     }
 }
 
-void CRelation::SetData(string data) {
+void CIdentifiPacket::SetData(string data) {
     Value json;
     Array array, subjectsArray, objectsArray;
     subjects.clear();
@@ -95,29 +95,29 @@ void CRelation::SetData(string data) {
     SetVarsFromMessage();
 
     if (subjectsArray.empty())
-        throw runtime_error("Relations must have at least 1 subject");
+        throw runtime_error("Packets must have at least 1 subject");
 
     if (objectsArray.empty())
-        throw runtime_error("Relations must have at least 1 object");
+        throw runtime_error("Packets must have at least 1 object");
 
     for (Array::iterator it = subjectsArray.begin(); it != subjectsArray.end(); it++) {
         Array subject = it->get_array();
         if (subject.size() != 2)
-            throw runtime_error("Invalid relation subject length");
+            throw runtime_error("Invalid packet subject length");
         subjects.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
     }
 
     for (Array::iterator it = objectsArray.begin(); it != objectsArray.end(); it++) {
         Array object = it->get_array();
         if (object.size() != 2)
-            throw runtime_error("Invalid relation object length");
+            throw runtime_error("Invalid packet object length");
         objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
-    CRelation::data = data;
+    CIdentifiPacket::data = data;
 }
 
-bool CRelation::Sign(CKey& key) {
+bool CIdentifiPacket::Sign(CKey& key) {
     string data = GetData();
     uint256 hashToSign = Hash(data.begin(), data.end());
 
@@ -134,7 +134,7 @@ bool CRelation::Sign(CKey& key) {
     return true;
 }
 
-bool CRelation::AddSignature(CSignature signature) {
+bool CIdentifiPacket::AddSignature(CSignature signature) {
     if (signature.GetSignedHash() == EncodeBase58(GetHash()) && signature.IsValid()) {
         signatures.push_back(signature);
         return true;
@@ -142,24 +142,24 @@ bool CRelation::AddSignature(CSignature signature) {
     return false;
 }
 
-vector<pair<string, string> > CRelation::GetSubjects() const {
+vector<pair<string, string> > CIdentifiPacket::GetSubjects() const {
     return subjects;
 }
 
-vector<pair<string, string> > CRelation::GetObjects() const {
+vector<pair<string, string> > CIdentifiPacket::GetObjects() const {
     return objects;
 }
 
-vector<CSignature> CRelation::GetSignatures() const {
+vector<CSignature> CIdentifiPacket::GetSignatures() const {
     return signatures;
 }
 
-time_t CRelation::GetTimestamp() const {
+time_t CIdentifiPacket::GetTimestamp() const {
     return timestamp;
 }
 
-Value CRelation::GetJSON() const {
-    Object relationJSON;
+Value CIdentifiPacket::GetJSON() const {
+    Object packetJSON;
     Array subjectsJSON, objectsJSON, signaturesJSON;
 
     for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
@@ -179,42 +179,42 @@ Value CRelation::GetJSON() const {
         signaturesJSON.push_back(it->GetJSON());
     }
 
-    relationJSON.push_back(Pair("hash", EncodeBase58(GetHash())));
-    relationJSON.push_back(Pair("timestamp", timestamp));
-    relationJSON.push_back(Pair("subjects", subjectsJSON));
-    relationJSON.push_back(Pair("objects", objectsJSON));
-    relationJSON.push_back(Pair("message", message));
-    relationJSON.push_back(Pair("signatures", signaturesJSON));
-    relationJSON.push_back(Pair("published", published));
+    packetJSON.push_back(Pair("hash", EncodeBase58(GetHash())));
+    packetJSON.push_back(Pair("timestamp", timestamp));
+    packetJSON.push_back(Pair("subjects", subjectsJSON));
+    packetJSON.push_back(Pair("objects", objectsJSON));
+    packetJSON.push_back(Pair("message", message));
+    packetJSON.push_back(Pair("signatures", signaturesJSON));
+    packetJSON.push_back(Pair("published", published));
 
-    return relationJSON;
+    return packetJSON;
 }
 
-void CRelation::SetPublished() {
+void CIdentifiPacket::SetPublished() {
     published = true;
 }
 
-bool CRelation::IsPublished() {
+bool CIdentifiPacket::IsPublished() {
     return published;
 }
 
-int CRelation::GetRating() const {
+int CIdentifiPacket::GetRating() const {
     return rating;
 }
 
-int CRelation::GetMinRating() const {
+int CIdentifiPacket::GetMinRating() const {
     return minRating;
 }
 
-int CRelation::GetMaxRating() const {
+int CIdentifiPacket::GetMaxRating() const {
     return maxRating;
 }
 
-string CRelation::GetComment() const {
+string CIdentifiPacket::GetComment() const {
     return comment;
 }
 
-string CRelation::GetType() const {
+string CIdentifiPacket::GetType() const {
     return type;
 }
 

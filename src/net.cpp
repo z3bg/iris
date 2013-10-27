@@ -89,11 +89,11 @@ void CNode::PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd)
     PushMessage("getblocks", CBlockLocator(pindexBegin), hashEnd);
 }
 
-void CNode::PushGetRelations(time_t timestamp)
+void CNode::PushGetPackets(time_t timestamp)
 {
     if (fDebugNet)
-        printf("PushGetRelations(%lld)\n", (long long) timestamp);
-    PushMessage("getrelations", timestamp);
+        printf("PushGetPackets(%lld)\n", (long long) timestamp);
+    PushMessage("getpackets", timestamp);
 }
 
 // find 'best' local address for a particular peer
@@ -1878,18 +1878,18 @@ void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataSt
     }
 }
 
-void RelayRelation(CRelation& rel)
+void RelayPacket(CIdentifiPacket& rel)
 {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss.reserve(10000);
     ss << rel;
-    RelayRelation(rel, ss);
+    RelayPacket(rel, ss);
 }
 
-void RelayRelation(CRelation& rel, const CDataStream& ss)
+void RelayPacket(CIdentifiPacket& rel, const CDataStream& ss)
 {
     uint256 hash = rel.GetHash();
-    CInv inv(MSG_RELATION, hash);
+    CInv inv(MSG_PACKET, hash);
     {
         LOCK(cs_mapRelay);
         // Expire old relay messages

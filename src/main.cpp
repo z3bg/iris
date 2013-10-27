@@ -2927,10 +2927,10 @@ bool static AlreadyHave(const CInv& inv)
     case MSG_BLOCK:
         return mapBlockIndex.count(inv.hash) ||
                mapOrphanBlocks.count(inv.hash);
-    case MSG_RELATION:
+    case MSG_PACKET:
         {
             try {
-                pidentifidb->GetRelationByHash(EncodeBase58(inv.hash));
+                pidentifidb->GetPacketByHash(EncodeBase58(inv.hash));
                 return true;
             } catch (runtime_error) {
                 return false;
@@ -3308,17 +3308,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     }
 
 
-    else if (strCommand == "getrelations") {
-        printf("getrelations");
+    else if (strCommand == "getpackets") {
+        printf("getpackets");
 
         time_t afterTimestamp;
         vRecv >> afterTimestamp;
 
         int nLimit = 500;
 
-        vector<CRelation> relations = pidentifidb->GetRelationsAfterTimestamp(afterTimestamp, nLimit);
-        BOOST_FOREACH(const CRelation &rel, relations)
-            pfrom->PushInventory(CInv(MSG_RELATION, rel.GetHash()));
+        vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit);
+        BOOST_FOREACH(const CIdentifiPacket &rel, packets)
+            pfrom->PushInventory(CInv(MSG_PACKET, rel.GetHash()));
 
         /*        CBlockLocator locator;
         uint256 hashStop;
@@ -3355,29 +3355,29 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
 
 
-    else if (strCommand == "relation")
+    else if (strCommand == "packet")
     {
         vector<uint256> vWorkQueue;
         vector<uint256> vEraseQueue;
         CDataStream vMsg(vRecv);
-        CRelation relation;
-        vRecv >> relation;
+        CIdentifiPacket packet;
+        vRecv >> packet;
 
-        CInv inv(MSG_RELATION, relation.GetHash());
+        CInv inv(MSG_PACKET, packet.GetHash());
         pfrom->AddInventoryKnown(inv);
-        RelayRelation(relation);
+        RelayPacket(packet);
         mapAlreadyAskedFor.erase(inv);
         vWorkQueue.push_back(inv.hash);
         vEraseQueue.push_back(inv.hash);
 
-        pidentifidb->SaveRelation(relation);
+        pidentifidb->SavePacket(packet);
 
 
             /*
             CValidationState state;
-            if (relation.AcceptToDB(state))
+            if (packet.AcceptToDB(state))
             {
-                RelayRelation(relation, inv.hash, vMsg);
+                RelayPacket(packet, inv.hash, vMsg);
                 mapAlreadyAskedFor.erase(inv);
                 vWorkQueue.push_back(inv.hash);
                 vEraseQueue.push_back(inv.hash);
@@ -3609,7 +3609,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 
         if (pto->fStartSync && !fImporting && !fReindex) {
             pto->fStartSync = false;
-            pto->PushGetRelations(pidentifidb->GetLatestRelationTimestamp());
+            pto->PushGetPackets(pidentifidb->GetLatestPacketTimestamp());
         }
 
         // Address refresh broadcast

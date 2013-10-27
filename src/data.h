@@ -42,17 +42,17 @@ private:
     string signature;
 };
 
-class CRelation {
+class CIdentifiPacket {
 public:
-    CRelation(json_spirit::Object message = json_spirit::Object(), vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
+    CIdentifiPacket(json_spirit::Object message = json_spirit::Object(), vector<pair<string, string> > subjects = vector<pair<string, string> >(), vector<pair<string, string> > objects = vector<pair<string, string> >(), vector<CSignature> signatures = vector<CSignature>(), time_t timestamp = time(NULL), bool published = 0) : message(message), subjects(subjects), objects(objects), signatures(signatures), timestamp(timestamp), published(published) {
         data = MakeData();
         if (!message.empty())
             SetVarsFromMessage();
     }
-    bool operator== (const CRelation &r) const {
+    bool operator== (const CIdentifiPacket &r) const {
         return (r.GetHash() == GetHash() && r.timestamp == timestamp);
     }
-    bool operator!= (const CRelation &r) const {
+    bool operator!= (const CIdentifiPacket &r) const {
         return (r.GetHash() != GetHash() || r.timestamp != timestamp);
     }
     static json_spirit::Object GetMessageFromData(string data);
@@ -83,7 +83,7 @@ public:
             READWRITE(data);
             READWRITE(signatures);
         } else {
-            CRelation *rel = const_cast<CRelation*>(this);
+            CIdentifiPacket *rel = const_cast<CIdentifiPacket*>(this);
             READWRITE(data);
             rel->SetData(data);
             rel->SetPublished();

@@ -12,64 +12,64 @@
 using namespace json_spirit;
 using namespace std;
 
-Value getrelationcount(const Array& params, bool fHelp)
+Value getpacketcount(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getrelationcount\n"
-            "Returns the number of stored relations.");
+            "getpacketcount\n"
+            "Returns the number of stored packets.");
 
-    return pidentifidb->GetRelationCount();
+    return pidentifidb->GetPacketCount();
 }
 
 Value getidentifiercount(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getrelationcount\n"
+            "getpacketcount\n"
             "Returns the number of stored identifiers.");
 
     return pidentifidb->GetIdentifierCount();
 }
 
-Value getrelationsbysubject(const Array& params, bool fHelp)
+Value getpacketsbysubject(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getrelationsbysubject <id_value>\n"
-            "Returns a list of relations associated with the given subject identifier.");
+            "getpacketsbysubject <id_value>\n"
+            "Returns a list of packets associated with the given subject identifier.");
 
-    Array relationsJSON;
-    vector<CRelation> relations = pidentifidb->GetRelationsBySubject(params[0].get_str());
-    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
-        relationsJSON.push_back(it->GetJSON());
+    Array packetsJSON;
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsBySubject(params[0].get_str());
+    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
+        packetsJSON.push_back(it->GetJSON());
     }
 
-    return relationsJSON;
+    return packetsJSON;
 }
 
-Value getrelationsbyobject(const Array& params, bool fHelp)
+Value getpacketsbyobject(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getrelationsbyobject <id_value>\n"
-            "Returns a list of relations associated with the given object identifier.");
+            "getpacketsbyobject <id_value>\n"
+            "Returns a list of packets associated with the given object identifier.");
 
-    Array relationsJSON;
-    vector<CRelation> relations = pidentifidb->GetRelationsByObject(params[0].get_str());
-    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
-        relationsJSON.push_back(it->GetJSON());
+    Array packetsJSON;
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByObject(params[0].get_str());
+    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
+        packetsJSON.push_back(it->GetJSON());
     }
 
-    return relationsJSON;
+    return packetsJSON;
 }
 
-Value getrelationsafter(const Array& params, bool fHelp)
+Value getpacketsafter(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2 )
         throw runtime_error(
-            "getrelationsafter <timestamp> <limit=20>\n"
-            "Get a list of relations after the given timestamp, limited to the given number of entries.");
+            "getpacketsafter <timestamp> <limit=20>\n"
+            "Get a list of packets after the given timestamp, limited to the given number of entries.");
 
     time_t timestamp = boost::lexical_cast<int>(params[0].get_str());
     int nLimit;
@@ -78,13 +78,13 @@ Value getrelationsafter(const Array& params, bool fHelp)
     else
         nLimit = 20;
 
-    Array relationsJSON;
-    vector<CRelation> relations = pidentifidb->GetRelationsAfterTimestamp(timestamp, nLimit);
-    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
-        relationsJSON.push_back(it->GetJSON());
+    Array packetsJSON;
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(timestamp, nLimit);
+    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
+        packetsJSON.push_back(it->GetJSON());
     }
 
-    return relationsJSON;
+    return packetsJSON;
 }
 
 Value getpath(const Array& params, bool fHelp)
@@ -92,23 +92,23 @@ Value getpath(const Array& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "getpath <id1> <id2>\n"
-            "Returns an array of relations that connect id1 and id2.");
+            "Returns an array of packets that connect id1 and id2.");
 
-    Array relationsJSON;
-    vector<CRelation> relations = pidentifidb->GetPath(params[0].get_str(), params[1].get_str());
-    for (vector<CRelation>::iterator it = relations.begin(); it != relations.end(); ++it) {
-        relationsJSON.push_back(it->GetJSON());
+    Array packetsJSON;
+    vector<CIdentifiPacket> packets = pidentifidb->GetPath(params[0].get_str(), params[1].get_str());
+    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
+        packetsJSON.push_back(it->GetJSON());
     }
 
-    return relationsJSON;
+    return packetsJSON;
 }
 
-Value saverelation(const Array& params, bool fHelp)
+Value savepacket(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 6 || params.size() > 7)
         throw runtime_error(
-            "saverelation <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <relation_comment> <rating[-10..10]> <publish=false>\n"
-            "Save a relation");
+            "savepacket <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
+            "Save a packet");
 
     vector<pair<string, string> > *subjects = new vector<pair<string, string> >();
     vector<pair<string, string> > *objects = new vector<pair<string, string> >();
@@ -122,33 +122,33 @@ Value saverelation(const Array& params, bool fHelp)
     message.push_back(Pair("rating",lexical_cast<int>(params[5].get_str())));
     message.push_back(Pair("maxRating",10));
     message.push_back(Pair("minRating",-10));
-    CRelation relation(message, *subjects, *objects, *signatures);
+    CIdentifiPacket packet(message, *subjects, *objects, *signatures);
     CKey defaultKey = pidentifidb->GetDefaultKey();
-    relation.Sign(defaultKey);
+    packet.Sign(defaultKey);
     if (publish) {
-        relation.SetPublished();
-        RelayRelation(relation);
+        packet.SetPublished();
+        RelayPacket(packet);
     }
-    return pidentifidb->SaveRelation(relation);
+    return pidentifidb->SavePacket(packet);
 }
 
-Value saverelationfromdata(const Array& params, bool fHelp)
+Value savepacketfromdata(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "saverelationfromdata <relation_json_data> <publish=false>\n"
-            "Save a relation");
+            "savepacketfromdata <packet_json_data> <publish=false>\n"
+            "Save a packet");
 
-    CRelation relation;
-    relation.SetData(params[0].get_str());
+    CIdentifiPacket packet;
+    packet.SetData(params[0].get_str());
     CKey defaultKey = pidentifidb->GetDefaultKey();
-    relation.Sign(defaultKey);
+    packet.Sign(defaultKey);
     bool publish = (params.size() == 2 && params[1].get_str() == "true");
     if (publish) {
-        relation.SetPublished();
-        RelayRelation(relation);
+        packet.SetPublished();
+        RelayPacket(packet);
     }
-    return pidentifidb->SaveRelation(relation);
+    return pidentifidb->SavePacket(packet);
 }
 
 Value listprivatekeys(const Array& params, bool fHelp)
@@ -171,16 +171,16 @@ Value addsignature(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "addsignature <signed_relation_hash> <signer_pubkey> <signature>\n"
-            "Add a signature to a relation");
+            "addsignature <signed_packet_hash> <signer_pubkey> <signature>\n"
+            "Add a signature to a packet");
 
     CSignature sig(params[0].get_str(), params[1].get_str(), params[2].get_str());
-    CRelation rel = pidentifidb->GetRelationByHash(params[0].get_str());
+    CIdentifiPacket rel = pidentifidb->GetPacketByHash(params[0].get_str());
 
     if (!rel.AddSignature(sig))
         throw runtime_error("Invalid signature");
 
-    pidentifidb->SaveRelation(rel);
+    pidentifidb->SavePacket(rel);
 
     return true;
 }
@@ -189,13 +189,13 @@ Value publish(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "publish <relation_hash>\n"
-            "Publish a previously local-only relation to the network");
+            "publish <packet_hash>\n"
+            "Publish a previously local-only packet to the network");
 
-    CRelation rel = pidentifidb->GetRelationByHash(params[0].get_str());
+    CIdentifiPacket rel = pidentifidb->GetPacketByHash(params[0].get_str());
     rel.SetPublished();
-    RelayRelation(rel);
-    pidentifidb->SaveRelation(rel);
+    RelayPacket(rel);
+    pidentifidb->SavePacket(rel);
 
     return true;
 }

@@ -111,7 +111,6 @@ TODO
 ----
 
 * Improve in-built trust evaluation algorithm
-* Replace hashtag system with numeric ratings
 * Recalculate old trust ratings when new packets arrive
 * Improve network functions, add sanity checks
 * Remove unnecessary Bitcoin code
