@@ -150,6 +150,19 @@ Value savepacketfromdata(const Array& params, bool fHelp)
     return pidentifidb->SavePacket(packet);
 }
 
+Value deletepacket(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "deletepacket <packet_hash>\n"
+            "Delete a packet from the local database");
+
+    pidentifidb->DropPacket(params[0].get_str());
+
+    return true;
+}
+
+
 Value listprivkeys(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)

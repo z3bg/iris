@@ -112,6 +112,9 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsafter 0 1"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("deletepacket BeKdTwAmgnpqycNXDPsMwcKVfpt5LfT54yZKLHdM5gQ6"));
+    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 4);
 }
 
 BOOST_AUTO_TEST_CASE(db_max_size)
