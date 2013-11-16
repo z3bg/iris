@@ -52,6 +52,7 @@ private:
     string SaveIdentifier(string identifier);
     vector<vector<string> > query(const char* query);
     void CheckDefaultKey();
+    void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
 };
 

@@ -100,6 +100,30 @@ void CIdentifiDB::CheckDefaultKey() {
     }
 }
 
+void CIdentifiDB::CheckDefaultTrustList() {
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM Packets");
+    if (lexical_cast<int>(result[0][0]) < 1) {
+        CKey defaultKey = GetDefaultKey();
+        vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
+        string strPubKey = EncodeBase58(vchPubKey);
+
+        vector<pair<string, string> > subjects, objects;
+        subjects.push_back(make_pair("ecdsa_base58", strPubKey));
+        objects.push_back(make_pair("ecdsa_base58", "NdudNBcekP9rQW425xpnpeVtDu1DLTFiMuAMkBsXRVpM8LheWfjPj7fiU7QNVxNbN1YbMXnXrhQEcuUovMB41fvm"));
+        
+        json_spirit::Object message;
+        message.push_back(Pair("type", "rating"));
+        message.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
+        message.push_back(Pair("rating", 1));
+        message.push_back(Pair("maxRating", 1));
+        message.push_back(Pair("minRating", -1));
+
+        CIdentifiPacket packet(message, subjects, objects);
+        packet.Sign(defaultKey);
+        SavePacket(packet);
+    }
+}
+
 void CIdentifiDB::Initialize() {
     ostringstream sql;
     sql.str("");
@@ -159,6 +183,7 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     CheckDefaultKey();
+    CheckDefaultTrustList();
 }
 
 vector<pair<string, string> > CIdentifiDB::GetSubjectsByPacketHash(string packetHash) {

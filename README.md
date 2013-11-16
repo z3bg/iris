@@ -131,4 +131,4 @@ Use external SQL DB instead of sqlite for better multi-application access to dat
 
 Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point to the Identifi WoT for many people.
 
-Allow messages in Identifi packets to be JSON dicts? ATM limited to strings.
+Use same format as [Trsst](http://www.trsst.com)?
