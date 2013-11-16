@@ -76,7 +76,15 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 6);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("listprivatekeys"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("listprivkeys"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    BOOST_CHECK_THROW(r=CallRPC("importprivkey invalid_key"), runtime_error);
+    BOOST_CHECK_NO_THROW(r=CallRPC("importprivkey 5K1T7u3NA55ypnDDBHB61MZ2hFxCoNbBeZj5dhQttPJFKo85MfR"));
+    BOOST_CHECK_EQUAL(r.get_bool(), true);
+    BOOST_CHECK_NO_THROW(r=CallRPC("setdefaultkey 5K1T7u3NA55ypnDDBHB61MZ2hFxCoNbBeZj5dhQttPJFKo85MfR"));
+    BOOST_CHECK_EQUAL(r.get_bool(), true);
+    BOOST_CHECK_NO_THROW(r=CallRPC("listprivkeys"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath nobody1 nobody2"));
     BOOST_CHECK(r.get_array().empty());

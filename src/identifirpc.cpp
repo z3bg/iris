@@ -197,15 +197,17 @@ static const CRPCCommand vRPCCommands[] =
   //  ------------------------      -------------------------   ---------- ----------
     { "help",                       &help,                      true,      true },
     { "stop",                       &stop,                      true,      true },
-    { "getpacketcount",           &getpacketcount,          true,      false },
+    { "getpacketcount",             &getpacketcount,            true,      false },
     { "getpath",                    &getpath,                   true,      false },
     { "getidentifiercount",         &getidentifiercount,        true,      false },
-    { "getpacketsbysubject",      &getpacketsbysubject,     true,      false },
-    { "getpacketsbyobject",       &getpacketsbyobject,      true,      false },
-    { "getpacketsafter",          &getpacketsafter,         true,      false },
-    { "savepacket",               &savepacket,              true,      false },
-    { "savepacketfromdata",       &savepacketfromdata,      true,      false },
-    { "listprivatekeys",            &listprivatekeys,           true,      false },
+    { "getpacketsbysubject",        &getpacketsbysubject,       true,      false },
+    { "getpacketsbyobject",         &getpacketsbyobject,        true,      false },
+    { "getpacketsafter",            &getpacketsafter,           true,      false },
+    { "savepacket",                 &savepacket,                true,      false },
+    { "savepacketfromdata",         &savepacketfromdata,        true,      false },
+    { "listprivkeys",               &listprivkeys,              true,      false },
+    { "importprivkey",              &importprivkey,             true,      false },
+    { "setdefaultkey",              &setdefaultkey,             true,      false },
     { "addsignature",               &addsignature,              true,      false },
     { "publish",                    &publish,                   true,      false },
     { "getconnectioncount",         &getconnectioncount,        true,      false },
@@ -1124,7 +1126,6 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "gettxout"               && n > 2) ConvertTo<bool>(params[2]);
     if (strMethod == "lockunspent"            && n > 0) ConvertTo<bool>(params[0]);
     if (strMethod == "lockunspent"            && n > 1) ConvertTo<Array>(params[1]);
-    if (strMethod == "importprivkey"          && n > 2) ConvertTo<bool>(params[2]);
 
     return params;
 }

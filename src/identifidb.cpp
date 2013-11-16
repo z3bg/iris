@@ -89,11 +89,14 @@ void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
 }
 
 void CIdentifiDB::CheckDefaultKey() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE rowid = 0");
-    if (lexical_cast<int>(result[0][0]) != 1) {
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE IsDefault = 1");
+    if (lexical_cast<int>(result[0][0]) < 1) {
         CKey newKey;
         newKey.MakeNewKey(false);
-        SetDefaultKey(newKey);
+        bool compressed;
+        CSecret secret = newKey.GetSecret(compressed);
+        string strPrivateKey = CIdentifiSecret(secret, compressed).ToString();
+        SetDefaultKey(strPrivateKey);
     }
 }
 
@@ -129,14 +132,14 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketSubjects (";
-    sql << "PacketHash        NVARCHAR(45)    NOT NULL,";
+    sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "SubjectHash         NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketObjects (";
-    sql << "PacketHash        NVARCHAR(45)    NOT NULL,";
+    sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "ObjectHash          NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
@@ -151,7 +154,8 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PrivateKeys (";
     sql << "PubKeyHash        NVARCHAR(45)    PRIMARY KEY,";
-    sql << "PrivateKey        NVARCHAR(1000)  NOT NULL);";
+    sql << "PrivateKey        NVARCHAR(1000)  NOT NULL,";
+    sql << "IsDefault         BOOL            DEFAULT 0);";
     query(sql.str().c_str());
 
     CheckDefaultKey();
@@ -672,27 +676,40 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     return packetHash;
 }
 
-void CIdentifiDB::SetDefaultKey(CKey &key) {
+
+bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
+    CIdentifiSecret s;
+    s.SetString(privKey);
+    if (!s.IsValid())
+        throw runtime_error("ImportPrivKey failed: invalid key");
+    bool compressed = false;
+    CSecret secret = s.GetSecret(compressed);
+
+    CKey key;
+    key.SetSecret(secret, false);
     vector<unsigned char> pubKey = key.GetPubKey().Raw();
     string pubKeyStr = EncodeBase58(pubKey);
     string pubKeyHash = SaveIdentifier(pubKeyStr);
-    bool compressed;
-    CSecret secret = key.GetSecret(compressed);
-    string privateKey = CIdentifiSecret(secret, compressed).ToString();
+
+    if (setDefault)
+        query("UPDATE PrivateKeys SET IsDefault = 0");
 
     sqlite3_stmt *statement;
-    string sql;
-    string packetHash;
-
-    sql = "INSERT INTO PrivateKeys (rowid, PubKeyHash, PrivateKey) VALUES (0, @pubkeyhash, @privatekey);";
+    string sql = "INSERT OR REPLACE INTO PrivateKeys (PubKeyHash, PrivateKey, IsDefault) VALUES (@pubkeyhash, @privatekey, @isdefault);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, pubKeyHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, privateKey.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, privKey.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 3, setDefault);
+        sqlite3_step(statement);
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
-    }
-    sqlite3_step(statement);
-    sqlite3_finalize(statement);    
+    }   
+    sqlite3_finalize(statement); 
+    return true;
+}
+
+void CIdentifiDB::SetDefaultKey(string privKey) {
+    ImportPrivKey(privKey, true);
 }
 
 CKey CIdentifiDB::GetDefaultKey() {
@@ -701,16 +718,15 @@ CKey CIdentifiDB::GetDefaultKey() {
     sqlite3_stmt *statement;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT id.Value, pk.PrivateKey FROM PrivateKeys AS pk ";
-    sql << "INNER JOIN Identifiers AS id ON pk.PubKeyHash = id.Hash ";
-    sql << "WHERE pk.rowid = 0;";
+    sql << "SELECT PrivateKey FROM PrivateKeys WHERE IsDefault = 1";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int result = sqlite3_step(statement);
         if(result == SQLITE_ROW)
         {
-            pubKey = string((char*)sqlite3_column_text(statement, 0));
-            privKey = string((char*)sqlite3_column_text(statement, 1));
+            privKey = string((char*)sqlite3_column_text(statement, 0));
+        } else {
+            throw runtime_error("Failed to retrieve default key");  
         }
     }
     sqlite3_finalize(statement);
@@ -726,10 +742,12 @@ CKey CIdentifiDB::GetDefaultKey() {
     return key;
 }
 
-vector<string> CIdentifiDB::ListPrivateKeys() {
+
+
+vector<string> CIdentifiDB::ListPrivKeys() {
     vector<string> keys;
 
-    vector<vector<string> > result = query("SELECT PubKeyHash FROM PrivateKeys");
+    vector<vector<string> > result = query("SELECT PrivateKey FROM PrivateKeys");
     for (vector<vector <string> >::iterator it = result.begin(); it != result.end(); it++) {
         keys.push_back(it->front());
     }

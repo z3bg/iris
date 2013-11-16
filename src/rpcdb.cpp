@@ -110,11 +110,10 @@ Value savepacket(const Array& params, bool fHelp)
             "savepacket <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
             "Save a packet");
 
-    vector<pair<string, string> > *subjects = new vector<pair<string, string> >();
-    vector<pair<string, string> > *objects = new vector<pair<string, string> >();
-    vector<CSignature> *signatures = new vector<CSignature>();
-    subjects->push_back(make_pair(params[0].get_str(),params[1].get_str()));
-    objects->push_back(make_pair(params[2].get_str(),params[3].get_str()));
+    vector<pair<string, string> > subjects, objects;
+    vector<CSignature> signatures;
+    subjects.push_back(make_pair(params[0].get_str(),params[1].get_str()));
+    objects.push_back(make_pair(params[2].get_str(),params[3].get_str()));
     bool publish = (params.size() == 7 && params[6].get_str() == "true");
     Object message;
     message.push_back(Pair("type", "review"));
@@ -122,7 +121,7 @@ Value savepacket(const Array& params, bool fHelp)
     message.push_back(Pair("rating",lexical_cast<int>(params[5].get_str())));
     message.push_back(Pair("maxRating",10));
     message.push_back(Pair("minRating",-10));
-    CIdentifiPacket packet(message, *subjects, *objects, *signatures);
+    CIdentifiPacket packet(message, subjects, objects, signatures);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     packet.Sign(defaultKey);
     if (publish) {
@@ -151,20 +150,43 @@ Value savepacketfromdata(const Array& params, bool fHelp)
     return pidentifidb->SavePacket(packet);
 }
 
-Value listprivatekeys(const Array& params, bool fHelp)
+Value listprivkeys(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "listprivatekeys\n"
-            "List public key hashes for private keys you own");
+            "listprivkeys\n"
+            "List the private keys you own");
 
-    vector<string> keys = pidentifidb->ListPrivateKeys();
+    vector<string> keys = pidentifidb->ListPrivKeys();
     Array keysJSON;    
 
     for (vector<string>::iterator it = keys.begin(); it != keys.end(); ++it) {
         keysJSON.push_back(*it);
     }   
     return keysJSON;
+}
+
+Value importprivkey(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "importprivkey <key>\n"
+            "Import a private key");
+    pidentifidb->ImportPrivKey(params[0].get_str());
+
+    return true;
+}
+
+Value setdefaultkey(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "setdefaultkey <key>\n"
+            "Set the default signing key");
+
+    pidentifidb->SetDefaultKey(params[0].get_str());
+
+    return true;
 }
 
 Value addsignature(const Array& params, bool fHelp)

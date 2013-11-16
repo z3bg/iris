@@ -28,9 +28,10 @@ public:
     vector<CIdentifiPacket> GetPacketsByObject(string object);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature);
-    void SetDefaultKey(CKey &key);
+    void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
-    vector<string> ListPrivateKeys();
+    vector<string> ListPrivKeys();
+    bool ImportPrivKey(string privKey, bool setDefault=false);
     int GetPacketCount();
     int GetIdentifierCount();
     CIdentifiPacket GetPacketByHash(string hash);
