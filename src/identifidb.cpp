@@ -780,52 +780,81 @@ vector<string> CIdentifiDB::ListPrivKeys() {
     return keys;
 }
 
+bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey) {
+    bool hasTrustedSigner = false;
+    vector<CSignature> signatures = packet.GetSignatures();
+    for (vector<CSignature>::iterator sig = signatures.begin(); sig != signatures.end(); sig++) {
+        string strSignerPubKey = sig->GetSignerPubKey();
+        if (strSignerPubKey == trustedKey
+            || GetPath(trustedKey, strSignerPubKey).size() > 0, 3) {
+            hasTrustedSigner = true;
+            break;                
+        }
+    }
+    return hasTrustedSigner;
+}
+
 // Breadth-first search for the shortest trust path from id1 to id2
 vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
+    // TODO: use only unique identifier types for trust paths
+    string strDefaultKey = EncodeBase58(GetDefaultKey().GetPubKey().Raw());
     vector<CIdentifiPacket> path;
     vector<uint256> visitedPackets;
 
-    deque<CIdentifiPacket> d;
+    deque<CIdentifiPacket> searchQueue;
     map<uint256, CIdentifiPacket> previousPackets;
+    map<uint256, int> packetDistanceFromStart;
 
     vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start);
-    d.insert(d.end(), packets.begin(), packets.end());
+    searchQueue.insert(searchQueue.end(), packets.begin(), packets.end());
+    int currentDistanceFromStart = 1;
 
-    while (!d.empty()) {
-        CIdentifiPacket currentNode = d.front();
-        d.pop_front();
-        if (find(visitedPackets.begin(), visitedPackets.end(), currentNode.GetHash()) != visitedPackets.end()) {
+    while (!searchQueue.empty()) {
+        CIdentifiPacket currentPacket = searchQueue.front();
+        searchQueue.pop_front();
+        if (find(visitedPackets.begin(), visitedPackets.end(), currentPacket.GetHash()) != visitedPackets.end()) {
             continue;
         }
-        visitedPackets.push_back(currentNode.GetHash());
+        visitedPackets.push_back(currentPacket.GetHash());
 
-        // TODO: Discard packets with untrusted signer
-        
-        if (currentNode.GetRating() <= (currentNode.GetMaxRating() + currentNode.GetMinRating()) / 2)
+        if (currentPacket.GetRating() <= (currentPacket.GetMaxRating() + currentPacket.GetMinRating()) / 2)
             continue;
 
-        vector<pair<string, string> > allIdentifiers = currentNode.GetSubjects();
-        vector<pair<string, string> > objects = currentNode.GetObjects();
+        if (!HasTrustedSigner(currentPacket, strDefaultKey))
+            continue;
+
+        if (packetDistanceFromStart.find(currentPacket.GetHash()) != packetDistanceFromStart.end())
+            currentDistanceFromStart = packetDistanceFromStart[currentPacket.GetHash()];
+
+        vector<pair<string, string> > allIdentifiers = currentPacket.GetSubjects();
+        vector<pair<string, string> > objects = currentPacket.GetObjects();
         allIdentifiers.insert(allIdentifiers.end(), objects.begin(), objects.end());
         for (vector<pair<string, string> >::iterator identifier = allIdentifiers.begin(); identifier != allIdentifiers.end(); identifier++) {
             if (identifier->second == end) {
-                path.push_back(currentNode);
+                // Path found: backtrack it from end to start and return it
+                path.push_back(currentPacket);
 
-                CIdentifiPacket previousPacket = currentNode;
+                CIdentifiPacket previousPacket = currentPacket;
                 while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
                     previousPacket = previousPackets.at(previousPacket.GetHash());
                     path.insert(path.begin(), previousPacket);
                 }
                 return path;
-            } else {
+            } else if (currentDistanceFromStart < searchDepth) {
+                // No path found yet: add packets involving this identifier to search queue
                 vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier->second);
-                for (vector<CIdentifiPacket>::iterator r = allPackets.begin(); r != allPackets.end(); r++) {
-                    if (previousPackets.find(r->GetHash()) == previousPackets.end()
-                        && find(visitedPackets.begin(), visitedPackets.end(), r->GetHash()) == visitedPackets.end())
-                        previousPackets[r->GetHash()] = currentNode;
-                }
 
-                d.insert(d.end(), allPackets.begin(), allPackets.end());
+                searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
+
+                for (vector<CIdentifiPacket>::iterator p = allPackets.begin(); p != allPackets.end(); p++) {
+                    if (previousPackets.find(p->GetHash()) == previousPackets.end()
+                        && find(visitedPackets.begin(), visitedPackets.end(), p->GetHash()) == visitedPackets.end())
+                        previousPackets[p->GetHash()] = currentPacket;
+                    if (packetDistanceFromStart.find(p->GetHash()) == packetDistanceFromStart.end()
+                        && find(visitedPackets.begin(), visitedPackets.end(), p->GetHash()) == visitedPackets.end()) {
+                        packetDistanceFromStart[p->GetHash()] = currentDistanceFromStart + 1;
+                    }
+                }
             }
         }
     }

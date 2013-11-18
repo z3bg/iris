@@ -54,6 +54,7 @@ private:
     void CheckDefaultKey();
     void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
+    bool HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H

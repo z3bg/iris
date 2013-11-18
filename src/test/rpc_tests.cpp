@@ -92,6 +92,8 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com 1"));
+    BOOST_CHECK(r.get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:alice@example.com mbox mailto:bill@example.com negative -1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bill@example.com"));
