@@ -137,16 +137,18 @@ Value savepacket(const Array& params, bool fHelp)
 
 Value savepacketfromdata(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "savepacketfromdata <packet_json_data> <publish=false>\n"
-            "Save a packet");
+            "savepacketfromdata <packet_json_data> <publish=false> <sign=true>\n"
+            "Save a packet.");
 
     CIdentifiPacket packet;
     packet.SetData(params[0].get_str());
     CKey defaultKey = pidentifidb->GetDefaultKey();
-    packet.Sign(defaultKey);
-    bool publish = (params.size() == 2 && params[1].get_str() == "true");
+    bool publish = (params.size() >= 2 && params[1].get_str() == "true");
+    if (publish || !(params.size() == 3 && params[2].get_str() == "false")) {
+        packet.Sign(defaultKey);
+    }
     if (publish) {
         packet.SetPublished();
         RelayPacket(packet);

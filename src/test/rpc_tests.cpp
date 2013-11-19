@@ -95,6 +95,10 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com 1"));
     BOOST_CHECK(r.get_array().empty());
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata [1,[[\"mbox\",\"mailto:alice@example.com\"]],[[\"mbox\",\"mailto:dick@example.com\"]],{\"type\":\"review\",\"comment\":\"thanks\",\"rating\":100,\"minRating\":-100,\"maxRating\":100}] false false"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:dick@example.com"));
+    BOOST_CHECK(r.get_array().empty());
+
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:alice@example.com mbox mailto:bill@example.com negative -1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bill@example.com"));
 
@@ -110,13 +114,13 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(find_value(packet, "signatures").get_array().size(), 2);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsafter 0"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 5);
+    BOOST_CHECK_EQUAL(r.get_array().size(), 6);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsafter 0 1"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("deletepacket BeKdTwAmgnpqycNXDPsMwcKVfpt5LfT54yZKLHdM5gQ6"));
-    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 4);
+    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 5);
 }
 
 BOOST_AUTO_TEST_CASE(db_max_size)
