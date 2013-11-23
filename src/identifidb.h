@@ -23,9 +23,9 @@ public:
     void Initialize();
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500);
-    vector<CIdentifiPacket> GetPacketsByIdentifier(string identifier, bool uniquePredicatesOnly = false);
-    vector<CIdentifiPacket> GetPacketsBySubject(string subject, bool uniquePredicatesOnly = false);
-    vector<CIdentifiPacket> GetPacketsByObject(string object, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> GetPacketsBySubject(pair<string, string> subject, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> GetPacketsByObject(pair<string, string> object, bool uniquePredicatesOnly = false);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature);
     void SetDefaultKey(string privKey);
@@ -35,7 +35,7 @@ public:
     int GetPacketCount();
     int GetIdentifierCount();
     CIdentifiPacket GetPacketByHash(string hash);
-    vector<CIdentifiPacket> GetPath(string start, string end, int searchDepth = 3);
+    vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end, int searchDepth = 3);
     int GetTrustValue(CIdentifiPacket &packet);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);

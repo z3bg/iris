@@ -93,7 +93,7 @@ void CIdentifiDB::CheckDefaultUniquePredicates() {
     if (lexical_cast<int>(result[0][0]) < 1) {
         query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('mbox', 1)");
         query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('url', 1)");
-        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('phone', 1)");
+        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('tel', 1)");
         query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('ecdsa_base58', 1)");
     }
 }
@@ -300,7 +300,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
     return signatures;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string identifier, bool uniquePredicatesOnly) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(pair<string, string> identifier, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -313,12 +313,19 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string identifier, b
     sql << "INNER JOIN Predicates AS pred ON (ps.PredicateID = pred.ID ";
     sql << "OR po.PredicateID = pred.ID) ";
     sql << "WHERE ";
-    if (uniquePredicatesOnly)
+    if (!identifier.first.empty())
+        sql << "pred.Value = @predValue AND ";
+    else if (uniquePredicatesOnly)
         sql << "pred.IsUniqueType = 1 AND ";
-    sql << "id.Value = @value;";
+    sql << "id.Value = @idValue;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
+        if (!identifier.first.empty()) {
+            sqlite3_bind_text(statement, 1, identifier.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
+        } else {
+            sqlite3_bind_text(statement, 1, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
+        }
 
         int result = 0;
         while(true)
@@ -354,18 +361,28 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return CIdentifiPacket(message, subjects, objects, signatures, timestamp, published);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(string subject, bool uniquePredicatesOnly) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(pair<string, string> subject, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS rel ";
-    sql << "INNER JOIN PacketSubjects AS rs ON rs.PacketHash = rel.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON rs.SubjectHash = id.Hash ";
-    sql << "WHERE id.Value = @value;";
+    sql << "SELECT * FROM Packets AS p ";
+    sql << "INNER JOIN PacketSubjects AS ps ON ps.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON ps.SubjectHash = id.Hash ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID WHERE ";
+    if (!subject.first.empty())
+        sql << "pred.Value = @predValue AND ";
+    else if (uniquePredicatesOnly)
+        sql << "pred.IsUniqueType = 1 AND ";
+    sql << "id.Value = @idValue;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, subject.c_str(), -1, SQLITE_TRANSIENT);
+        if (!subject.first.empty()) {
+            sqlite3_bind_text(statement, 1, subject.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, subject.second.c_str(), -1, SQLITE_TRANSIENT);
+        } else {
+            sqlite3_bind_text(statement, 1, subject.second.c_str(), -1, SQLITE_TRANSIENT);            
+        }
 
         int result = 0;
         while(true)
@@ -390,18 +407,28 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(string subject, bool un
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByObject(string object, bool uniquePredicatesOnly) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByObject(pair<string, string> object, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS rel ";
-    sql << "INNER JOIN PacketObjects AS ro ON ro.PacketHash = rel.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON ro.ObjectHash = id.Hash ";
-    sql << "WHERE id.Value = @value;";
+    sql << "SELECT * FROM Packets AS p ";
+    sql << "INNER JOIN PacketObjects AS po ON po.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON po.ObjectHash = id.Hash ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = po.PredicateID WHERE ";
+    if (!object.first.empty())
+        sql << "pred.Value = @predValue AND ";
+    else if (uniquePredicatesOnly)
+        sql << "pred.IsUniqueType = 1 AND ";
+    sql << "id.Value = @idValue;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, object.c_str(), -1, SQLITE_TRANSIENT);
+        if (!object.first.empty()) {
+            sqlite3_bind_text(statement, 1, object.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, object.second.c_str(), -1, SQLITE_TRANSIENT);
+        } else {
+            sqlite3_bind_text(statement, 1, object.second.c_str(), -1, SQLITE_TRANSIENT);
+        }
 
         int result = 0;
         while(true)
@@ -661,7 +688,7 @@ int CIdentifiDB::GetTrustValue(CIdentifiPacket &packet) {
         string signerPubKey = i->GetSignerPubKey();
         if (signerPubKey == strMyKey)
             return MAX_TRUST;
-        int nPath = GetPath(strMyKey, signerPubKey).size();
+        int nPath = GetPath(make_pair("ecdsa_base58", strMyKey), make_pair("ecdsa_base58", signerPubKey)).size();
         if (nPath < nShortestPath)
             nShortestPath = nPath;
     }
@@ -803,7 +830,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey) 
     for (vector<CSignature>::iterator sig = signatures.begin(); sig != signatures.end(); sig++) {
         string strSignerPubKey = sig->GetSignerPubKey();
         if (strSignerPubKey == trustedKey
-            || GetPath(trustedKey, strSignerPubKey).size() > 0, 3) {
+            || GetPath(make_pair("ecdsa_base58", trustedKey), make_pair("ecdsa_base58", strSignerPubKey)).size() > 0, 3) {
             hasTrustedSigner = true;
             break;                
         }
@@ -812,7 +839,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey) 
 }
 
 // Breadth-first search for the shortest trust path from id1 to id2
-vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
+vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<string, string> end, int searchDepth) {
     string strDefaultKey = EncodeBase58(GetDefaultKey().GetPubKey().Raw());
     vector<CIdentifiPacket> path;
     vector<uint256> visitedPackets;
@@ -846,7 +873,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searc
         vector<pair<string, string> > objects = currentPacket.GetObjects();
         allIdentifiers.insert(allIdentifiers.end(), objects.begin(), objects.end());
         for (vector<pair<string, string> >::iterator identifier = allIdentifiers.begin(); identifier != allIdentifiers.end(); identifier++) {
-            if (identifier->second == end) {
+            if ((identifier->first.empty() || end.first.empty() || identifier->first == end.first)
+                    && identifier->second == end.second) {
                 // Path found: backtrack it from end to start and return it
                 path.push_back(currentPacket);
 
@@ -858,7 +886,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searc
                 return path;
             } else if (currentDistanceFromStart < searchDepth) {
                 // No path found yet: add packets involving this identifier to search queue
-                vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier->second, true);
+                vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(*identifier, true);
 
                 searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
 

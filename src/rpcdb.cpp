@@ -40,7 +40,7 @@ Value getpacketsbysubject(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given subject identifier.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsBySubject(params[0].get_str());
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsBySubject(make_pair("", params[0].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
@@ -56,7 +56,7 @@ Value getpacketsbyobject(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given object identifier.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByObject(params[0].get_str());
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByObject(make_pair("", params[0].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
@@ -97,9 +97,9 @@ Value getpath(const Array& params, bool fHelp)
     Array packetsJSON;
     vector<CIdentifiPacket> packets;
     if (params.size() == 2)
-        packets = pidentifidb->GetPath(params[0].get_str(), params[1].get_str(), 3);
+        packets = pidentifidb->GetPath(make_pair("", params[0].get_str()), make_pair("", params[1].get_str()), 3);
     else
-        packets = pidentifidb->GetPath(params[0].get_str(), params[1].get_str(), boost::lexical_cast<int>(params[2].get_str()));
+        packets = pidentifidb->GetPath(make_pair("", params[0].get_str()), make_pair("", params[1].get_str()), boost::lexical_cast<int>(params[2].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
