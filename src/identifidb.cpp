@@ -677,24 +677,43 @@ void CIdentifiDB::SavePacketSignature(CSignature &signature) {
     SaveIdentifier(signature.GetSignerPubKey());
 }
 
-// TODO: in addition to the signer, subject should be taken into account too
+// Arbitrary numeric trust metric
 int CIdentifiDB::GetTrustValue(CIdentifiPacket &packet) {
     const int MAX_TRUST = 100;
     CKey myKey = GetDefaultKey();
     string strMyKey = EncodeBase58(myKey.GetPubKey().Raw());
-    int nShortestPath = 1000000;
+    string keyType = "ecdsa_base58";
+
+    int nShortestPathToSignature = 1000000;
     vector<CSignature> sigs = packet.GetSignatures();
-    for (vector<CSignature>::iterator i = sigs.begin(); i != sigs.end(); i++) {
-        string signerPubKey = i->GetSignerPubKey();
-        if (signerPubKey == strMyKey)
-            return MAX_TRUST;
-        int nPath = GetPath(make_pair("ecdsa_base58", strMyKey), make_pair("ecdsa_base58", signerPubKey)).size();
-        if (nPath < nShortestPath)
-            nShortestPath = nPath;
+    for (vector<CSignature>::iterator sig = sigs.begin(); sig != sigs.end(); sig++) {
+        string signerPubKey = sig->GetSignerPubKey();
+        if (signerPubKey == strMyKey) {
+            nShortestPathToSignature = 1;
+            break;            
+        }
+        int nPath = GetPath(make_pair(keyType, strMyKey), make_pair(keyType, signerPubKey)).size();
+        if (nPath < nShortestPathToSignature)
+            nShortestPathToSignature = nPath + 1;
     }
 
-    if (nShortestPath > 0)
-        return MAX_TRUST / nShortestPath;
+    int nShortestPathToSubject = 1000000;
+    vector<pair<string, string> > subjects = packet.GetSubjects();
+    for (vector<pair<string, string> >::iterator subject = subjects.begin(); subject != subjects.end(); subject++) {
+        if (*subject == make_pair(keyType, strMyKey)) {
+            nShortestPathToSubject = 1;
+            break;            
+        }
+        int nPath = GetPath(make_pair(keyType, strMyKey), *subject).size();
+        if (nPath < nShortestPathToSubject)
+            nShortestPathToSubject = nPath + 1;
+    }
+
+    int nTrust = (MAX_TRUST / nShortestPathToSignature)
+                    * (MAX_TRUST / nShortestPathToSubject);
+
+    if (nTrust > 0)
+        return nTrust / MAX_TRUST;
     else
         return 0;
 }
