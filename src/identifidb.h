@@ -23,9 +23,9 @@ public:
     void Initialize();
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500);
-    vector<CIdentifiPacket> GetPacketsByIdentifier(string identifier);
-    vector<CIdentifiPacket> GetPacketsBySubject(string subject);
-    vector<CIdentifiPacket> GetPacketsByObject(string object);
+    vector<CIdentifiPacket> GetPacketsByIdentifier(string identifier, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> GetPacketsBySubject(string subject, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> GetPacketsByObject(string object, bool uniquePredicatesOnly = false);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature);
     void SetDefaultKey(string privKey);
@@ -54,6 +54,7 @@ private:
     void CheckDefaultKey();
     void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
+    void CheckDefaultUniquePredicates();
     bool HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey);
 };
 

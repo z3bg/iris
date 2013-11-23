@@ -88,6 +88,16 @@ void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
     query(sql.str().c_str())[0][0];
 }
 
+void CIdentifiDB::CheckDefaultUniquePredicates() {
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM Predicates");
+    if (lexical_cast<int>(result[0][0]) < 1) {
+        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('mbox', 1)");
+        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('url', 1)");
+        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('phone', 1)");
+        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('ecdsa_base58', 1)");
+    }
+}
+
 void CIdentifiDB::CheckDefaultKey() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE IsDefault = 1");
     if (lexical_cast<int>(result[0][0]) < 1) {
@@ -135,8 +145,9 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Predicates (";
-    sql << "ID      INTEGER         PRIMARY KEY,";
-    sql << "Value   NVARCHAR(255)   NOT NULL";
+    sql << "ID              INTEGER         PRIMARY KEY,";
+    sql << "Value           NVARCHAR(255)   NOT NULL,";
+    sql << "IsUniqueType    BOOL            DEFAULT 0";
     sql << ");";
     query(sql.str().c_str());
 
@@ -182,6 +193,7 @@ void CIdentifiDB::Initialize() {
     sql << "IsDefault         BOOL            DEFAULT 0);";
     query(sql.str().c_str());
 
+    CheckDefaultUniquePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
 }
@@ -288,17 +300,22 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
     return signatures;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string identifier) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string identifier, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS rel ";
-    sql << "INNER JOIN PacketSubjects AS rs ON rs.PacketHash = rel.Hash ";
-    sql << "INNER JOIN PacketObjects AS ro ON ro.PacketHash = rel.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON (rs.SubjectHash = id.Hash ";
-    sql << "OR ro.ObjectHash = id.Hash) ";
-    sql << "WHERE id.Value = @value;";
+    sql << "SELECT * FROM Packets AS p ";
+    sql << "INNER JOIN PacketSubjects AS ps ON ps.PacketHash = p.Hash ";
+    sql << "INNER JOIN PacketObjects AS po ON po.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON (ps.SubjectHash = id.Hash ";
+    sql << "OR po.ObjectHash = id.Hash) ";
+    sql << "INNER JOIN Predicates AS pred ON (ps.PredicateID = pred.ID ";
+    sql << "OR po.PredicateID = pred.ID) ";
+    sql << "WHERE ";
+    if (uniquePredicatesOnly)
+        sql << "pred.IsUniqueType = 1 AND ";
+    sql << "id.Value = @value;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
@@ -337,7 +354,7 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return CIdentifiPacket(message, subjects, objects, signatures, timestamp, published);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(string subject) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(string subject, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -373,7 +390,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(string subject) {
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByObject(string object) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByObject(string object, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -796,7 +813,6 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey) 
 
 // Breadth-first search for the shortest trust path from id1 to id2
 vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searchDepth) {
-    // TODO: use only unique identifier types for trust paths
     string strDefaultKey = EncodeBase58(GetDefaultKey().GetPubKey().Raw());
     vector<CIdentifiPacket> path;
     vector<uint256> visitedPackets;
@@ -805,7 +821,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searc
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
 
-    vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start);
+    vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start, true);
     searchQueue.insert(searchQueue.end(), packets.begin(), packets.end());
     int currentDistanceFromStart = 1;
 
@@ -842,7 +858,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(string start, string end, int searc
                 return path;
             } else if (currentDistanceFromStart < searchDepth) {
                 // No path found yet: add packets involving this identifier to search queue
-                vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier->second);
+                vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier->second, true);
 
                 searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
 
