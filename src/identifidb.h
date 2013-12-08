@@ -24,10 +24,10 @@ public:
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500);
     vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool uniquePredicatesOnly = false);
-    vector<CIdentifiPacket> GetPacketsBySubject(pair<string, string> subject, bool uniquePredicatesOnly = false);
-    vector<CIdentifiPacket> GetPacketsByObject(pair<string, string> object, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> getpacketsbyauthor(pair<string, string> subject, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> getpacketsbyrecipient(pair<string, string> object, bool uniquePredicatesOnly = false);
     string SavePacket(CIdentifiPacket &packet);
-    void SavePacketSignature(CSignature &signature);
+    void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
     vector<string> ListPrivKeys();

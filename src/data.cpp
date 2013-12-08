@@ -8,91 +8,83 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
-Object CIdentifiPacket::GetMessage() const {
-    return message;
+uint256 CIdentifiPacket::GetHash() const {
+    //return Hash(strData.begin(), strData.end());
+    return GetSignedDataHash();
 }
 
-uint256 CIdentifiPacket::GetHash() const {
-    string data = GetData();
-    return Hash(data.begin(), data.end());
+uint256 CIdentifiPacket::GetSignedDataHash() const {
+    string signedData = GetSignedData();
+    return Hash(signedData.begin(), signedData.end());
 }
 
 string CIdentifiPacket::GetData() const {
-    return data;
+    return strData;
 }
 
-string CIdentifiPacket::MakeData() {
-    Array data, subjectsJSON, objectsJSON;
-
-    for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
-        Array subject;
-        subject.push_back(it->first);
-        subject.push_back(it->second);
-        subjectsJSON.push_back(subject);
-    }
-
-    for (vector<pair<string, string> >::const_iterator it = objects.begin(); it != objects.end(); ++it) {
-        Array object;
-        object.push_back(it->first);
-        object.push_back(it->second);
-        objectsJSON.push_back(object);
-    }
-
-    data.push_back(timestamp);
-    data.push_back(subjectsJSON);
-    data.push_back(objectsJSON);
-    data.push_back(message);
-
-    return write_string(Value(data), false);
-}
-
-Object CIdentifiPacket::GetMessageFromData(string data) {
+string CIdentifiPacket::GetSignedData() const {
     Value json;
-    read_string(data, json);
-    Array arr = json.get_array();
-    return arr[3].get_obj();
+    read_string(strData, json);
+    return write_string(Value(find_value(json.get_obj(), "signedData").get_obj()), false);
 }
 
-void CIdentifiPacket::SetVarsFromMessage() {
-    type = find_value(message, "type").get_str();
+void CIdentifiPacket::UpdateSignatures() {
+    Value packet;
+    Object data, newData, signedData;
+    Array signaturesJSON;
+
+    read_string(strData, packet);
+    data = packet.get_obj();
+    signedData = find_value(data, "signedData").get_obj();
+
+    for (vector<CSignature>::const_iterator it = signatures.begin(); it != signatures.end(); ++it) {
+        Object signature;
+        signature.push_back(Pair("pubKey", it->GetSignerPubKey()));
+        signature.push_back(Pair("signature", it->GetSignature()));
+        signaturesJSON.push_back(signature);
+    }
+
+    newData.push_back(Pair("signedData", signedData));
+    newData.push_back(Pair("signatures", signaturesJSON));
+
+    strData = write_string(Value(newData), false);
+}
+
+void CIdentifiPacket::SetData(string strData) {
+    Value json;
+    Object data, signedData;
+    Array subjectsArray, objectsArray, signaturesArray;
+    subjects.clear();
+    objects.clear();
+    signatures.clear();
+
+    read_string(strData, json);
+
+    data = json.get_obj();
+    signedData = find_value(data, "signedData").get_obj();
+
+    timestamp = find_value(signedData, "timestamp").get_int();
+    subjectsArray = find_value(signedData, "author").get_array();
+    objectsArray = find_value(signedData, "recipient").get_array();
+    signaturesArray = find_value(data, "signatures").get_array();
+    type = find_value(signedData, "type").get_str();
 
     bool hasRating;
     Value val;
     try {
-        val = find_value(message, "rating");
+        val = find_value(signedData, "rating");
         hasRating = true;
     } catch (json_spirit::Object& objError) {}
 
     if (hasRating) {
         rating = val.get_int();
-        minRating = find_value(message, "minRating").get_int();
-        maxRating = find_value(message, "maxRating").get_int();
+        minRating = find_value(signedData, "minRating").get_int();
+        maxRating = find_value(signedData, "maxRating").get_int();
         if (maxRating <= minRating ||
             rating > maxRating ||
             rating < minRating)
             throw runtime_error("Invalid rating");
     }
-}
-
-void CIdentifiPacket::SetData(string data) {
-    Value json;
-    Array array, subjectsArray, objectsArray;
-    subjects.clear();
-    objects.clear();
-    signatures.clear();
-
-    read_string(data, json);
-
-    array = json.get_array();
-
-    if (array.size() != 4)
-        throw runtime_error("Invalid JSON array length");
-
-    timestamp = array[0].get_int();
-    subjectsArray = array[1].get_array();
-    objectsArray = array[2].get_array();
-    message = array[3].get_obj();
-    SetVarsFromMessage();
 
     if (subjectsArray.empty())
         throw runtime_error("Packets must have at least 1 subject");
@@ -114,12 +106,19 @@ void CIdentifiPacket::SetData(string data) {
         objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
-    CIdentifiPacket::data = data;
+    for (Array::iterator it = signaturesArray.begin(); it != signaturesArray.end(); it++) {
+        Object signature = it->get_obj();
+        string pubKey = find_value(signature, "pubKey").get_str();
+        string strSignature = find_value(signature, "signature").get_str();
+        signatures.push_back(CSignature(pubKey, strSignature));
+    }
+
+    CIdentifiPacket::strData = strData;
 }
 
 bool CIdentifiPacket::Sign(CKey& key) {
-    string data = GetData();
-    uint256 hashToSign = Hash(data.begin(), data.end());
+    string signedData = GetSignedData();
+    uint256 hashToSign = Hash(signedData.begin(), signedData.end());
 
     vector<unsigned char> vchPubKey = key.GetPubKey().Raw();
     string pubKeyStr = EncodeBase58(vchPubKey);
@@ -128,15 +127,17 @@ bool CIdentifiPacket::Sign(CKey& key) {
     key.Sign(hashToSign, vchSig);
     string signatureString = EncodeBase58(vchSig);
 
-    CSignature signature(EncodeBase58(GetHash()), pubKeyStr, signatureString);
-
+    CSignature signature(pubKeyStr, signatureString);
     signatures.push_back(signature);
+
+    UpdateSignatures();
     return true;
 }
 
 bool CIdentifiPacket::AddSignature(CSignature signature) {
-    if (signature.GetSignedHash() == EncodeBase58(GetHash()) && signature.IsValid()) {
+    if (signature.IsValid(GetSignedData())) {
         signatures.push_back(signature);
+        UpdateSignatures();
         return true;
     }
     return false;
@@ -159,32 +160,12 @@ time_t CIdentifiPacket::GetTimestamp() const {
 }
 
 Value CIdentifiPacket::GetJSON() const {
+    Value data;
     Object packetJSON;
-    Array subjectsJSON, objectsJSON, signaturesJSON;
 
-    for (vector<pair<string, string> >::const_iterator it = subjects.begin(); it != subjects.end(); ++it) {
-        Array pairArray;
-        pairArray.push_back(it->first);
-        pairArray.push_back(it->second);
-        subjectsJSON.push_back(pairArray);
-    }
-
-    for (vector<pair<string, string> >::const_iterator it = objects.begin(); it != objects.end(); ++it) {
-        Array pairArray;
-        pairArray.push_back(it->first);
-        pairArray.push_back(it->second);
-        objectsJSON.push_back(pairArray);    }
-
-    for (vector<CSignature>::const_iterator it = signatures.begin(); it != signatures.end(); ++it) {
-        signaturesJSON.push_back(it->GetJSON());
-    }
-
+    read_string(strData, data);
     packetJSON.push_back(Pair("hash", EncodeBase58(GetHash())));
-    packetJSON.push_back(Pair("timestamp", timestamp));
-    packetJSON.push_back(Pair("subjects", subjectsJSON));
-    packetJSON.push_back(Pair("objects", objectsJSON));
-    packetJSON.push_back(Pair("message", message));
-    packetJSON.push_back(Pair("signatures", signaturesJSON));
+    packetJSON.push_back(Pair("data", data));
     packetJSON.push_back(Pair("published", published));
 
     return packetJSON;
@@ -218,10 +199,6 @@ string CIdentifiPacket::GetType() const {
     return type;
 }
 
-string CSignature::GetSignedHash() const {
-    return signedHash;
-}
-
 string CSignature::GetSignerPubKey() const {
     return signerPubKey;
 }
@@ -234,10 +211,9 @@ string CSignature::GetSignature() const {
     return signature;
 }
 
-bool CSignature::IsValid() const {    
-    vector<unsigned char> vchHash, vchPubKey, vchSig;
-    if (!DecodeBase58(signedHash, vchHash) ||
-        !DecodeBase58(signerPubKey, vchPubKey) ||
+bool CSignature::IsValid(string signedData) const {    
+    vector<unsigned char> vchPubKey, vchSig;
+    if (!DecodeBase58(signerPubKey, vchPubKey) ||
         !DecodeBase58(signature.c_str(), vchSig)) {
         return false;
     }
@@ -246,19 +222,7 @@ bool CSignature::IsValid() const {
     CPubKey pubKey(vchPubKey);
     key.SetPubKey(pubKey);
 
-    uint256 rawHash;
+    uint256 hash = Hash(signedData.begin(), signedData.end());
 
-    if (vchHash.size() > sizeof(uint256)) {
-        return false;
-    } else
-        memcpy(&rawHash, &vchHash[0], vchHash.size());
-
-    return key.Verify(rawHash, vchSig);
-}
-
-Value CSignature::GetJSON() const {
-    Object signatureJSON;
-    signatureJSON.push_back(Pair("signerPubKey", signerPubKey));
-    signatureJSON.push_back(Pair("signature", signature));
-    return signatureJSON;
+    return key.Verify(hash, vchSig);
 }

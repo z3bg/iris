@@ -32,15 +32,15 @@ Value getidentifiercount(const Array& params, bool fHelp)
     return pidentifidb->GetIdentifierCount();
 }
 
-Value getpacketsbysubject(const Array& params, bool fHelp)
+Value getpacketsbyauthor(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getpacketsbysubject <id_value>\n"
+            "getpacketsbyauthor <id_value>\n"
             "Returns a list of packets associated with the given subject identifier.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsBySubject(make_pair("", params[0].get_str()));
+    vector<CIdentifiPacket> packets = pidentifidb->getpacketsbyauthor(make_pair("", params[0].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
@@ -48,15 +48,15 @@ Value getpacketsbysubject(const Array& params, bool fHelp)
     return packetsJSON;
 }
 
-Value getpacketsbyobject(const Array& params, bool fHelp)
+Value getpacketsbyrecipient(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getpacketsbyobject <id_value>\n"
+            "getpacketsbyrecipient <id_value>\n"
             "Returns a list of packets associated with the given object identifier.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByObject(make_pair("", params[0].get_str()));
+    vector<CIdentifiPacket> packets = pidentifidb->getpacketsbyrecipient(make_pair("", params[0].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
@@ -114,20 +114,34 @@ Value savepacket(const Array& params, bool fHelp)
             "savepacket <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
             "Save a packet");
 
-    vector<pair<string, string> > subjects, objects;
-    vector<CSignature> signatures;
-    subjects.push_back(make_pair(params[0].get_str(),params[1].get_str()));
-    objects.push_back(make_pair(params[2].get_str(),params[3].get_str()));
-    bool publish = (params.size() == 7 && params[6].get_str() == "true");
-    Object message;
-    message.push_back(Pair("type", "review"));
-    message.push_back(Pair("comment",params[4].get_str()));
-    message.push_back(Pair("rating",lexical_cast<int>(params[5].get_str())));
-    message.push_back(Pair("maxRating",10));
-    message.push_back(Pair("minRating",-10));
-    CIdentifiPacket packet(message, subjects, objects, signatures);
+    Array author, author1, recipient, recipient1, signatures;
+    author1.push_back(params[0].get_str());
+    author1.push_back(params[1].get_str());
+    author.push_back(author1);
+    recipient1.push_back(params[2].get_str());
+    recipient1.push_back(params[3].get_str());
+    recipient.push_back(recipient1);
+
+    time_t now = time(NULL);
+    Object data, signedData;
+    signedData.push_back(Pair("timestamp", now));
+    signedData.push_back(Pair("author", author));
+    signedData.push_back(Pair("recipient", recipient));
+    signedData.push_back(Pair("type", "review"));
+    signedData.push_back(Pair("comment",params[4].get_str()));
+    signedData.push_back(Pair("rating",lexical_cast<int>(params[5].get_str())));
+    signedData.push_back(Pair("maxRating",10));
+    signedData.push_back(Pair("minRating",-10));
+
+    data.push_back(Pair("signedData", signedData));
+    data.push_back(Pair("signatures", signatures));
+
+    string strData = write_string(Value(data), false);
+    CIdentifiPacket packet(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     packet.Sign(defaultKey);
+
+    bool publish = (params.size() == 7 && params[6].get_str() == "true");
     if (publish) {
         packet.SetPublished();
         RelayPacket(packet);
@@ -215,13 +229,13 @@ Value addsignature(const Array& params, bool fHelp)
             "addsignature <signed_packet_hash> <signer_pubkey> <signature>\n"
             "Add a signature to a packet");
 
-    CSignature sig(params[0].get_str(), params[1].get_str(), params[2].get_str());
-    CIdentifiPacket rel = pidentifidb->GetPacketByHash(params[0].get_str());
+    CSignature sig(params[1].get_str(), params[2].get_str());
+    CIdentifiPacket packet = pidentifidb->GetPacketByHash(params[0].get_str());
 
-    if (!rel.AddSignature(sig))
+    if (!packet.AddSignature(sig))
         throw runtime_error("Invalid signature");
 
-    pidentifidb->SavePacket(rel);
+    pidentifidb->SavePacket(packet);
 
     return true;
 }

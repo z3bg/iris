@@ -117,18 +117,31 @@ void CIdentifiDB::CheckDefaultTrustList() {
         vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
         string strPubKey = EncodeBase58(vchPubKey);
 
-        vector<pair<string, string> > subjects, objects;
-        subjects.push_back(make_pair("ecdsa_base58", strPubKey));
-        objects.push_back(make_pair("ecdsa_base58", "NdudNBcekP9rQW425xpnpeVtDu1DLTFiMuAMkBsXRVpM8LheWfjPj7fiU7QNVxNbN1YbMXnXrhQEcuUovMB41fvm"));
+        Array author, author1, recipient, recipient1, signatures;
+        author1.push_back("ecdsa_base58");
+        author1.push_back(strPubKey);
+        author.push_back(author1);
+        recipient1.push_back("ecdsa_base58");
+        recipient1.push_back("NdudNBcekP9rQW425xpnpeVtDu1DLTFiMuAMkBsXRVpM8LheWfjPj7fiU7QNVxNbN1YbMXnXrhQEcuUovMB41fvm");
+        recipient.push_back(recipient1);
         
-        json_spirit::Object message;
-        message.push_back(Pair("type", "rating"));
-        message.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
-        message.push_back(Pair("rating", 1));
-        message.push_back(Pair("maxRating", 1));
-        message.push_back(Pair("minRating", -1));
+        time_t now = time(NULL);
 
-        CIdentifiPacket packet(message, subjects, objects);
+        json_spirit::Object data, signedData;
+        signedData.push_back(Pair("timestamp", now));
+        signedData.push_back(Pair("author", author));
+        signedData.push_back(Pair("recipient", recipient));
+        signedData.push_back(Pair("type", "rating"));
+        signedData.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
+        signedData.push_back(Pair("rating", 1));
+        signedData.push_back(Pair("maxRating", 1));
+        signedData.push_back(Pair("minRating", -1));
+
+        data.push_back(Pair("signedData", signedData));
+        data.push_back(Pair("signatures", signatures));
+
+        string strData = write_string(Value(data), false);
+        CIdentifiPacket packet(strData);
         packet.Sign(defaultKey);
         SavePacket(packet);
     }
@@ -286,7 +299,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
             if(result == SQLITE_ROW) {
                 string pubKey = string((char*)sqlite3_column_text(statement, 0));
                 string signature = string((char*)sqlite3_column_text(statement, 1));
-                signatures.push_back(CSignature(packetHash, pubKey, signature));
+                signatures.push_back(CSignature(pubKey, signature));
             } else {
                 break;  
             }
@@ -351,17 +364,14 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(pair<string, string>
 }
 
 CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
-    string packetHash = string((char*)sqlite3_column_text(statement, 0));
-    vector<pair<string, string> > subjects = GetSubjectsByPacketHash(packetHash);
-    vector<pair<string, string> > objects = GetObjectsByPacketHash(packetHash);
-    vector<CSignature> signatures = GetSignaturesByPacketHash(packetHash);
-    Object message = CIdentifiPacket::GetMessageFromData((char*)sqlite3_column_text(statement, 1));
-    time_t timestamp = time_t(sqlite3_column_int(statement, 2));
-    bool published = sqlite3_column_int(statement, 7);
-    return CIdentifiPacket(message, subjects, objects, signatures, timestamp, published);
+    string strData = (char*)sqlite3_column_text(statement, 1);
+    CIdentifiPacket packet(strData);
+    if(sqlite3_column_int(statement, 7) == 1)
+        packet.SetPublished();
+    return packet;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(pair<string, string> subject, bool uniquePredicatesOnly) {
+vector<CIdentifiPacket> CIdentifiDB::getpacketsbyauthor(pair<string, string> subject, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -407,7 +417,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySubject(pair<string, string> su
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByObject(pair<string, string> object, bool uniquePredicatesOnly) {
+vector<CIdentifiPacket> CIdentifiDB::getpacketsbyrecipient(pair<string, string> object, bool uniquePredicatesOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -647,7 +657,7 @@ void CIdentifiDB::SavePacketObject(string packetHash, int predicateID, string ob
     sqlite3_finalize(statement);
 }
 
-void CIdentifiDB::SavePacketSignature(CSignature &signature) {
+void CIdentifiDB::SavePacketSignature(CSignature &signature, string packetHash) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
@@ -656,7 +666,7 @@ void CIdentifiDB::SavePacketSignature(CSignature &signature) {
     sql << "AND PubKeyHash = @pubKeyHash";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
@@ -665,7 +675,7 @@ void CIdentifiDB::SavePacketSignature(CSignature &signature) {
         sql << "VALUES (@packethash, @pubkeyhash, @signature);";
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, signature.GetSignedHash().c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 2, signature.GetSignerPubKeyHash().c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_step(statement);
@@ -723,7 +733,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     string sql;
     string packetHash;
 
-    sql = "INSERT INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, TrustValue) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @trust);";
+    sql = "INSERT OR REPLACE INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, TrustValue) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @trust);";
     packetHash = EncodeBase58(packet.GetHash());
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -757,7 +767,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     }
     vector<CSignature> signatures = packet.GetSignatures();
     for (vector<CSignature>::iterator it = signatures.begin(); it != signatures.end(); ++it) {
-        SavePacketSignature(*it);
+        SavePacketSignature(*it, EncodeBase58(packet.GetHash()));
     }
 
     sqlite3_finalize(statement);
