@@ -62,6 +62,7 @@ void CIdentifiPacket::SetData(string strData) {
 
     data = json.get_obj();
     signedData = find_value(data, "signedData").get_obj();
+    string strSignedData = write_string(Value(signedData), false);
 
     timestamp = find_value(signedData, "timestamp").get_int();
     subjectsArray = find_value(signedData, "author").get_array();
@@ -110,7 +111,10 @@ void CIdentifiPacket::SetData(string strData) {
         Object signature = it->get_obj();
         string pubKey = find_value(signature, "pubKey").get_str();
         string strSignature = find_value(signature, "signature").get_str();
-        signatures.push_back(CSignature(pubKey, strSignature));
+        CSignature sig(pubKey, strSignature);
+        if (!sig.IsValid(strSignedData))
+            throw runtime_error("Invalid signature");
+        signatures.push_back(sig);
     }
 
     CIdentifiPacket::strData = strData;
