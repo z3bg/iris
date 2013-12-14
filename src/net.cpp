@@ -1878,17 +1878,17 @@ void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataSt
     }
 }
 
-void RelayPacket(CIdentifiPacket& rel)
+void RelayPacket(CIdentifiPacket& packet)
 {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss.reserve(10000);
-    ss << rel;
-    RelayPacket(rel, ss);
+    ss << packet;
+    RelayPacket(packet, ss);
 }
 
-void RelayPacket(CIdentifiPacket& rel, const CDataStream& ss)
+void RelayPacket(CIdentifiPacket& packet, const CDataStream& ss)
 {
-    uint256 hash = rel.GetHash();
+    uint256 hash = packet.GetHash();
     CInv inv(MSG_PACKET, hash);
     {
         LOCK(cs_mapRelay);
