@@ -2968,6 +2968,18 @@ void static ProcessGetData(CNode* pfrom)
                         pushed = true;
                     }
                 }
+                if (!pushed && inv.type == MSG_PACKET) {
+                    try {
+                        CIdentifiPacket packet = pidentifidb->GetPacketByHash(EncodeBase58(inv.hash));
+                        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+                        ss.reserve(10000);
+                        ss << packet;
+                        pfrom->PushMessage("packet", ss);
+                        pushed = true;
+                    } catch(std::runtime_error &e) {
+
+                    }
+                }
                 if (!pushed) {
                     vNotFound.push_back(inv);
                 }
@@ -3534,9 +3546,10 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 pto->PushMessage("ping");
         }
 
-        if (pto->fStartSync && !fImporting && !fReindex) {
+        if (pto->fStartSync) {
             pto->fStartSync = false;
-            pto->PushGetPackets(pidentifidb->GetLatestPacketTimestamp());
+            //pto->PushGetPackets(pidentifidb->GetLatestPacketTimestamp());
+            pto->PushGetPackets(0); // TODO: fixme
         }
 
         // Address refresh broadcast
