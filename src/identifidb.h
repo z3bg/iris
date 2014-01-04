@@ -21,21 +21,22 @@ public:
     CIdentifiDB(int sqliteMaxSize = 1000, const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
-    vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500);
-    vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500);
-    vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool uniquePredicatesOnly = false);
-    vector<CIdentifiPacket> getpacketsbyauthor(pair<string, string> subject, bool uniquePredicatesOnly = false);
-    vector<CIdentifiPacket> getpacketsbyrecipient(pair<string, string> object, bool uniquePredicatesOnly = false);
+    vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool uniquePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByAuthor(pair<string, string> author, bool uniquePredicatesOnly = true, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByRecipient(pair<string, string> object, bool uniquePredicatesOnly = true, bool showUnpublished = true);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
+    vector<string> GetMyPubKeys();
     vector<string> ListPrivKeys();
     bool ImportPrivKey(string privKey, bool setDefault=false);
     int GetPacketCount();
     int GetIdentifierCount();
     CIdentifiPacket GetPacketByHash(string hash);
-    vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end, int searchDepth = 3);
+    vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end, int searchDepth = 3, vector<uint256>* visitedPackets = 0);
     int GetTrustValue(CIdentifiPacket &packet);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
@@ -55,7 +56,7 @@ private:
     void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
     void CheckDefaultUniquePredicates();
-    bool HasTrustedSigner(CIdentifiPacket &packet, string &trustedKey);
+    bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeys, vector<uint256>* visitedPackets);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H

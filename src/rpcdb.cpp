@@ -37,10 +37,10 @@ Value getpacketsbyauthor(const Array& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "getpacketsbyauthor <id_value>\n"
-            "Returns a list of packets associated with the given subject identifier.");
+            "Returns a list of packets associated with the given author identifier.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->getpacketsbyauthor(make_pair("", params[0].get_str()));
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), false);
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
@@ -56,7 +56,7 @@ Value getpacketsbyrecipient(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given object identifier.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->getpacketsbyrecipient(make_pair("", params[0].get_str()));
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), false);
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }

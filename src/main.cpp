@@ -3255,7 +3255,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
         int nLimit = 500;
 
-        vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit);
+        vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit, false);
         BOOST_FOREACH(const CIdentifiPacket &packet, packets)
             pfrom->PushInventory(CInv(MSG_PACKET, packet.GetHash()));
 

@@ -111,11 +111,11 @@ Message encoding is UTF-8.
 TODO
 ----
 
-* Improve in-built trust evaluation algorithm
+* Implement Dijkstra pathfinding algorithm
 * Recalculate old trust ratings when new packets arrive
+* Allocate disk space based on the author's trust
 * Improve network functions, add sanity checks
 * Remove unnecessary Bitcoin code
-* Add more signature methods
 * Write performance tests and improve efficiency
 * Crawlers
 * Visualizations
@@ -124,7 +124,7 @@ TODO
 Future considerations
 ---------------------
 
-Use [Redland](http://librdf.org) triple storage and/or [HDT](http://www.rdfhdt.org) serialization? This would enable handling of all kinds of RDF documents (standard FOAF for example) and queries by SPARQL.
+Use [Trsst](http://www.trsst.com) for data propagation and storage?
 
 Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) instead of a flooding network?
 
@@ -133,7 +133,5 @@ Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) i
 Use external SQL DB instead of sqlite for better multi-application access to data?
 
 Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point to the Identifi WoT for many people.
-
-Data format is quite similar to [Trsst](http://www.trsst.com)? Use the same?
 
 Serialize in BSON to improve efficiency and enable embedded binary (images etc)?
