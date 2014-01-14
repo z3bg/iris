@@ -183,18 +183,21 @@ Value deletepacket(const Array& params, bool fHelp)
 }
 
 
-Value listprivkeys(const Array& params, bool fHelp)
+Value listmykeys(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "listprivkeys\n"
+            "listmykeys\n"
             "List the private keys you own");
 
-    vector<string> keys = pidentifidb->ListPrivKeys();
-    Array keysJSON;    
+    vector<pair<string, string> > keys = pidentifidb->GetMyKeys();
+    Array keysJSON;
 
-    for (vector<string>::iterator it = keys.begin(); it != keys.end(); ++it) {
-        keysJSON.push_back(*it);
+    for (vector<pair<string, string> >::iterator it = keys.begin(); it != keys.end(); ++it) {
+        Object key;
+        key.push_back(Pair("pubkey", it->first));
+        key.push_back(Pair("privkey", it->second));
+        keysJSON.push_back(key);
     }   
     return keysJSON;
 }

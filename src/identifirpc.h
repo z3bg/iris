@@ -145,7 +145,7 @@ extern json_spirit::Value getpath(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value savepacket(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value deletepacket(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value savepacketfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-extern json_spirit::Value listprivkeys(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value listmykeys(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value importprivkey(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value setdefaultkey(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value addsignature(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp

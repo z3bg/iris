@@ -206,7 +206,7 @@ static const CRPCCommand vRPCCommands[] =
     { "savepacket",                 &savepacket,                true,      false },
     { "savepacketfromdata",         &savepacketfromdata,        true,      false },
     { "deletepacket",               &deletepacket,              true,      false },
-    { "listprivkeys",               &listprivkeys,              true,      false },
+    { "listmykeys",               &listmykeys,              true,      false },
     { "importprivkey",              &importprivkey,             true,      false },
     { "setdefaultkey",              &setdefaultkey,             true,      false },
     { "addsignature",               &addsignature,              true,      false },

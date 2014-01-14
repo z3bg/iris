@@ -30,8 +30,8 @@ public:
     void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
+    vector<pair<string, string> > GetMyKeys();
     vector<string> GetMyPubKeys();
-    vector<string> ListPrivKeys();
     bool ImportPrivKey(string privKey, bool setDefault=false);
     int GetPacketCount();
     int GetIdentifierCount();

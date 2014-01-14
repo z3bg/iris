@@ -866,16 +866,23 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
     return myPubKeys;
 }
 
+vector<pair<string, string> > CIdentifiDB::GetMyKeys() {
+    vector<pair<string, string> > myKeys;
 
-vector<string> CIdentifiDB::ListPrivKeys() {
-    vector<string> keys;
+    string pubKey, privKey;
 
-    vector<vector<string> > result = query("SELECT PrivateKey FROM PrivateKeys");
-    for (vector<vector <string> >::iterator it = result.begin(); it != result.end(); it++) {
-        keys.push_back(it->front());
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT id.Value, pk.PrivateKey FROM Identifiers AS id ";
+    sql << "INNER JOIN PrivateKeys AS pk ON pk.PubKeyHash = id.Hash";
+
+    vector<vector<string> > result = query(sql.str().c_str());
+
+    for (vector<vector<string> >::iterator it = result.begin(); it != result.end(); it ++) {
+        myKeys.push_back(make_pair(it->front(), it->back()));
     }
 
-    return keys;
+    return myKeys;
 }
 
 bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeys, vector<uint256>* visitedPackets) {
