@@ -34,10 +34,11 @@ public:
     vector<string> GetMyPubKeys();
     bool ImportPrivKey(string privKey, bool setDefault=false);
     int GetPacketCount();
+    int GetPacketCountByAuthor(pair<string, string> author);
     int GetIdentifierCount();
     CIdentifiPacket GetPacketByHash(string hash);
     vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end, int searchDepth = 3, vector<uint256>* visitedPackets = 0);
-    int GetTrustValue(CIdentifiPacket &packet);
+    int GetPriority(CIdentifiPacket &packet);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();

@@ -171,6 +171,7 @@ Value CIdentifiPacket::GetJSON() const {
     packetJSON.push_back(Pair("hash", EncodeBase58(GetHash())));
     packetJSON.push_back(Pair("data", data));
     packetJSON.push_back(Pair("published", published));
+    packetJSON.push_back(Pair("priority", priority));
 
     return packetJSON;
 }
@@ -181,6 +182,14 @@ void CIdentifiPacket::SetPublished() {
 
 bool CIdentifiPacket::IsPublished() {
     return published;
+}
+
+int CIdentifiPacket::GetPriority() {
+    return priority;
+}
+
+void CIdentifiPacket::SetPriority(int priority) {
+    CIdentifiPacket::priority = priority;
 }
 
 int CIdentifiPacket::GetRating() const {

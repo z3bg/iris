@@ -112,7 +112,7 @@ TODO
 ----
 
 * Implement Dijkstra pathfinding algorithm
-* Recalculate old trust ratings when new packets arrive
+* Save trust ratings and recalculate when new packets are saved
 * Allocate disk space based on the author's trust
 * Improve network functions, add sanity checks
 * Remove unnecessary Bitcoin code

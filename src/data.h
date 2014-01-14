@@ -46,6 +46,8 @@ public:
     void SetData(string strData);
     void SetPublished();
     bool IsPublished();
+    int GetPriority();
+    void SetPriority(int priority);
     bool Sign(CKey& key);
     bool AddSignature(CSignature signature);
     int GetRating() const;
@@ -89,6 +91,7 @@ private:
     vector<CSignature> signatures;
     time_t timestamp;
     bool published;
+    int priority;
     void UpdateSignatures();
 };
 

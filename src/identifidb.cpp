@@ -8,6 +8,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
 #include <map>
+#include <cmath>
 
 #include "json/json_spirit_reader_template.h"
 #include "json/json_spirit_writer_template.h"
@@ -94,7 +95,7 @@ void CIdentifiDB::CheckDefaultUniquePredicates() {
         query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('mbox', 1)");
         query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('url', 1)");
         query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('tel', 1)");
-        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('ecdsa_base58', 1)");
+        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('base58pubkey', 1)");
     }
 }
 
@@ -118,10 +119,10 @@ void CIdentifiDB::CheckDefaultTrustList() {
         string strPubKey = EncodeBase58(vchPubKey);
 
         Array author, author1, recipient, recipient1, signatures;
-        author1.push_back("ecdsa_base58");
+        author1.push_back("base58pubkey");
         author1.push_back(strPubKey);
         author.push_back(author1);
-        recipient1.push_back("ecdsa_base58");
+        recipient1.push_back("base58pubkey");
         recipient1.push_back("NdudNBcekP9rQW425xpnpeVtDu1DLTFiMuAMkBsXRVpM8LheWfjPj7fiU7QNVxNbN1YbMXnXrhQEcuUovMB41fvm");
         recipient.push_back(recipient1);
         
@@ -174,7 +175,7 @@ void CIdentifiDB::Initialize() {
     sql << "MinRating           INTEGER         DEFAULT 0,";
     sql << "MaxRating           INTEGER         DEFAULT 0,";
     sql << "Published           BOOL            DEFAULT 0,";
-    sql << "TrustValue          INTEGER         DEFAULT 0";
+    sql << "Priority            INTEGER         DEFAULT 0";
     sql << ");";
     query(sql.str().c_str());
 
@@ -370,6 +371,7 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     CIdentifiPacket packet(strData);
     if(sqlite3_column_int(statement, 7) == 1)
         packet.SetPublished();
+    packet.SetPriority(sqlite3_column_int(statement, 8));
     return packet;
 }
 
@@ -586,7 +588,7 @@ bool CIdentifiDB::MakeFreeSpace(int nFreeBytesNeeded) {
 
     do {
         sql.str("");
-        sql << "SELECT Hash FROM Packets ORDER BY TrustValue ASC, Created ASC LIMIT 1";
+        sql << "SELECT Hash FROM Packets ORDER BY Priority ASC, Created ASC LIMIT 1";
         string packetToRemove = query(sql.str().c_str())[0][0];
         DropPacket(packetToRemove);
         nFreePages = lexical_cast<int>(query("PRAGMA freelist_count")[0][0]);
@@ -693,43 +695,87 @@ void CIdentifiDB::SavePacketSignature(CSignature &signature, string packetHash) 
     SaveIdentifier(signature.GetSignerPubKey());
 }
 
-// Arbitrary numeric trust metric
-int CIdentifiDB::GetTrustValue(CIdentifiPacket &packet) {
-    const int MAX_TRUST = 100;
+int CIdentifiDB::GetPacketCountByAuthor(pair<string, string> author) {
+    sqlite3_stmt *statement;
+
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT COUNT(1) FROM Packets AS p ";
+    sql << "INNER JOIN PacketSubjects AS ps ON ps.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON id.Hash = ps.SubjectHash ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID ";
+    sql << "WHERE pred.Value = @type AND id.Value = @value";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, author.second.c_str(), -1, SQLITE_TRANSIENT);
+    }
+
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        int count = sqlite3_column_int(statement, 1);
+        sqlite3_finalize(statement);
+        return count;
+    } else {
+        sqlite3_finalize(statement);
+        throw runtime_error("GetPacketCountByAuthor failed");
+    }
+}
+
+// Arbitrary storage priority metric
+int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
+    const int MAX_PRIORITY = 100;
     CKey myKey = GetDefaultKey();
-    string strMyKey = EncodeBase58(myKey.GetPubKey().Raw());
-    string keyType = "ecdsa_base58";
+    vector<string> myPubKeys = GetMyPubKeys();
+    string keyType = "base58pubkey";
 
     int nShortestPathToSignature = 1000000;
     vector<CSignature> sigs = packet.GetSignatures();
     for (vector<CSignature>::iterator sig = sigs.begin(); sig != sigs.end(); sig++) {
         string signerPubKey = sig->GetSignerPubKey();
-        if (signerPubKey == strMyKey) {
-            nShortestPathToSignature = 1;
-            break;            
+        for (vector<string>::iterator myPubKey = myPubKeys.begin(); myPubKey != myPubKeys.end(); myPubKey++) {
+            if (signerPubKey == *myPubKey) {
+                nShortestPathToSignature = 1;
+                break;            
+            }
+            int nPath = GetPath(make_pair(keyType, *myPubKey), make_pair(keyType, signerPubKey)).size();
+            if (nPath > 0 && nPath < nShortestPathToSignature)
+                nShortestPathToSignature = nPath + 1;
         }
-        int nPath = GetPath(make_pair(keyType, strMyKey), make_pair(keyType, signerPubKey)).size();
-        if (nPath < nShortestPathToSignature)
-            nShortestPathToSignature = nPath + 1;
+        if (nShortestPathToSignature == 1)
+            break;
     }
 
-    int nShortestPathToSubject = 1000000;
+    int nShortestPathToAuthor = 1000000;
+    int nMostPacketsFromAuthor = -1;
+    bool isMyPacket = false;
+
     vector<pair<string, string> > subjects = packet.GetSubjects();
     for (vector<pair<string, string> >::iterator subject = subjects.begin(); subject != subjects.end(); subject++) {
-        if (*subject == make_pair(keyType, strMyKey)) {
-            nShortestPathToSubject = 1;
-            break;            
+        if (nShortestPathToAuthor > 1) {
+            for (vector<string>::iterator myPubKey = myPubKeys.begin(); myPubKey != myPubKeys.end(); myPubKey++) {            
+                if (*subject == make_pair(keyType, *myPubKey)) {
+                    nShortestPathToAuthor = 1;
+                    isMyPacket = true;
+                    break;            
+                }
+                int nPath = GetPath(make_pair(keyType, *myPubKey), *subject).size();
+                if (nPath > 0 && nPath < nShortestPathToAuthor)
+                    nShortestPathToAuthor = nPath + 1;
+            }            
         }
-        int nPath = GetPath(make_pair(keyType, strMyKey), *subject).size();
-        if (nPath < nShortestPathToSubject)
-            nShortestPathToSubject = nPath + 1;
+        int nPacketsFromAuthor = GetPacketCountByAuthor(*subject);
+        if (nPacketsFromAuthor > nMostPacketsFromAuthor)
+            nMostPacketsFromAuthor = nPacketsFromAuthor;
     }
 
-    int nTrust = (MAX_TRUST / nShortestPathToSignature)
-                    * (MAX_TRUST / nShortestPathToSubject);
+    int nPriority = (MAX_PRIORITY / nShortestPathToSignature)
+                    * (MAX_PRIORITY / nShortestPathToAuthor);
 
-    if (nTrust > 0)
-        return nTrust / MAX_TRUST;
+    if (!isMyPacket && nMostPacketsFromAuthor > 10)
+        nPriority = nPriority / log10(nMostPacketsFromAuthor);
+
+    if (nPriority > 0)
+        return nPriority / MAX_PRIORITY;
     else
         return 0;
 }
@@ -739,7 +785,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     string sql;
     string packetHash;
 
-    sql = "INSERT OR REPLACE INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, TrustValue) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @trust);";
+    sql = "INSERT OR REPLACE INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, Priority) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @priority);";
     packetHash = EncodeBase58(packet.GetHash());
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -751,7 +797,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
             sqlite3_bind_int(statement, 6, packet.GetMaxRating());
             sqlite3_bind_int(statement, 7, packet.GetMinRating());
             sqlite3_bind_int(statement, 8, packet.IsPublished());
-            sqlite3_bind_int(statement, 9, GetTrustValue(packet));
+            sqlite3_bind_int(statement, 9, GetPriority(packet));
         } else {
             printf("DB Error: %s\n", sqlite3_errmsg(db));
         }
@@ -892,9 +938,10 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trust
         string strSignerPubKey = sig->GetSignerPubKey();
         if (find(trustedKeys.begin(), trustedKeys.end(), strSignerPubKey) != trustedKeys.end()) {
             hasTrustedSigner = true;
+            break;
         }
         for (vector<string>::iterator it = trustedKeys.begin(); it != trustedKeys.end(); it++) {
-            if (GetPath(make_pair("ecdsa_base58", *it), make_pair("ecdsa_base58", strSignerPubKey), 3, visitedPackets).size() > 0) {
+            if (GetPath(make_pair("base58pubkey", *it), make_pair("base58pubkey", strSignerPubKey), 3, visitedPackets).size() > 0) {
                 hasTrustedSigner = true;
                 break;
             }
@@ -909,10 +956,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<st
     //cout << "start " << start.second << " end " << end.second << "\n";
     vector<CIdentifiPacket> path;
 
-    bool bukkake = false;
+    bool outer = false;
     if (!visitedPackets) {
         visitedPackets = new vector<uint256>();
-        bukkake = true;
+        outer = true;
     }
 
     deque<CIdentifiPacket> searchQueue;
@@ -974,7 +1021,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<st
         }
     }
 
-    if (bukkake) delete(visitedPackets);
+    if (outer) delete(visitedPackets);
     return path;
 }
 

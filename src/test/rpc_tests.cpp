@@ -109,6 +109,12 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bill@example.com"));
     BOOST_CHECK(r.get_array().empty());
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs trusted 5 true"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1389757332,\"author\":[[\"base58pubkey\",\"PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs\"]],\"recipient\":[[\"base58pubkey\",\"S5FajXsvQsce4GJ1LS6a3P2ZTh39tHURXL27Ffgv82JteDpn5DCGL3R93XGaCTTnJV4EtV9Ab9WPECuZfaWBKB32\"]],\"type\":\"review\",\"comment\":\"trusted\",\"rating\":10,\"maxRating\":10,\"minRating\":-10},\"signatures\":[{\"pubKey\":\"PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs\",\"signature\":\"AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH\"}]}"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs"));
+    firstPacket = r.get_array().front().get_obj();
+    BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
+
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor http://www.example.com/alice"));
     firstPacket = r.get_array().front().get_obj();
     data=find_value(firstPacket, "data").get_obj();
@@ -123,14 +129,14 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(find_value(data, "signatures").get_array().size(), 2);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsafter 0"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 6);
+    BOOST_CHECK_EQUAL(r.get_array().size(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsafter 0 1"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 
-    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 6);
+    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 8);
     BOOST_CHECK_NO_THROW(r=CallRPC("deletepacket 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
-    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 5);
+    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 7);
 }
 
 BOOST_AUTO_TEST_CASE(db_max_size)

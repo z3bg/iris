@@ -190,6 +190,8 @@ Value listmykeys(const Array& params, bool fHelp)
             "listmykeys\n"
             "List the private keys you own");
 
+    CKey defaultKey = pidentifidb->GetDefaultKey();
+    string strDefaultKey = EncodeBase58(defaultKey.GetPubKey().Raw());
     vector<pair<string, string> > keys = pidentifidb->GetMyKeys();
     Array keysJSON;
 
@@ -197,8 +199,9 @@ Value listmykeys(const Array& params, bool fHelp)
         Object key;
         key.push_back(Pair("pubkey", it->first));
         key.push_back(Pair("privkey", it->second));
+        key.push_back(Pair("default", it->first == strDefaultKey));
         keysJSON.push_back(key);
-    }   
+    }
     return keysJSON;
 }
 
