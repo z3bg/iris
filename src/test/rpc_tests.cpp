@@ -1,6 +1,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
+#include <ctime>
 
 #include "main.h"
 #include "base58.h"
@@ -139,8 +140,33 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 7);
 }
 
+BOOST_AUTO_TEST_CASE(savepacket_performance)
+{
+    delete pidentifidb;
+    pidentifidb = new CIdentifiDB(100);
+    Value r;
+    const char* rpcFormat = "savepacket mbox mailto:alice@example.com mbox mailto:bob@example.com %i 1";
+    
+    const int PACKET_COUNT = 1000;
+
+    clock_t begin = clock();
+    for (int i = 1; i <= PACKET_COUNT; i++) {
+        char rpc[100];
+        sprintf(rpc, rpcFormat, i);
+        CallRPC(rpc);
+        if (i % 50 == 0) {
+            clock_t end = clock();
+            double timeElapsed = double(end - begin) / CLOCKS_PER_SEC;
+            double packetsPerSecond = i / timeElapsed;
+            cout << i << " packets saved in " << timeElapsed << " seconds, ";
+            cout << packetsPerSecond << " packets per second\n";
+        }
+    }
+}
+
 BOOST_AUTO_TEST_CASE(db_max_size)
 {
+    cout << "Testing DB size limit with 1 MB DB\n";
     delete pidentifidb;
     pidentifidb = new CIdentifiDB(1);
     Value r;
