@@ -195,9 +195,18 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketSignatures (";
-    sql << "PacketHash        NVARCHAR(45)    NOT NULL,";
+    sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
     sql << "PubKeyHash          NVARCHAR(45)    NOT NULL);";
+    query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
+    sql << "StartID               NVARCHAR(45)    NOT NULL,";
+    sql << "StartPredicateID    INTEGER,";
+    sql << "EndID                 NVARCHAR(45)    NOT NULL,";
+    sql << "EndPredicateID      INTEGER,";
+    sql << "NextStep            NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
@@ -210,6 +219,14 @@ void CIdentifiDB::Initialize() {
     CheckDefaultUniquePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
+    SearchForPathForMyKeys();
+}
+
+void CIdentifiDB::SearchForPathForMyKeys() {
+    vector<string> myPubKeys = GetMyPubKeys();
+    for (vector<string>::iterator key = myPubKeys.begin(); key != myPubKeys.end(); key++) {
+        SearchForPath(make_pair("base58pubkey", *key));
+    } 
 }
 
 vector<pair<string, string> > CIdentifiDB::GetSubjectsByPacketHash(string packetHash) {
@@ -724,7 +741,6 @@ int CIdentifiDB::GetPacketCountByAuthor(pair<string, string> author) {
 // Arbitrary storage priority metric
 int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     const int MAX_PRIORITY = 100;
-    CKey myKey = GetDefaultKey();
     vector<string> myPubKeys = GetMyPubKeys();
     string keyType = "base58pubkey";
 
@@ -737,13 +753,13 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
                 nShortestPathToSignature = 1;
                 break;            
             }
-            int nPath = GetPath(make_pair(keyType, *myPubKey), make_pair(keyType, signerPubKey)).size();
+            int nPath = GetSavedPath(make_pair(keyType, *myPubKey), make_pair(keyType, signerPubKey)).size();
             if (nPath > 0 && nPath < nShortestPathToSignature)
                 nShortestPathToSignature = nPath + 1;
         }
         if (nShortestPathToSignature == 1)
             break;
-    }
+    } 
 
     int nShortestPathToAuthor = 1000000;
     int nMostPacketsFromAuthor = -1;
@@ -758,10 +774,10 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
                     isMyPacket = true;
                     break;            
                 }
-                int nPath = GetPath(make_pair(keyType, *myPubKey), *subject).size();
+                int nPath = GetSavedPath(make_pair(keyType, *myPubKey), *subject).size();
                 if (nPath > 0 && nPath < nShortestPathToAuthor)
                     nShortestPathToAuthor = nPath + 1;
-            }            
+            }
         }
         int nPacketsFromAuthor = GetPacketCountByAuthor(*subject);
         if (nPacketsFromAuthor > nMostPacketsFromAuthor)
@@ -823,6 +839,9 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     }
 
     sqlite3_finalize(statement);
+
+    SavePacketTrustPaths(packet);
+
     return packetHash;
 }
 
@@ -941,7 +960,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trust
             break;
         }
         for (vector<string>::iterator it = trustedKeys.begin(); it != trustedKeys.end(); it++) {
-            if (GetPath(make_pair("base58pubkey", *it), make_pair("base58pubkey", strSignerPubKey), 3, visitedPackets).size() > 0) {
+            if (GetSavedPath(make_pair("base58pubkey", *it), make_pair("base58pubkey", strSignerPubKey), 3, visitedPackets).size() > 0) {
                 hasTrustedSigner = true;
                 break;
             }
@@ -951,17 +970,181 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trust
     return hasTrustedSigner;
 }
 
-// Breadth-first search for the shortest trust path from id1 to id2
-vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<string, string> end, int searchDepth, vector<uint256>* visitedPackets) {
-    //cout << "start " << start.second << " end " << end.second << "\n";
+vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(pair<string, string> start, pair<string, string> end, int searchDepth, vector<uint256>* visitedPackets) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    string startHash = EncodeBase58(Hash(start.second.begin(), start.second.end()));
+    pair<string, string> current = end;
+    string nextStep = current.second;
+
+    sql.str("");
+    sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
+    sql << "LEFT JOIN Predicates AS startpred ON startpred.Value = @startpred ";
+    sql << "INNER JOIN Predicates AS endpred ON endpred.Value = @endpred ";
+    sql << "WHERE tp.StartPredicateID = startpred.ID ";
+    sql << "AND tp.StartID = @starthash ";
+    sql << "AND tp.EndPredicateID = endpred.ID ";
+    sql << "AND tp.EndID = @endhash ";
+
     vector<CIdentifiPacket> path;
 
+    while (true) {
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, current.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 3, startHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 4, EncodeBase58(Hash(nextStep.begin(), nextStep.end())).c_str(), -1, SQLITE_TRANSIENT);
+
+            int result = sqlite3_step(statement);
+            if(result == SQLITE_ROW)
+            {
+                nextStep = string((char*)sqlite3_column_text(statement, 0));
+                path.push_back(GetPacketByHash(nextStep));
+                if (nextStep == current.second) break;
+
+                current.first = "";
+                current.second = nextStep;
+            } else {
+                //path.clear();
+                break;
+            }
+        }
+        sqlite3_finalize(statement);
+    }
+    return path;
+}
+
+void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
+    vector<string> myPubKeys = GetMyPubKeys();
+    CKey defaultKey = GetDefaultKey();
+    vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
+    string strPubKey = EncodeBase58(vchPubKey);
+
+    if (!HasTrustedSigner(packet, myPubKeys, 0))
+        return;
+
+    vector<pair<string, string> > savedPacketSubjects = packet.GetSubjects();
+    vector<pair<string, string> > savedPacketObjects = packet.GetObjects();
+    vector<pair<string, string> > savedPacketIdentifiers;
+    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketObjects.begin(), savedPacketObjects.end());
+    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketSubjects.begin(), savedPacketSubjects.end());
+    string savedPacketHash = EncodeBase58(packet.GetHash());
+
+    bool isMyPacket = false;
+    for (vector<pair<string, string> >::iterator subject = savedPacketSubjects.begin(); subject != savedPacketSubjects.end(); subject++) {
+        if (subject->first == "base58pubkey") {
+            for (vector<string>::iterator myKey = myPubKeys.begin(); myKey != myPubKeys.end(); myKey++) {
+                if (*myKey == subject->second) {
+                    SaveTrustStep(make_pair("base58pubkey", *myKey), make_pair("",savedPacketHash), savedPacketHash);
+                    for (vector<pair<string, string> >::iterator id = savedPacketIdentifiers.begin(); id != savedPacketIdentifiers.end(); id++) {
+                        SaveTrustStep(make_pair("base58pubkey", *myKey), *id, savedPacketHash);
+                    }
+                    isMyPacket = true;
+                    break;
+                }
+            }
+            // if (isMyPacket) break;
+        }
+    }
+
+    if (!isMyPacket) {
+        vector<CIdentifiPacket> shortestPath;
+        for (vector<pair<string, string> >::iterator subject = savedPacketSubjects.begin(); subject != savedPacketSubjects.end(); subject++) {
+            for (vector<string>::iterator myKey = myPubKeys.begin(); myKey != myPubKeys.end(); myKey++) {
+                vector<CIdentifiPacket> path = GetSavedPath(make_pair("base58pubkey", *myKey), *subject);
+                if ((shortestPath.empty() && !path.empty())
+                    || (!path.empty() && path.size() < shortestPath.size())) {
+                    shortestPath = path;
+                }
+                if (shortestPath.size() == 1) break;
+            }
+            if (shortestPath.size() == 1) break;
+        }
+        if (!shortestPath.empty()) {
+            vector<pair<string, string> > lastPacketSubjects = shortestPath.back().GetSubjects(),
+                                        firstPacketSubjects = (shortestPath.end() - 2)->GetSubjects();
+            string previousPacket = EncodeBase58((shortestPath.end() - 2)->GetHash());
+            for (vector<pair<string, string> >::iterator subject = firstPacketSubjects.begin(); subject != firstPacketSubjects.end(); subject++) {
+                SaveTrustStep(*subject, make_pair("", savedPacketHash), previousPacket);
+                for (vector<pair<string, string> >::iterator id = savedPacketIdentifiers.begin(); id != savedPacketIdentifiers.end(); id++) {
+                    SaveTrustStep(*subject, *id, savedPacketHash);
+                }
+            }
+        }
+    }
+}
+
+void CIdentifiDB::SaveTrustStep(pair<string, string> start, pair<string,string> end, string nextStep) {
+    if (start == end) return;
+
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    string endHash = EncodeBase58(Hash(end.second.begin(), end.second.end()));
+    pair<string, string> current = start;
+
+    int startPredicateID = SavePredicate(start.first);
+    int endPredicateID = SavePredicate(end.first);
+    string startID = SaveIdentifier(start.second);
+    string endID = SaveIdentifier(end.second);
+
+    sql.str("");
+    sql << "SELECT COUNT(1) FROM TrustPaths WHERE ";
+    sql << "StartPredicateID = @startpredID ";
+    sql << "AND StartID = @startID ";
+    sql << "AND EndPredicateID = @endpredID ";
+    sql << "AND EndID = @endID";
+    sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0);
+    sqlite3_bind_int(statement, 1, startPredicateID);
+    sqlite3_bind_text(statement, 2, startID.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(statement, 3, endPredicateID);
+    sqlite3_bind_text(statement, 4, endID.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_step(statement);
+    int exists = sqlite3_column_int(statement, 0);
+    sqlite3_finalize(statement);
+
+    if (exists) return;
+
+    sql.str("");
+    sql << "INSERT OR REPLACE INTO TrustPaths ";
+    sql << "(StartPredicateID, StartID, EndPredicateID, EndID, NextStep) ";
+    sql << "VALUES (@startpredID, @startID, @endpredID, @endID, @nextstep)";
+
+    RETRY_IF_DB_FULL(
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_int(statement, 1, startPredicateID);
+            sqlite3_bind_text(statement, 2, startID.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 3, endPredicateID);
+            sqlite3_bind_text(statement, 4, endID.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+            sqliteReturnCode = sqlite3_step(statement);
+        }
+    )
+
+    sqlite3_finalize(statement);
+}
+
+vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<string, string> end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
+    vector<CIdentifiPacket> path = GetSavedPath(start, end, searchDepth);
+    if (path.empty())
+        path = SearchForPath(start, end, savePath, searchDepth);
+    return path;
+}
+
+// Breadth-first search for the shortest trust paths to all known packets, starting from id1
+vector<CIdentifiPacket> CIdentifiDB::SearchForPath(pair<string, string> start, pair<string, string> end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
     bool outer = false;
     if (!visitedPackets) {
         visitedPackets = new vector<uint256>();
         outer = true;
     }
 
+    bool generateTrustMap;
+    if (savePath && (end.first == "" && end.second == ""))
+        generateTrustMap = true;
+
+    vector<CIdentifiPacket> path;
     deque<CIdentifiPacket> searchQueue;
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
@@ -987,11 +1170,20 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<st
         if (packetDistanceFromStart.find(currentPacket.GetHash()) != packetDistanceFromStart.end())
             currentDistanceFromStart = packetDistanceFromStart[currentPacket.GetHash()];
 
+        if (currentDistanceFromStart > searchDepth) {
+            path.clear();
+            return path;
+        }
+
         vector<pair<string, string> > allIdentifiers = currentPacket.GetSubjects();
         vector<pair<string, string> > objects = currentPacket.GetObjects();
         allIdentifiers.insert(allIdentifiers.end(), objects.begin(), objects.end());
         for (vector<pair<string, string> >::iterator identifier = allIdentifiers.begin(); identifier != allIdentifiers.end(); identifier++) {
-            if ((identifier->first.empty() || end.first.empty() || identifier->first == end.first)
+            if (savePath)
+                SaveTrustStep(start, *identifier, EncodeBase58(currentPacket.GetHash()));
+
+            if (path.empty()
+                    && (identifier->first.empty() || end.first.empty() || identifier->first == end.first)
                     && identifier->second == end.second) {
                 // Path found: backtrack it from end to start and return it
                 path.push_back(currentPacket);
@@ -1001,21 +1193,21 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(pair<string, string> start, pair<st
                     previousPacket = previousPackets.at(previousPacket.GetHash());
                     path.insert(path.begin(), previousPacket);
                 }
-                return path;
-            } else if (currentDistanceFromStart < searchDepth) {
-                // No path found yet: add packets involving this identifier to search queue
-                vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(*identifier, true);
+                if (!generateTrustMap)
+                    return path;
+            }
+            // add packets involving this identifier to search queue
+            vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(*identifier, true);
 
-                searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
+            searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
 
-                for (vector<CIdentifiPacket>::iterator p = allPackets.begin(); p != allPackets.end(); p++) {
-                    if (previousPackets.find(p->GetHash()) == previousPackets.end()
-                        && find(visitedPackets->begin(), visitedPackets->end(), p->GetHash()) == visitedPackets->end())
-                        previousPackets[p->GetHash()] = currentPacket;
-                    if (packetDistanceFromStart.find(p->GetHash()) == packetDistanceFromStart.end()
-                        && find(visitedPackets->begin(), visitedPackets->end(), p->GetHash()) == visitedPackets->end()) {
-                        packetDistanceFromStart[p->GetHash()] = currentDistanceFromStart + 1;
-                    }
+            for (vector<CIdentifiPacket>::iterator p = allPackets.begin(); p != allPackets.end(); p++) {
+                if (previousPackets.find(p->GetHash()) == previousPackets.end()
+                    && find(visitedPackets->begin(), visitedPackets->end(), p->GetHash()) == visitedPackets->end())
+                    previousPackets[p->GetHash()] = currentPacket;
+                if (packetDistanceFromStart.find(p->GetHash()) == packetDistanceFromStart.end()
+                    && find(visitedPackets->begin(), visitedPackets->end(), p->GetHash()) == visitedPackets->end()) {
+                    packetDistanceFromStart[p->GetHash()] = currentDistanceFromStart + 1;
                 }
             }
         }

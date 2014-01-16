@@ -89,17 +89,37 @@ Value getpacketsafter(const Array& params, bool fHelp)
 
 Value getpath(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 3)
+    if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
-            "getpath <id1> <id2> <search_depth=3>\n"
-            "Returns an array of packets that connect id1 and id2, with optional max search depth.");
+            "getpath <id1predicate> <id1> <id2predicate> <id2> <search_depth=3>\n"
+            "Returns an array of packets that connect id1 and id2 with given predicates and optional max search depth.");
 
     Array packetsJSON;
     vector<CIdentifiPacket> packets;
-    if (params.size() == 2)
-        packets = pidentifidb->GetPath(make_pair("", params[0].get_str()), make_pair("", params[1].get_str()), 3);
+    if (params.size() == 4)
+        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
     else
-        packets = pidentifidb->GetPath(make_pair("", params[0].get_str()), make_pair("", params[1].get_str()), boost::lexical_cast<int>(params[2].get_str()));
+        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
+    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
+        packetsJSON.push_back(it->GetJSON());
+    }
+
+    return packetsJSON;
+}
+
+Value getsavedpath(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 4 || params.size() > 5)
+        throw runtime_error(
+            "getsavedpath <id1predicate> <id1> <id2predicate> <id2> <search_depth=3>\n"
+            "Returns an array of packets that connect id1 and id2 with given predicates and optional max search depth.");
+
+    Array packetsJSON;
+    vector<CIdentifiPacket> packets;
+    if (params.size() == 4)
+        packets = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
+    else
+        packets = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), boost::lexical_cast<int>(params[4].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }

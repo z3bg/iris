@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 2);
+    BOOST_CHECK_EQUAL(r.get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:alice@example.com mbox mailto:bob@example.com positive 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:bob@example.com mbox mailto:carl@example.com positive 1"));
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 5);
+    BOOST_CHECK_EQUAL(r.get_int(), 6);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor mailto:alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_str(), "6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP");
     BOOST_CHECK_NO_THROW(CallRPC("publish 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 7);
+    BOOST_CHECK_EQUAL(r.get_int(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("listmykeys"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -93,28 +93,37 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("listmykeys"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath nobody1 nobody2"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath p1 nobody1 p2 nobody2"));
     BOOST_CHECK(r.get_array().empty());
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bob@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:bob@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:carl@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:carl@example.com 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:carl@example.com 1"));
+    BOOST_CHECK(r.get_array().empty());
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath p1 nobody1 p2 nobody2"));
+    BOOST_CHECK(r.get_array().empty());
+    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath mbox mailto:alice@example.com mbox mailto:bob@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath mbox mailto:alice@example.com mbox mailto:carl@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath mbox mailto:alice@example.com mbox mailto:carl@example.com 1"));
     BOOST_CHECK(r.get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1,\"author\":[[\"mbox\",\"mailto:alice@example.com\"]],\"recipient\":[[\"mbox\",\"mailto:dick@example.com\"]],\"type\":\"review\",\"comment\":\"thanks\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signatures\":[]} false false"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:dick@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:dick@example.com"));
     BOOST_CHECK(r.get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:alice@example.com mbox mailto:bill@example.com negative -1"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mailto:alice@example.com mailto:bill@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:bill@example.com"));
     BOOST_CHECK(r.get_array().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs trusted 5 true"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1389757332,\"author\":[[\"base58pubkey\",\"PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs\"]],\"recipient\":[[\"base58pubkey\",\"S5FajXsvQsce4GJ1LS6a3P2ZTh39tHURXL27Ffgv82JteDpn5DCGL3R93XGaCTTnJV4EtV9Ab9WPECuZfaWBKB32\"]],\"type\":\"review\",\"comment\":\"trusted\",\"rating\":10,\"maxRating\":10,\"minRating\":-10},\"signatures\":[{\"pubKey\":\"PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs\",\"signature\":\"AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH\"}]}"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs"));
     firstPacket = r.get_array().front().get_obj();
-    BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
+    BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 33);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor http://www.example.com/alice"));
     firstPacket = r.get_array().front().get_obj();

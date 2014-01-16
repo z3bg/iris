@@ -37,11 +37,16 @@ public:
     int GetPacketCountByAuthor(pair<string, string> author);
     int GetIdentifierCount();
     CIdentifiPacket GetPacketByHash(string hash);
-    vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end, int searchDepth = 3, vector<uint256>* visitedPackets = 0);
     int GetPriority(CIdentifiPacket &packet);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
+    vector<CIdentifiPacket> GetSavedPath(pair<string, string> start, pair<string, string> end, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    vector<CIdentifiPacket> SearchForPath(pair<string, string> start, pair<string, string> end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    void SaveTrustStep(pair<string, string> start, pair<string,string> end, string nextStep);
+    void SavePacketTrustPaths(CIdentifiPacket &packet);
+
 private:
     sqlite3 *db;
     vector<pair<string, string> > GetSubjectsByPacketHash(string packetHash);
@@ -57,6 +62,7 @@ private:
     void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
     void CheckDefaultUniquePredicates();
+    void SearchForPathForMyKeys();
     bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeys, vector<uint256>* visitedPackets);
 };
 
