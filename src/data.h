@@ -60,8 +60,8 @@ public:
     uint256 GetSignedDataHash() const;
     uint256 GetHash() const;
     time_t GetTimestamp() const;
-    vector<pair<string, string> > GetSubjects() const;
-    vector<pair<string, string> > GetObjects() const;
+    vector<pair<string, string> > GetAuthors() const;
+    vector<pair<string, string> > GetRecipients() const;
     vector<CSignature> GetSignatures() const;
     json_spirit::Value GetJSON() const;
 
@@ -86,8 +86,8 @@ private:
     int rating;
     int maxRating;
     int minRating;
-    vector<pair<string, string> > subjects;
-    vector<pair<string, string> > objects;
+    vector<pair<string, string> > authors;
+    vector<pair<string, string> > recipients;
     vector<CSignature> signatures;
     time_t timestamp;
     bool published;

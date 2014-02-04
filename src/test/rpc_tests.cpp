@@ -82,6 +82,10 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(CallRPC("publish 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 8);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com profile http://www.example.com/alice"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath profile http://www.example.com/alice mbox mailto:bob@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("listmykeys"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);

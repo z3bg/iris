@@ -49,12 +49,12 @@ public:
 
 private:
     sqlite3 *db;
-    vector<pair<string, string> > GetSubjectsByPacketHash(string packetHash);
-    vector<pair<string, string> > GetObjectsByPacketHash(string packetHash);
+    vector<pair<string, string> > GetAuthorsByPacketHash(string packetHash);
+    vector<pair<string, string> > GetRecipientsByPacketHash(string packetHash);
     vector<CSignature> GetSignaturesByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
-    void SavePacketSubject(string packetHash, int predicateID, string subjectHash);
-    void SavePacketObject(string packetHash, int predicateID, string objectHash);
+    void SavePacketAuthor(string packetHash, int predicateID, string authorHash);
+    void SavePacketRecipient(string packetHash, int predicateID, string objectHash);
     int SavePredicate(string predicate);
     string SaveIdentifier(string identifier);
     vector<vector<string> > query(const char* query);

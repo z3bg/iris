@@ -182,17 +182,17 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS PacketSubjects (";
+    sql << "CREATE TABLE IF NOT EXISTS PacketAuthors (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "SubjectHash         NVARCHAR(45)    NOT NULL);";
+    sql << "AuthorHash          NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS PacketObjects (";
+    sql << "CREATE TABLE IF NOT EXISTS PacketRecipients (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "ObjectHash          NVARCHAR(45)    NOT NULL);";
+    sql << "RecipientHash          NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
@@ -204,18 +204,18 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
-    sql << "StartID               NVARCHAR(45)    NOT NULL,";
+    sql << "StartID             NVARCHAR(45)    NOT NULL,";
     sql << "StartPredicateID    INTEGER,";
-    sql << "EndID                 NVARCHAR(45)    NOT NULL,";
+    sql << "EndID               NVARCHAR(45)    NOT NULL,";
     sql << "EndPredicateID      INTEGER,";
     sql << "NextStep            NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PrivateKeys (";
-    sql << "PubKeyHash        NVARCHAR(45)    PRIMARY KEY,";
-    sql << "PrivateKey        NVARCHAR(1000)  NOT NULL,";
-    sql << "IsDefault         BOOL            DEFAULT 0);";
+    sql << "PubKeyHash          NVARCHAR(45)    PRIMARY KEY,";
+    sql << "PrivateKey          NVARCHAR(1000)  NOT NULL,";
+    sql << "IsDefault           BOOL            DEFAULT 0);";
     query(sql.str().c_str());
 
     CheckDefaultUniquePredicates();
@@ -231,16 +231,16 @@ void CIdentifiDB::SearchForPathForMyKeys() {
     } 
 }
 
-vector<string_pair> CIdentifiDB::GetSubjectsByPacketHash(string packetHash) {
-    vector<string_pair> subjects;
+vector<string_pair> CIdentifiDB::GetAuthorsByPacketHash(string packetHash) {
+    vector<string_pair> authors;
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN PacketSubjects AS rs ON rs.PacketHash = @packethash ";
+    sql << "INNER JOIN PacketAuthors AS rs ON rs.PacketHash = @packethash ";
     sql << "INNER JOIN Predicates AS p ON rs.PredicateID = p.ID ";
-    sql << "WHERE id.Hash = rs.SubjectHash;";
+    sql << "WHERE id.Hash = rs.AuthorHash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -252,7 +252,7 @@ vector<string_pair> CIdentifiDB::GetSubjectsByPacketHash(string packetHash) {
             if(result == SQLITE_ROW) {
                 string predicate = string((char*)sqlite3_column_text(statement, 0));
                 string identifier = string((char*)sqlite3_column_text(statement, 1));
-                subjects.push_back(make_pair(predicate, identifier));
+                authors.push_back(make_pair(predicate, identifier));
             } else {
                 break;  
             }
@@ -261,19 +261,19 @@ vector<string_pair> CIdentifiDB::GetSubjectsByPacketHash(string packetHash) {
         sqlite3_finalize(statement);
     }
 
-    return subjects;
+    return authors;
 }
 
-vector<string_pair> CIdentifiDB::GetObjectsByPacketHash(string packetHash) {
-    vector<string_pair> objects;
+vector<string_pair> CIdentifiDB::GetRecipientsByPacketHash(string packetHash) {
+    vector<string_pair> recipients;
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN PacketObjects AS ro ON ro.PacketHash = @packethash ";
+    sql << "INNER JOIN PacketRecipients AS ro ON ro.PacketHash = @packethash ";
     sql << "INNER JOIN Predicates AS p ON ro.PredicateID = p.ID ";
-    sql << "WHERE id.Hash = ro.ObjectHash;";
+    sql << "WHERE id.Hash = ro.RecipientHash;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -285,7 +285,7 @@ vector<string_pair> CIdentifiDB::GetObjectsByPacketHash(string packetHash) {
             if(result == SQLITE_ROW) {
                 string predicate = string((char*)sqlite3_column_text(statement, 0));
                 string identifier = string((char*)sqlite3_column_text(statement, 1));
-                objects.push_back(make_pair(predicate, identifier));
+                recipients.push_back(make_pair(predicate, identifier));
             } else {
                 break;  
             }
@@ -296,7 +296,7 @@ vector<string_pair> CIdentifiDB::GetObjectsByPacketHash(string packetHash) {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
-    return objects;
+    return recipients;
 }
 
 vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
@@ -339,10 +339,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Packets AS p ";
-    sql << "INNER JOIN PacketSubjects AS ps ON ps.PacketHash = p.Hash ";
-    sql << "INNER JOIN PacketObjects AS po ON po.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON (ps.SubjectHash = id.Hash ";
-    sql << "OR po.ObjectHash = id.Hash) ";
+    sql << "INNER JOIN PacketAuthors AS ps ON ps.PacketHash = p.Hash ";
+    sql << "INNER JOIN PacketRecipients AS po ON po.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON (ps.AuthorHash = id.Hash ";
+    sql << "OR po.RecipientHash = id.Hash) ";
     sql << "INNER JOIN Predicates AS pred ON (ps.PredicateID = pred.ID ";
     sql << "OR po.PredicateID = pred.ID) ";
     sql << "WHERE ";
@@ -394,16 +394,16 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return packet;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair subject, bool uniquePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool uniquePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Packets AS p ";
-    sql << "INNER JOIN PacketSubjects AS ps ON ps.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON ps.SubjectHash = id.Hash ";
+    sql << "INNER JOIN PacketAuthors AS ps ON ps.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON ps.AuthorHash = id.Hash ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID WHERE ";
-    if (!subject.first.empty())
+    if (!author.first.empty())
         sql << "pred.Value = @predValue AND ";
     if (uniquePredicatesOnly)
         sql << "pred.IsUniqueType = 1 AND ";
@@ -412,11 +412,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair subject, boo
     sql << "id.Value = @idValue;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        if (!subject.first.empty()) {
-            sqlite3_bind_text(statement, 1, subject.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, subject.second.c_str(), -1, SQLITE_TRANSIENT);
+        if (!author.first.empty()) {
+            sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, author.second.c_str(), -1, SQLITE_TRANSIENT);
         } else {
-            sqlite3_bind_text(statement, 1, subject.second.c_str(), -1, SQLITE_TRANSIENT);            
+            sqlite3_bind_text(statement, 1, author.second.c_str(), -1, SQLITE_TRANSIENT);            
         }
 
         int result = 0;
@@ -442,16 +442,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair subject, boo
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair object, bool uniquePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, bool uniquePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Packets AS p ";
-    sql << "INNER JOIN PacketObjects AS po ON po.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON po.ObjectHash = id.Hash ";
+    sql << "INNER JOIN PacketRecipients AS po ON po.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON po.RecipientHash = id.Hash ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = po.PredicateID WHERE ";
-    if (!object.first.empty())
+    if (!recipient.first.empty())
         sql << "pred.Value = @predValue AND ";
     if (uniquePredicatesOnly)
         sql << "pred.IsUniqueType = 1 AND ";
@@ -460,11 +460,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair object, b
     sql << "id.Value = @idValue;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        if (!object.first.empty()) {
-            sqlite3_bind_text(statement, 1, object.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, object.second.c_str(), -1, SQLITE_TRANSIENT);
+        if (!recipient.first.empty()) {
+            sqlite3_bind_text(statement, 1, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
         } else {
-            sqlite3_bind_text(statement, 1, object.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 1, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
         }
 
         int result = 0;
@@ -555,13 +555,13 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     sql.str("");
     sql << "DELETE FROM Identifiers WHERE Hash IN ";
     sql << "(SELECT id.Hash FROM Identifiers AS id ";
-    sql << "JOIN PacketObjects AS ro ON ro.ObjectHash = id.Hash ";
-    sql << "JOIN PacketSubjects AS rs ON rs.SubjectHash = id.Hash ";
+    sql << "JOIN PacketRecipients AS ro ON ro.RecipientHash = id.Hash ";
+    sql << "JOIN PacketAuthors AS rs ON rs.AuthorHash = id.Hash ";
     sql << "WHERE ro.PacketHash = @relhash OR rs.PacketHash = @relhash) ";
     sql << "AND Hash NOT IN ";
     sql << "(SELECT id.Hash FROM Identifiers AS id ";
-    sql << "JOIN PacketObjects AS ro ON ro.ObjectHash = id.Hash ";
-    sql << "JOIN PacketSubjects AS rs ON rs.SubjectHash = id.Hash ";
+    sql << "JOIN PacketRecipients AS ro ON ro.RecipientHash = id.Hash ";
+    sql << "JOIN PacketAuthors AS rs ON rs.AuthorHash = id.Hash ";
     sql << "WHERE ro.PacketHash != @relhash AND rs.PacketHash != @relhash)";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -572,14 +572,14 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     }
 
     sql.str("");
-    sql << "DELETE FROM PacketObjects WHERE PacketHash = @hash;";
+    sql << "DELETE FROM PacketRecipients WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
     sql.str("");
-    sql << "DELETE FROM PacketSubjects WHERE PacketHash = @hash;";
+    sql << "DELETE FROM PacketAuthors WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
@@ -616,32 +616,32 @@ bool CIdentifiDB::MakeFreeSpace(int nFreeBytesNeeded) {
     return true;
 }
 
-void CIdentifiDB::SavePacketSubject(string packetHash, int predicateID, string subjectHash) {
+void CIdentifiDB::SavePacketAuthor(string packetHash, int predicateID, string authorHash) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT * FROM PacketSubjects ";
+    sql << "SELECT * FROM PacketAuthors ";
     sql << "WHERE PacketHash = @packethash ";
     sql << "AND PredicateID = @predicateid ";
-    sql << "AND SubjectHash = @subjecthash";
+    sql << "AND AuthorHash = @authorhash";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
-        sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, authorHash.c_str(), -1, SQLITE_TRANSIENT);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO PacketSubjects (PacketHash, PredicateID, SubjectHash) ";
-        sql << "VALUES (@packethash, @predicateid, @subjectid);";
+        sql << "INSERT OR IGNORE INTO PacketAuthors (PacketHash, PredicateID, AuthorHash) ";
+        sql << "VALUES (@packethash, @predicateid, @authorid);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                 sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(statement, 2, predicateID);
-                sqlite3_bind_text(statement, 3, subjectHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, authorHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_step(statement);
                 sqliteReturnCode = sqlite3_reset(statement);
             }
@@ -650,32 +650,32 @@ void CIdentifiDB::SavePacketSubject(string packetHash, int predicateID, string s
     sqlite3_finalize(statement);
 }
 
-void CIdentifiDB::SavePacketObject(string packetHash, int predicateID, string objectHash) {
+void CIdentifiDB::SavePacketRecipient(string packetHash, int predicateID, string recipientHash) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT * FROM PacketObjects ";
+    sql << "SELECT * FROM PacketRecipients ";
     sql << "WHERE PacketHash = @packethash ";
     sql << "AND PredicateID = @predicateid ";
-    sql << "AND ObjectHash = @objecthash";
+    sql << "AND RecipientHash = @recipienthash";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
-        sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, recipientHash.c_str(), -1, SQLITE_TRANSIENT);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO PacketObjects (PacketHash, PredicateID, ObjectHash) ";
-        sql << "VALUES (@packethash, @predicateid, @objectid);";
+        sql << "INSERT OR IGNORE INTO PacketRecipients (PacketHash, PredicateID, RecipientHash) ";
+        sql << "VALUES (@packethash, @predicateid, @recipientid);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                 sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(statement, 2, predicateID);
-                sqlite3_bind_text(statement, 3, objectHash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, recipientHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_step(statement);
                 sqliteReturnCode = sqlite3_reset(statement);
             }
@@ -720,8 +720,8 @@ int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
     ostringstream sql;
     sql.str("");
     sql << "SELECT COUNT(1) FROM Packets AS p ";
-    sql << "INNER JOIN PacketSubjects AS ps ON ps.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON id.Hash = ps.SubjectHash ";
+    sql << "INNER JOIN PacketAuthors AS ps ON ps.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON id.Hash = ps.AuthorHash ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID ";
     sql << "WHERE pred.Value = @type AND id.Value = @value";
 
@@ -767,21 +767,21 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     int nMostPacketsFromAuthor = -1;
     bool isMyPacket = false;
 
-    vector<string_pair> subjects = packet.GetSubjects();
-    BOOST_FOREACH (string_pair subject, subjects) {
+    vector<string_pair> authors = packet.GetAuthors();
+    BOOST_FOREACH (string_pair author, authors) {
         if (nShortestPathToAuthor > 1) {
             BOOST_FOREACH (string myPubKey, myPubKeys) {            
-                if (subject == make_pair(keyType, myPubKey)) {
+                if (author == make_pair(keyType, myPubKey)) {
                     nShortestPathToAuthor = 1;
                     isMyPacket = true;
                     break;            
                 }
-                int nPath = GetSavedPath(make_pair(keyType, myPubKey), subject).size();
+                int nPath = GetSavedPath(make_pair(keyType, myPubKey), author).size();
                 if (nPath > 0 && nPath < nShortestPathToAuthor)
                     nShortestPathToAuthor = nPath + 1;
             }
         }
-        int nPacketsFromAuthor = GetPacketCountByAuthor(subject);
+        int nPacketsFromAuthor = GetPacketCountByAuthor(author);
         if (nPacketsFromAuthor > nMostPacketsFromAuthor)
             nMostPacketsFromAuthor = nPacketsFromAuthor;
     }
@@ -823,17 +823,17 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
         sqliteReturnCode = sqlite3_reset(statement);
     )
 
-    vector<string_pair> subjects = packet.GetSubjects();
-    BOOST_FOREACH (string_pair subject, subjects) {
-        int predicateID = SavePredicate(subject.first);
-        string subjectHash = SaveIdentifier(subject.second);
-        SavePacketSubject(packetHash, predicateID, subjectHash);
+    vector<string_pair> authors = packet.GetAuthors();
+    BOOST_FOREACH (string_pair author, authors) {
+        int predicateID = SavePredicate(author.first);
+        string authorHash = SaveIdentifier(author.second);
+        SavePacketAuthor(packetHash, predicateID, authorHash);
     }
-    vector<string_pair> objects = packet.GetObjects();
-    BOOST_FOREACH (string_pair object, objects) {
-        int predicateID = SavePredicate(object.first);
-        string objectHash = SaveIdentifier(object.second);
-        SavePacketObject(packetHash, predicateID, objectHash);
+    vector<string_pair> recipients = packet.GetRecipients();
+    BOOST_FOREACH (string_pair recipient, recipients) {
+        int predicateID = SavePredicate(recipient.first);
+        string recipientHash = SaveIdentifier(recipient.second);
+        SavePacketRecipient(packetHash, predicateID, recipientHash);
     }
     vector<CSignature> signatures = packet.GetSignatures();
     BOOST_FOREACH (CSignature sig, signatures) {
@@ -1026,23 +1026,23 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     if (!HasTrustedSigner(packet, myPubKeys, 0))
         return;
 
-    vector<string_pair> savedPacketSubjects = packet.GetSubjects();
-    vector<string_pair> savedPacketObjects = packet.GetObjects();
+    vector<string_pair> savedPacketAuthors = packet.GetAuthors();
+    vector<string_pair> savedPacketRecipients = packet.GetRecipients();
     vector<string_pair> savedPacketIdentifiers;
-    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketObjects.begin(), savedPacketObjects.end());
-    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketSubjects.begin(), savedPacketSubjects.end());
+    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketRecipients.begin(), savedPacketRecipients.end());
+    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketAuthors.begin(), savedPacketAuthors.end());
     string savedPacketHash = EncodeBase58(packet.GetHash());
 
     // Check if packet is authored by our key
     bool isMyPacket = false;
-    BOOST_FOREACH (string_pair subject, savedPacketSubjects) {
-        if (subject.first == "base58pubkey") {
+    BOOST_FOREACH (string_pair author, savedPacketAuthors) {
+        if (author.first == "base58pubkey") {
             BOOST_FOREACH (string myKey, myPubKeys) {
-                if (myKey == subject.second) {
+                if (myKey == author.second) {
                     // Save trust step from our key to this packet
                     SaveTrustStep(make_pair("base58pubkey", myKey), make_pair("",savedPacketHash), savedPacketHash);
                     
-                    // Save trust steps from our key to packet's identifier via packet
+                    // Save trust steps from our key to packet's identifiers via the packet
                     BOOST_FOREACH (string_pair id, savedPacketIdentifiers) {
                         SaveTrustStep(make_pair("base58pubkey", myKey), id, savedPacketHash);
                     }
@@ -1056,9 +1056,9 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     if (!isMyPacket) {
         vector<CIdentifiPacket> shortestPath;
         // Find the packet's author identifier with the shortest trust path to our keys
-        BOOST_FOREACH (string_pair subject, savedPacketSubjects) {
+        BOOST_FOREACH (string_pair author, savedPacketAuthors) {
             BOOST_FOREACH (string myKey, myPubKeys) {
-                vector<CIdentifiPacket> path = GetSavedPath(make_pair("base58pubkey", myKey), subject);
+                vector<CIdentifiPacket> path = GetSavedPath(make_pair("base58pubkey", myKey), author);
                 if ((shortestPath.empty() && !path.empty())
                     || (!path.empty() && path.size() < shortestPath.size())) {
                     shortestPath = path;
@@ -1070,10 +1070,9 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
 
         // If such a path is found, link this packet and its identifiers to it
         if (!shortestPath.empty()) {
-            vector<string_pair> lastPacketSubjects = shortestPath.back().GetSubjects();
-            vector<string_pair> firstPacketSubjects = shortestPath.front().GetSubjects();
+            vector<string_pair> firstPacketAuthors = shortestPath.front().GetAuthors();
             string lastPacket = EncodeBase58(shortestPath.back().GetHash());
-            BOOST_FOREACH (string_pair startID, firstPacketSubjects) {
+            BOOST_FOREACH (string_pair startID, firstPacketAuthors) {
                 SaveTrustStep(startID, make_pair("", savedPacketHash), lastPacket);
                 BOOST_FOREACH (string_pair endID, savedPacketIdentifiers) {
                     SaveTrustStep(startID, endID, savedPacketHash);
@@ -1183,9 +1182,9 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
             return path;
         }
 
-        vector<string_pair> allIdentifiers = currentPacket.GetSubjects();
-        vector<string_pair> objects = currentPacket.GetObjects();
-        allIdentifiers.insert(allIdentifiers.end(), objects.begin(), objects.end());
+        vector<string_pair> allIdentifiers = currentPacket.GetAuthors();
+        vector<string_pair> recipients = currentPacket.GetRecipients();
+        allIdentifiers.insert(allIdentifiers.end(), recipients.begin(), recipients.end());
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
             if (savePath)
                 SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));

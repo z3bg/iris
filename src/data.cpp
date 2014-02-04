@@ -53,9 +53,9 @@ void CIdentifiPacket::UpdateSignatures() {
 void CIdentifiPacket::SetData(string strData) {
     Value json;
     Object data, signedData;
-    Array subjectsArray, objectsArray, signaturesArray;
-    subjects.clear();
-    objects.clear();
+    Array authorsArray, recipientsArray, signaturesArray;
+    authors.clear();
+    recipients.clear();
     signatures.clear();
 
     read_string(strData, json);
@@ -65,8 +65,8 @@ void CIdentifiPacket::SetData(string strData) {
     string strSignedData = write_string(Value(signedData), false);
 
     timestamp = find_value(signedData, "timestamp").get_int();
-    subjectsArray = find_value(signedData, "author").get_array();
-    objectsArray = find_value(signedData, "recipient").get_array();
+    authorsArray = find_value(signedData, "author").get_array();
+    recipientsArray = find_value(signedData, "recipient").get_array();
     signaturesArray = find_value(data, "signatures").get_array();
     type = find_value(signedData, "type").get_str();
 
@@ -87,24 +87,24 @@ void CIdentifiPacket::SetData(string strData) {
             throw runtime_error("Invalid rating");
     }
 
-    if (subjectsArray.empty())
+    if (authorsArray.empty())
         throw runtime_error("Packets must have at least 1 subject");
 
-    if (objectsArray.empty())
+    if (recipientsArray.empty())
         throw runtime_error("Packets must have at least 1 object");
 
-    for (Array::iterator it = subjectsArray.begin(); it != subjectsArray.end(); it++) {
+    for (Array::iterator it = authorsArray.begin(); it != authorsArray.end(); it++) {
         Array subject = it->get_array();
         if (subject.size() != 2)
             throw runtime_error("Invalid packet subject length");
-        subjects.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
+        authors.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
     }
 
-    for (Array::iterator it = objectsArray.begin(); it != objectsArray.end(); it++) {
+    for (Array::iterator it = recipientsArray.begin(); it != recipientsArray.end(); it++) {
         Array object = it->get_array();
         if (object.size() != 2)
             throw runtime_error("Invalid packet object length");
-        objects.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
+        recipients.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
     for (Array::iterator it = signaturesArray.begin(); it != signaturesArray.end(); it++) {
@@ -147,12 +147,12 @@ bool CIdentifiPacket::AddSignature(CSignature signature) {
     return false;
 }
 
-vector<pair<string, string> > CIdentifiPacket::GetSubjects() const {
-    return subjects;
+vector<pair<string, string> > CIdentifiPacket::GetAuthors() const {
+    return authors;
 }
 
-vector<pair<string, string> > CIdentifiPacket::GetObjects() const {
-    return objects;
+vector<pair<string, string> > CIdentifiPacket::GetRecipients() const {
+    return recipients;
 }
 
 vector<CSignature> CIdentifiPacket::GetSignatures() const {
