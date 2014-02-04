@@ -97,9 +97,9 @@ Value getpath(const Array& params, bool fHelp)
     Array packetsJSON;
     vector<CIdentifiPacket> packets;
     if (params.size() == 4)
-        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
+        packets = pidentifidb->SearchForPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), false);
     else
-        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
+        packets = pidentifidb->SearchForPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), false, boost::lexical_cast<int>(params[4].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }
