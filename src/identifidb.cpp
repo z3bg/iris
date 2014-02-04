@@ -1068,15 +1068,15 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
             if (shortestPath.size() == 1) break;
         }
 
-        // If such a path is found, link this packet to it
+        // If such a path is found, link this packet and its identifiers to it
         if (!shortestPath.empty()) {
-            vector<string_pair> lastPacketSubjects = shortestPath.back().GetSubjects(),
-                                        firstPacketSubjects = (shortestPath.end() - 2)->GetSubjects();
-            string previousPacket = EncodeBase58((shortestPath.end() - 2)->GetHash());
-            BOOST_FOREACH (string_pair subject, firstPacketSubjects) {
-                SaveTrustStep(subject, make_pair("", savedPacketHash), previousPacket);
-                BOOST_FOREACH (string_pair id, savedPacketIdentifiers) {
-                    SaveTrustStep(subject, id, savedPacketHash);
+            vector<string_pair> lastPacketSubjects = shortestPath.back().GetSubjects();
+            vector<string_pair> firstPacketSubjects = shortestPath.front().GetSubjects();
+            string lastPacket = EncodeBase58(shortestPath.back().GetHash());
+            BOOST_FOREACH (string_pair startID, firstPacketSubjects) {
+                SaveTrustStep(startID, make_pair("", savedPacketHash), lastPacket);
+                BOOST_FOREACH (string_pair endID, savedPacketIdentifiers) {
+                    SaveTrustStep(startID, endID, savedPacketHash);
                 }
             }
         }

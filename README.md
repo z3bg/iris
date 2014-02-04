@@ -38,11 +38,13 @@ Why
 How
 ---
 - Prototype built on Bitcoin code to utilize existing crypto, network, CLI, etc. functions (but not blockchain)
-- Data package: [subject identifiers, object identifiers, message][signatures]
+- Data package: [author identifiers, recipient identifiers, message][signatures]
   - Identified by content hash
-  - Signed by the entity which verified that the message originates from the named subject. Thus, all end users need not to have a crypto key of their own.
+  - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
 - Flood packages throughout the network
-  - Nodes can choose to accept only packages with 1) a trusted signature, 2) trusted subject
+  - Nodes maintain their own trust graphs which are updated as new packets arrive
+  - Packet storage priority is based on its author's and signer's position in the node's web of trust
+  - Later on, connections to other nodes can be prioritized by trust
 - Crawl initial data from existing social networks and review systems
 
 Building
@@ -54,6 +56,8 @@ Other makefiles TBD.
 
 Developing
 ----------
+Core functionality of the implementation is in identifidb.cpp, data.cpp and rpcdb.cpp.
+
 [Sqlite Manager](https://addons.mozilla.org/en-US/firefox/addon/sqlite-manager/) is a nice Firefox plugin for debugging DATADIR/db.sqlite.
 
 License
@@ -73,9 +77,9 @@ Suggested data format for Identifi packets:
     	{
 	    	'timestamp': 1373924495,
 		    'author':
-		    [ 	
+		    [
 		    	['name', 'Alice Smith'],
-		    	['mbox', 'mailto:alice@example.com']
+		    	['email', 'alice@example.com']
 		    ],
 			'recipient':
 			[
@@ -94,8 +98,8 @@ Suggested data format for Identifi packets:
 		'signatures':
 		[
 			{
-				'signerPubKey': 'asdf1234',
-				'signature': '4321fdsa'
+				'signerPubKey': 'RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU',
+				'signature': 'AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH'
 			}
 		]
 	}
@@ -111,15 +115,16 @@ Message encoding is UTF-8.
 TODO
 ----
 
-* Implement Dijkstra pathfinding algorithm
-* Save trust ratings and recalculate when new packets are saved
+* Refine pathfinding algorithm
+* Recalculate packet priorities when new packets are saved
 * Allocate disk space based on the author's trust
-* Improve network functions, add sanity checks
+* Improve network functions, add sanity checks and invalid packet spam protection
 * Remove unnecessary Bitcoin code
-* Write performance tests and improve efficiency
+* Improve efficiency, measured by packet save time tests
 * Crawlers
 * Visualizations
 * Trusted sites as entry points to the WoT. Let users authenticate with email, FB, pubkey, etc.
+* Merge build tools from Bitcoin master branch
 
 Future considerations
 ---------------------
@@ -132,6 +137,6 @@ Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) i
 
 Use external SQL DB instead of sqlite for better multi-application access to data?
 
-Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point to the Identifi WoT for many people.
+Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point into the Identifi WoT for many people.
 
-Serialize in BSON to improve efficiency and enable embedded binary (images etc)?
+Serialize in BSON to improve efficiency and enable embedded binary (images etc)? It's also a canonical format unlike JSON by default.
