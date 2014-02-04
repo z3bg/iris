@@ -52,11 +52,17 @@ Building
 
 Makefile.unix builds nicely with dependencies from Debian packages (same as Bitcoin + sqlite).
 
-Other makefiles TBD.
+Merge with build tools from the Bitcoin master branch TBD.
 
 Developing
 ----------
 Core functionality of the implementation is in identifidb.cpp, data.cpp and rpcdb.cpp.
+
+Rpc_tests.cpp shows how to use the CLI.
+
+The program connects to a seed node from DNS by default and requests for packets created after a certain timestamp. Identifi developers' ECDSA pubkey is included and trusted by default as an entry point to the WoT. You need to connect your own pubkey or other identifiers to the WoT if you want your packets prioritized over spam by other nodes. An example website for this TBD.
+
+The default database size limit 2 GB.
 
 [Sqlite Manager](https://addons.mozilla.org/en-US/firefox/addon/sqlite-manager/) is a nice Firefox plugin for debugging DATADIR/db.sqlite.
 

@@ -23,9 +23,9 @@ public:
     void Initialize();
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool uniquePredicatesOnly = false, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByAuthor(pair<string, string> author, bool uniquePredicatesOnly = true, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByRecipient(pair<string, string> object, bool uniquePredicatesOnly = true, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByAuthor(pair<string, string> author, bool trustPathablePredicatesOnly = true, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByRecipient(pair<string, string> object, bool trustPathablePredicatesOnly = true, bool showUnpublished = true);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);

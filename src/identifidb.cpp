@@ -94,10 +94,10 @@ void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
 void CIdentifiDB::CheckDefaultUniquePredicates() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Predicates");
     if (lexical_cast<int>(result[0][0]) < 1) {
-        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('mbox', 1)");
-        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('url', 1)");
-        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('tel', 1)");
-        query("INSERT INTO Predicates (Value, IsUniqueType) VALUES ('base58pubkey', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('mbox', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('url', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('tel', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
     }
 }
 
@@ -161,9 +161,9 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Predicates (";
-    sql << "ID              INTEGER         PRIMARY KEY,";
-    sql << "Value           NVARCHAR(255)   NOT NULL,";
-    sql << "IsUniqueType    BOOL            DEFAULT 0";
+    sql << "ID                  INTEGER         PRIMARY KEY,";
+    sql << "Value               NVARCHAR(255)   NOT NULL,";
+    sql << "TrustPathable       BOOL            DEFAULT 0";
     sql << ");";
     query(sql.str().c_str());
 
@@ -192,7 +192,7 @@ void CIdentifiDB::Initialize() {
     sql << "CREATE TABLE IF NOT EXISTS PacketRecipients (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "RecipientHash          NVARCHAR(45)    NOT NULL);";
+    sql << "RecipientHash       NVARCHAR(45)    NOT NULL);";
     query(sql.str().c_str());
 
     sql.str("");
@@ -333,7 +333,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
     return signatures;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, bool uniquePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, bool trustPathablePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -348,8 +348,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     sql << "WHERE ";
     if (!identifier.first.empty())
         sql << "pred.Value = @predValue AND ";
-    else if (uniquePredicatesOnly)
-        sql << "pred.IsUniqueType = 1 AND ";
+    else if (trustPathablePredicatesOnly)
+        sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue;";
@@ -394,7 +394,7 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return packet;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool uniquePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool trustPathablePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -405,8 +405,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool
     sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID WHERE ";
     if (!author.first.empty())
         sql << "pred.Value = @predValue AND ";
-    if (uniquePredicatesOnly)
-        sql << "pred.IsUniqueType = 1 AND ";
+    if (trustPathablePredicatesOnly)
+        sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue;";
@@ -442,7 +442,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, bool uniquePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, bool trustPathablePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -453,8 +453,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
     sql << "INNER JOIN Predicates AS pred ON pred.ID = po.PredicateID WHERE ";
     if (!recipient.first.empty())
         sql << "pred.Value = @predValue AND ";
-    if (uniquePredicatesOnly)
-        sql << "pred.IsUniqueType = 1 AND ";
+    if (trustPathablePredicatesOnly)
+        sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue;";
