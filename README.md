@@ -74,11 +74,11 @@ Developing
 ----------
 Core functionality of the implementation is in identifidb.cpp, data.cpp and rpcdb.cpp.
 
-Rpc_tests.cpp shows how to use the CLI.
+Get the daemon running with `./identifid -daemon`. Call the JSON-RPC with .`./identifid rpccommand`. Rpc_tests.cpp shows how to use the RPC.
 
 The program connects to a seed node from DNS by default and requests for packets created after a certain timestamp. Identifi developers' ECDSA pubkey is included and trusted by default as an entry point to the WoT. You need to connect your own pubkey or other identifiers to the WoT if you want your packets prioritized over spam by other nodes. An example website for this TBD.
 
-The default database size limit 2 GB.
+The default database size limit 2 GB. Add `saveuntrustedpackets=1` to DATADIR/identifi.conf to allow packets from outside your WoT for testing.
 
 [Sqlite Manager](https://addons.mozilla.org/en-US/firefox/addon/sqlite-manager/) is a nice Firefox plugin for debugging DATADIR/db.sqlite.
 
