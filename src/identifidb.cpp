@@ -151,7 +151,15 @@ void CIdentifiDB::CheckDefaultTrustList() {
 }
 
 void CIdentifiDB::Initialize() {
+    int dbVersion = lexical_cast<int>(query("PRAGMA user_version")[0][0]);
+    if (dbVersion == 0) {
+        query("PRAGMA user_version = 1");
+    } else if (dbVersion > 1) {
+        throw runtime_error("Invalid database version");
+    }
+
     ostringstream sql;
+
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Identifiers (";
     sql << "Hash      NVARCHAR(45)    PRIMARY KEY,";
