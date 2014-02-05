@@ -36,6 +36,7 @@ public:
     int GetPacketCount();
     int GetPacketCountByAuthor(pair<string, string> author);
     int GetIdentifierCount();
+    string GetTrustStep(pair<string, string> start, pair<string, string> end);
     CIdentifiPacket GetPacketByHash(string hash);
     int GetPriority(CIdentifiPacket &packet);
     bool MakeFreeSpace(int nFreeBytesNeeded);

@@ -32,6 +32,36 @@ Value getidentifiercount(const Array& params, bool fHelp)
     return pidentifidb->GetIdentifierCount();
 }
 
+Value getpacketbyhash(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getpacketbyhash <hash>\n"
+            "Looks for a packet that matches the given hash.");
+
+    Array packets;
+    try {
+        CIdentifiPacket packet = pidentifidb->GetPacketByHash(params[0].get_str()); 
+        packets.push_back(packet.GetJSON());       
+    } catch (runtime_error) {
+
+    }
+
+    return packets;
+}
+
+Value gettruststep(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "gettruststep <start_predicate> <start_id> <end_predicate> <end_id>\n"
+            "Returns the hash of the next packet on the trust path from from start to end.");
+
+    string trustStep = pidentifidb->GetTrustStep(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
+
+    return trustStep;
+}
+
 Value getpacketsbyauthor(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)

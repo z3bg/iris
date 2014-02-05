@@ -1002,8 +1002,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
             if(result == SQLITE_ROW)
             {
                 nextStep = string((char*)sqlite3_column_text(statement, 0));
-                path.push_back(GetPacketByHash(nextStep));
                 if (nextStep == current.second) break;
+                path.push_back(GetPacketByHash(nextStep));
 
                 current.first = "";
                 current.second = nextStep;
@@ -1137,6 +1137,40 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end,
     if (path.empty())
         path = SearchForPath(start, end, savePath, searchDepth);
     return path;
+}
+
+string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string> end) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    string startIdHash = EncodeBase58(Hash(start.second.begin(), start.second.end()));
+    string endIdHash = EncodeBase58(Hash(end.second.begin(), end.second.end()));
+    string nextStep;
+
+    sql.str("");
+    sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
+    sql << "LEFT JOIN Predicates AS startpred ON startpred.Value = @startpred ";
+    sql << "INNER JOIN Predicates AS endpred ON endpred.Value = @endpred ";
+    sql << "WHERE tp.StartPredicateID = startpred.ID ";
+    sql << "AND tp.StartID = @starthash ";
+    sql << "AND tp.EndPredicateID = endpred.ID ";
+    sql << "AND tp.EndID = @endhash ";  
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, end.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, startIdHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, endIdHash.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = sqlite3_step(statement);
+        if(result == SQLITE_ROW)
+        {
+            nextStep = string((char*)sqlite3_column_text(statement, 0));
+        }
+    }
+    sqlite3_finalize(statement);
+
+    return nextStep;
 }
 
 // Breadth-first search for the shortest trust paths to all known packets, starting from id1

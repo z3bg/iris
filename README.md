@@ -137,7 +137,8 @@ Message encoding is UTF-8.
 TODO
 ----
 
-* Refine pathfinding algorithm
+* Refine pathfinding algorithm, take into account the amount of positive and negative ratings
+* Add support for up / downvoting of packets and marking connections expired
 * Recalculate packet priorities when new packets are saved
 * Allocate disk space based on the author's trust
 * Improve network functions, add sanity checks and invalid packet spam protection
