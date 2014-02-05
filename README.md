@@ -47,9 +47,25 @@ How
   - Later on, connections to other nodes can be prioritized by trust
 - Crawl initial data from existing social networks and review systems
 
+Possible applications
+---------------------
+- Facial recognition and identifi-cation with Google glass or similar
+  - Thumbs up to the friendly bus driver, policeman or the stranger who helped you
+- Mywot.com-style browser plugin for website reviews
+- Bitcoin UIs, connect addresses to identities or vice versa
+- Email plugin
+  - Generate trusted senders list from email history
+  - Require new senders to be on identifi - send automatic response if not
+- Decentralized marketplaces, P2P trade and finance
+  - Check escrow or trader reputation
+  - Airbnb, eBay, Uber, LocalBitcoins etc.
+  - Time banking, gift economy
+- Uncensored and sockpuppet-resistant reviews and recommendations for products, restaurants etc.
+- Public messaging, automatically show or hide authors
+- Social network based routing protocols
+
 Building
 --------
-
 Makefile.unix builds nicely with dependencies from Debian packages (same as Bitcoin + sqlite).
 
 Merge with build tools from the Bitcoin master branch TBD.
