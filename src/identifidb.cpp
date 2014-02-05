@@ -91,10 +91,11 @@ void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
     query(sql.str().c_str())[0][0];
 }
 
-void CIdentifiDB::CheckDefaultUniquePredicates() {
+void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Predicates");
     if (lexical_cast<int>(result[0][0]) < 1) {
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('mbox', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('email', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('url', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('tel', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
@@ -226,7 +227,7 @@ void CIdentifiDB::Initialize() {
     sql << "IsDefault           BOOL            DEFAULT 0);";
     query(sql.str().c_str());
 
-    CheckDefaultUniquePredicates();
+    CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
     SearchForPathForMyKeys();
@@ -800,19 +801,23 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     if (!isMyPacket && nMostPacketsFromAuthor > 10)
         nPriority = nPriority / log10(nMostPacketsFromAuthor);
 
-    if (nPriority > 0)
-        return nPriority / MAX_PRIORITY;
+    if (nPriority == 0 && nShortestPathToSignature > 0)
+        return 5 / nShortestPathToSignature;
     else
-        return 0;
+        return nPriority / MAX_PRIORITY;
 }
 
 string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
+    int priority = GetPriority(packet);
+    if (priority == 0 && !GetArg("-saveuntrustedpackets", false)) return "";
+
     sqlite3_stmt *statement;
     string sql;
     string packetHash;
 
     sql = "INSERT OR REPLACE INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, Priority) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @priority);";
     packetHash = EncodeBase58(packet.GetHash());
+
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -823,7 +828,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
             sqlite3_bind_int(statement, 6, packet.GetMaxRating());
             sqlite3_bind_int(statement, 7, packet.GetMinRating());
             sqlite3_bind_int(statement, 8, packet.IsPublished());
-            sqlite3_bind_int(statement, 9, GetPriority(packet));
+            sqlite3_bind_int(statement, 9, priority);
         } else {
             printf("DB Error: %s\n", sqlite3_errmsg(db));
         }

@@ -62,7 +62,7 @@ private:
     void CheckDefaultKey();
     void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
-    void CheckDefaultUniquePredicates();
+    void CheckDefaultTrustPathablePredicates();
     void SearchForPathForMyKeys();
     bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeys, vector<uint256>* visitedPackets);
 };
