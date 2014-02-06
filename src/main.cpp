@@ -3548,8 +3548,12 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 
         if (pto->fStartSync) {
             pto->fStartSync = false;
-            //pto->PushGetPackets(pidentifidb->GetLatestPacketTimestamp());
-            pto->PushGetPackets(0); // TODO: fixme
+
+            // TODO: fixme
+            if (pidentifidb->GetPacketCount() < 10)
+                pto->PushGetPackets(0);
+            else
+                pto->PushGetPackets(pidentifidb->GetLatestPacketTimestamp() - 24 * 60 * 60 * 7);
         }
 
         // Address refresh broadcast
