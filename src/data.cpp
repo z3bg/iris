@@ -216,10 +216,6 @@ string CSignature::GetSignerPubKey() const {
     return signerPubKey;
 }
 
-string CSignature::GetSignerPubKeyHash() const {
-    return EncodeBase58(Hash(signerPubKey.begin(), signerPubKey.end()));
-}
-
 string CSignature::GetSignature() const {
     return signature;
 }

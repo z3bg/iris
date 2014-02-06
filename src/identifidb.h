@@ -54,10 +54,10 @@ private:
     vector<pair<string, string> > GetRecipientsByPacketHash(string packetHash);
     vector<CSignature> GetSignaturesByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
-    void SavePacketAuthor(string packetHash, int predicateID, string authorHash);
-    void SavePacketRecipient(string packetHash, int predicateID, string objectHash);
+    void SavePacketAuthor(string packetHash, int predicateID, int authorID);
+    void SavePacketRecipient(string packetHash, int predicateID, int authorID);
     int SavePredicate(string predicate);
-    string SaveIdentifier(string identifier);
+    int SaveIdentifier(string identifier);
     vector<vector<string> > query(const char* query);
     void CheckDefaultKey();
     void CheckDefaultTrustList();

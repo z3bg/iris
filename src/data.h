@@ -21,7 +21,6 @@ class CSignature {
 public:
     CSignature(string signerPubKey = "", string signature = "") : signerPubKey(signerPubKey), signature(signature) {}
     string GetSignerPubKey() const;
-    string GetSignerPubKeyHash() const;
     string GetSignature() const;
     bool IsValid(string signedData) const;
 
