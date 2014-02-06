@@ -58,6 +58,7 @@ private:
     void SavePacketRecipient(string packetHash, int predicateID, int authorID);
     int SavePredicate(string predicate);
     int SaveIdentifier(string identifier);
+    bool SavePubKey(string pubKey);
     vector<vector<string> > query(const char* query);
     void CheckDefaultKey();
     void CheckDefaultTrustList();

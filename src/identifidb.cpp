@@ -103,7 +103,7 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
 }
 
 void CIdentifiDB::CheckDefaultKey() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE IsDefault = 1");
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM Keys WHERE IsDefault = 1");
     if (lexical_cast<int>(result[0][0]) < 1) {
         CKey newKey;
         newKey.MakeNewKey(false);
@@ -221,9 +221,10 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS PrivateKeys (";
-    sql << "PubKeyID            NVARCHAR(45)    PRIMARY KEY,";
-    sql << "PrivateKey          NVARCHAR(1000)  NOT NULL,";
+    sql << "CREATE TABLE IF NOT EXISTS Keys (";
+    sql << "PubKeyID            INTEGER         PRIMARY KEY,";
+    sql << "BitcoinAddressID    INTEGER         DEFAULT NULL,";
+    sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
     sql << "IsDefault           BOOL            DEFAULT 0);";
     query(sql.str().c_str());
 
@@ -700,9 +701,12 @@ void CIdentifiDB::SavePacketSignature(CSignature &signature, string packetHash) 
     sql << "SELECT * FROM PacketSignatures WHERE PacketHash = @packetHash ";
     sql << "AND PubKeyID = @pubKeyHash";
 
+    string strPubKey = signature.GetSignerPubKey();
+    SavePubKey(strPubKey);
+
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 2, SaveIdentifier(signature.GetSignerPubKey()));
+        sqlite3_bind_int(statement, 2, SaveIdentifier(strPubKey));
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
@@ -870,24 +874,56 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
 
     CKey key;
     key.SetSecret(secret, false);
-    vector<unsigned char> pubKey = key.GetPubKey().Raw();
-    string pubKeyStr = EncodeBase58(pubKey);
+    CPubKey pubKey = key.GetPubKey();
+    vector<unsigned char> rawPubKey = pubKey.Raw();
+    string pubKeyStr = EncodeBase58(rawPubKey);
     int pubKeyID = SaveIdentifier(pubKeyStr);
 
+    CIdentifiAddress address(pubKey.GetID());
+    int bitcoinAddressID = SaveIdentifier(address.ToString());
+
     if (setDefault)
-        query("UPDATE PrivateKeys SET IsDefault = 0");
+        query("UPDATE Keys SET IsDefault = 0");
 
     sqlite3_stmt *statement;
-    string sql = "INSERT OR REPLACE INTO PrivateKeys (PubKeyID, PrivateKey, IsDefault) VALUES (@pubkeyhash, @privatekey, @isdefault);";
+    string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, BitcoinAddressID, PrivateKey, IsDefault) VALUES (@pubkeyid, @bitcoinaddressid, @privatekey, @isdefault);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int(statement, 1, pubKeyID);
-        sqlite3_bind_text(statement, 2, privKey.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 3, setDefault);
+        sqlite3_bind_int(statement, 2, bitcoinAddressID);
+        sqlite3_bind_text(statement, 3, privKey.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 4, setDefault);
         sqlite3_step(statement);
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }   
     sqlite3_finalize(statement); 
+    return true;
+}
+
+bool CIdentifiDB::SavePubKey(string pubKey) {
+    vector<unsigned char> vchPubKey;
+    DecodeBase58(pubKey, vchPubKey);
+    CPubKey key(vchPubKey);
+    if (!key.IsValid())
+        throw runtime_error("SavePubKey failed: invalid key");
+
+    CIdentifiAddress address(key.GetID());
+    int bitcoinAddressID = SaveIdentifier(address.ToString());
+    int pubKeyID = SaveIdentifier(pubKey);
+
+    sqlite3_stmt *statement;
+    string sql = "INSERT OR IGNORE INTO Keys (PubKeyID, BitcoinAddressID) VALUES (@pubkeyid, @bitcoinaddressid);";
+    if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, pubKeyID);
+        sqlite3_bind_int(statement, 2, bitcoinAddressID);
+        sqlite3_step(statement);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(statement);
+        return false;
+    }
+    sqlite3_finalize(statement);
+
     return true;
 }
 
@@ -901,7 +937,7 @@ CKey CIdentifiDB::GetDefaultKey() {
     sqlite3_stmt *statement;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT PrivateKey FROM PrivateKeys WHERE IsDefault = 1";
+    sql << "SELECT PrivateKey FROM Keys WHERE IsDefault = 1";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int result = sqlite3_step(statement);
@@ -934,7 +970,8 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
     ostringstream sql;
     sql.str("");
     sql << "SELECT id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN PrivateKeys AS pk ON pk.PubKeyID = id.ID";
+    sql << "INNER JOIN Keys AS pk ON pk.PubKeyID = id.ID ";
+    sql << "WHERE pk.PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -952,8 +989,9 @@ vector<string_pair> CIdentifiDB::GetMyKeys() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT id.Value, pk.PrivateKey FROM Identifiers AS id ";
-    sql << "INNER JOIN PrivateKeys AS pk ON pk.PubKeyID = id.ID";
+    sql << "SELECT id.Value, k.PrivateKey FROM Identifiers AS id ";
+    sql << "INNER JOIN Keys AS k ON k.PubKeyID = id.ID ";
+    sql << "WHERE k.PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
