@@ -20,7 +20,6 @@
 #include "protocol.h"
 #include "addrman.h"
 #include "hash.h"
-#include "bloom.h"
 #include "data.h"
 
 class CNode;
@@ -191,7 +190,6 @@ public:
     bool fRelayTxes;
     CSemaphoreGrant grantOutbound;
     CCriticalSection cs_filter;
-    CBloomFilter* pfilter;
     int nRefCount;
 protected:
 
@@ -253,7 +251,6 @@ public:
         nMisbehavior = 0;
         fRelayTxes = false;
         setInventoryKnown.max_size(SendBufferSize() / 1000);
-        pfilter = NULL;
 
         // Be shy and don't send version until we hear
         if (!fInbound)
@@ -267,8 +264,6 @@ public:
             closesocket(hSocket);
             hSocket = INVALID_SOCKET;
         }
-        if (pfilter)
-            delete pfilter;
     }
 
 private:
@@ -600,7 +595,6 @@ public:
         }
     }
 
-    void PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd);
     void PushGetPackets(time_t timestamp);
     bool IsSubscribed(unsigned int nChannel);
     void Subscribe(unsigned int nChannel, unsigned int nHops=0);

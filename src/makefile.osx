@@ -96,7 +96,6 @@ OBJS= \
     obj/wallet.o \
     obj/walletdb.o \
     obj/hash.o \
-    obj/bloom.o \
     obj/noui.o \
 
 ifndef USE_UPNP

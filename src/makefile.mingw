@@ -32,8 +32,6 @@ LIBPATHS= \
  -L"$(DEPSDIR)/lib"
 
 LIBS= \
- -l leveldb \
- -l memenv \
  -l boost_system$(BOOST_SUFFIX) \
  -l boost_filesystem$(BOOST_SUFFIX) \
  -l boost_program_options$(BOOST_SUFFIX) \
@@ -84,37 +82,21 @@ OBJS= \
     obj/net.o \
     obj/protocol.o \
     obj/identifirpc.o \
-    obj/rpcdump.o \
     obj/rpcnet.o \
-    obj/rpcmining.o \
-    obj/rpcwallet.o \
-    obj/rpcblockchain.o \
-    obj/rpcrawtransaction.o \
+    obj/rpcdb.o \
     obj/script.o \
     obj/sync.o \
     obj/util.o \
     obj/wallet.o \
     obj/walletdb.o \
     obj/hash.o \
-    obj/bloom.o \
     obj/noui.o \
-    obj/leveldb.o \
-    obj/txdb.o
 
 
 all: identifid.exe
 
 test check: test_identifi.exe FORCE
 	test_identifi.exe
-
-#
-# LevelDB support
-#
-DEFS += $(addprefix -I,$(CURDIR)/leveldb/include)
-DEFS += $(addprefix -I,$(CURDIR)/leveldb/helpers)
-
-leveldb/libleveldb.a:
-	cd leveldb && $(MAKE) CC=$(CC) CXX=$(CXX) OPT="$(CFLAGS)" TARGET_OS=NATIVE_WINDOWS libleveldb.a libmemenv.a && cd ..
 
 obj/%.o: %.cpp $(HEADERS)
 	$(CXX) -c $(CFLAGS) -o $@ $<
@@ -134,6 +116,5 @@ clean:
 	rm -f identifid.exe test_identifi.exe
 	rm -f obj/*
 	rm -f obj-test/*
-	cd leveldb && $(MAKE) TARGET_OS=NATIVE_WINDOWS clean && cd ..
 
 FORCE:
