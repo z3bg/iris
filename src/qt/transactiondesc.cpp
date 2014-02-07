@@ -245,23 +245,6 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx)
                     COutPoint prevout = txin.prevout;
 
                     CCoins prev;
-                    if(pcoinsTip->GetCoins(prevout.hash, prev))
-                    {
-                        if (prevout.n < prev.vout.size())
-                        {
-                            strHTML += "<li>";
-                            const CTxOut &vout = prev.vout[prevout.n];
-                            CTxDestination address;
-                            if (ExtractDestination(vout.scriptPubKey, address))
-                            {
-                                if (wallet->mapAddressBook.count(address) && !wallet->mapAddressBook[address].empty())
-                                    strHTML += GUIUtil::HtmlEscape(wallet->mapAddressBook[address]) + " ";
-                                strHTML += QString::fromStdString(CIdentifiAddress(address).ToString());
-                            }
-                            strHTML = strHTML + " " + tr("Amount") + "=" + IdentifiUnits::formatWithUnit(IdentifiUnits::BTC, vout.nValue);
-                            strHTML = strHTML + " IsMine=" + (wallet->IsMine(vout) ? tr("true") : tr("false")) + "</li>";
-                        }
-                    }
                 }
             }
 

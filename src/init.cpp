@@ -3,7 +3,6 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "txdb.h"
 #include "walletdb.h"
 #include "identifirpc.h"
 #include "identifidb.h"
@@ -77,8 +76,6 @@ bool ShutdownRequested()
     return fRequestShutdown;
 }
 
-static CCoinsViewDB *pcoinsdbview;
-
 void Shutdown()
 {
     static CCriticalSection cs_Shutdown;
@@ -92,14 +89,7 @@ void Shutdown()
     StopNode();
     {
         LOCK(cs_main);
-        if (pblocktree)
-            pblocktree->Flush();
-        if (pcoinsTip)
-            pcoinsTip->Flush();
-        delete pcoinsTip; pcoinsTip = NULL;
-        delete pcoinsdbview; pcoinsdbview = NULL;
         delete pidentifidb; pidentifidb = NULL;
-        delete pblocktree; pblocktree = NULL;
     }
     bitdb.Flush(true);
     boost::filesystem::remove(GetPidFile());
@@ -392,7 +382,6 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
             LoadExternalBlockFile(file, &pos);
             nFile++;
         }
-        pblocktree->WriteReindexing(false);
         fReindex = false;
         printf("Reindexing finished\n");
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
@@ -792,18 +781,9 @@ bool AppInit2(boost::thread_group& threadGroup)
         do {
             try {
                 UnloadBlockIndex();
-                delete pcoinsTip;
-                delete pcoinsdbview;
                 delete pidentifidb;
-                delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex);
-                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
                 pidentifidb = new CIdentifiDB(sqliteMaxSize);
-                pcoinsTip = new CCoinsViewCache(*pcoinsdbview);
-
-                if (fReindex)
-                    pblocktree->WriteReindexing(true);
 
                 if (!LoadBlockIndex()) {
                     strLoadError = _("Error loading block database");

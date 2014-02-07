@@ -795,7 +795,7 @@ void CWallet::ReacceptWalletTransactions()
 
             CCoins coins;
             bool fUpdated = false;
-            bool fFound = pcoinsTip->GetCoins(wtx.GetHash(), coins);
+            bool fFound = false;
             if (fFound || wtx.GetDepthInMainChain() > 0)
             {
                 // Update fSpent if a tx got spent somewhere else by a copy of wallet.dat

@@ -3,7 +3,6 @@
 #include <boost/filesystem.hpp>
 
 #include "db.h"
-#include "txdb.h"
 #include "main.h"
 #include "wallet.h"
 #include "util.h"
@@ -15,7 +14,6 @@ extern bool fPrintToConsole;
 extern void noui_connect();
 
 struct TestingSetup {
-    CCoinsViewDB *pcoinsdbview;
     boost::filesystem::path pathTemp;
     boost::thread_group threadGroup;
 
@@ -26,10 +24,7 @@ struct TestingSetup {
         pathTemp = GetTempPath() / strprintf("test_identifi_%lu_%i", (unsigned long)GetTime(), (int)(GetRand(100000)));
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
-        pblocktree = new CBlockTreeDB(1 << 20, true);
-        pcoinsdbview = new CCoinsViewDB(1 << 23, true);
         pidentifidb = new CIdentifiDB();
-        pcoinsTip = new CCoinsViewCache(*pcoinsdbview);
         InitBlockIndex();
         bool fFirstRun;
         pwalletMain = new CWallet("wallet.dat");
@@ -45,9 +40,6 @@ struct TestingSetup {
         threadGroup.join_all();
         delete pwalletMain;
         pwalletMain = NULL;
-        delete pcoinsTip;
-        delete pcoinsdbview;
-        delete pblocktree;
         bitdb.Flush(true);
         boost::filesystem::remove_all(pathTemp);
     }

@@ -2196,11 +2196,6 @@ public:
     bool HaveCoins(const uint256 &txid);
 };
 
-/** Global variable that points to the active CCoinsView (protected by cs_main) */
-extern CCoinsViewCache *pcoinsTip;
-
-/** Global variable that points to the active block tree (protected by cs_main) */
-extern CBlockTreeDB *pblocktree;
 
 struct CBlockTemplate
 {
