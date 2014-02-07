@@ -17,6 +17,12 @@
 using namespace std;
 using namespace boost;
 
+struct IdentifiKey {
+    string pubKey;
+    string bitcoinAddress;
+    string privKey;
+};
+
 class CSignature {
 public:
     CSignature(string signerPubKey = "", string signature = "") : signerPubKey(signerPubKey), signature(signature) {}

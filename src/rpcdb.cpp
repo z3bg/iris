@@ -242,15 +242,16 @@ Value listmykeys(const Array& params, bool fHelp)
 
     CKey defaultKey = pidentifidb->GetDefaultKey();
     string strDefaultKey = EncodeBase58(defaultKey.GetPubKey().Raw());
-    vector<pair<string, string> > keys = pidentifidb->GetMyKeys();
+    vector<IdentifiKey> keys = pidentifidb->GetMyKeys();
     Array keysJSON;
 
-    for (vector<pair<string, string> >::iterator it = keys.begin(); it != keys.end(); ++it) {
-        Object key;
-        key.push_back(Pair("pubkey", it->first));
-        key.push_back(Pair("privkey", it->second));
-        key.push_back(Pair("default", it->first == strDefaultKey));
-        keysJSON.push_back(key);
+    for (vector<IdentifiKey>::iterator key = keys.begin(); key != keys.end(); ++key) {
+        Object keyJSON;
+        keyJSON.push_back(Pair("pubkey", key->pubKey));
+        keyJSON.push_back(Pair("pubkey ID", key->bitcoinAddress));
+        keyJSON.push_back(Pair("privkey", key->privKey));
+        keyJSON.push_back(Pair("default", key->pubKey == strDefaultKey));
+        keysJSON.push_back(keyJSON);
     }
     return keysJSON;
 }

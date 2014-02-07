@@ -982,21 +982,26 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
     return myPubKeys;
 }
 
-vector<string_pair> CIdentifiDB::GetMyKeys() {
-    vector<string_pair> myKeys;
+vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
+    vector<IdentifiKey> myKeys;
 
     string pubKey, privKey;
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT id.Value, k.PrivateKey FROM Identifiers AS id ";
-    sql << "INNER JOIN Keys AS k ON k.PubKeyID = id.ID ";
+    sql << "SELECT pubKeyID.Value, btcAddrID.Value, k.PrivateKey FROM Identifiers AS pubKeyID ";
+    sql << "INNER JOIN Keys AS k ON k.PubKeyID = pubKeyID.ID ";
+    sql << "INNER JOIN Identifiers AS btcAddrID ON k.BitcoinAddressID = btcAddrID.ID ";
     sql << "WHERE k.PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
     BOOST_FOREACH (vector<string> vStr, result) {
-        myKeys.push_back(make_pair(vStr.front(), vStr.back()));
+        IdentifiKey key;
+        key.pubKey = vStr[0];
+        key.bitcoinAddress = vStr[1];
+        key.privKey = vStr[2];
+        myKeys.push_back(key);
     }
 
     return myKeys;
