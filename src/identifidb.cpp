@@ -132,7 +132,7 @@ void CIdentifiDB::CheckDefaultTrustList() {
         time_t now = time(NULL);
 
         json_spirit::Object data, signedData;
-        signedData.push_back(Pair("timestamp", now));
+        signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
         signedData.push_back(Pair("author", author));
         signedData.push_back(Pair("recipient", recipient));
         signedData.push_back(Pair("type", "rating"));

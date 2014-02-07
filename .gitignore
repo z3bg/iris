@@ -13,7 +13,7 @@ src/test_identifi
 
 # Compilation and Qt preprocessor part
 *.qm
-Makefile
+# Makefile
 identifi-qt
 
 # Unit-tests
@@ -30,4 +30,4 @@ qrc_*.cpp
 .DS_Store
 build
 
-!src/leveldb-*/Makefile
+# !src/leveldb-*/Makefile

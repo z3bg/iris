@@ -174,7 +174,7 @@ Value savepacket(const Array& params, bool fHelp)
 
     time_t now = time(NULL);
     Object data, signedData;
-    signedData.push_back(Pair("timestamp", now));
+    signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
     signedData.push_back(Pair("author", author));
     signedData.push_back(Pair("recipient", recipient));
     signedData.push_back(Pair("type", "review"));
