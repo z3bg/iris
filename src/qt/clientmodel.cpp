@@ -62,7 +62,7 @@ QDateTime ClientModel::getLastBlockDate() const
 
 double ClientModel::getVerificationProgress() const
 {
-    return Checkpoints::GuessVerificationProgress(pindexBest);
+    return 0;
 }
 
 void ClientModel::updateTimer()
@@ -115,7 +115,7 @@ bool ClientModel::isTestNet() const
 
 bool ClientModel::inInitialBlockDownload() const
 {
-    return IsInitialBlockDownload();
+    return false;
 }
 
 enum BlockSource ClientModel::getBlockSource() const

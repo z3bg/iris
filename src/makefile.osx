@@ -73,7 +73,6 @@ OBJS= \
     leveldb/libleveldb.a \
     obj/alert.o \
     obj/version.o \
-    obj/checkpoints.o \
     obj/netbase.o \
     obj/addrman.o \
     obj/crypter.o \
@@ -99,8 +98,6 @@ OBJS= \
     obj/hash.o \
     obj/bloom.o \
     obj/noui.o \
-    obj/leveldb.o \
-    obj/txdb.o
 
 ifndef USE_UPNP
 	override USE_UPNP = -
@@ -170,6 +167,5 @@ clean:
 	-rm -f obj/*.P
 	-rm -f obj-test/*.P
 	-rm -f obj/build.h
-	-cd leveldb && $(MAKE) clean || true
 
 FORCE:
