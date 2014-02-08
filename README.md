@@ -66,9 +66,14 @@ Possible applications
 
 Building
 --------
-Makefile.unix builds nicely with dependencies from Debian packages (same as Bitcoin + sqlite).
 
-Merge with build tools from the Bitcoin master branch TBD.
+    sudo apt-get install build-essential libssl-dev libboost-all-dev libsqlite3-dev libdb++-dev libminiupnpc-dev
+
+    git clone git@github.com:identifi/identifi.git
+    cd ./identifi/src
+    make -f makefile.unix
+
+Other makefiles have not been tested.
 
 Developing
 ----------
