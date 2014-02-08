@@ -1170,6 +1170,8 @@ void MapPort(bool)
 static const char *strMainNetDNSSeed[][2] = {
     {"dns1.louhi.fi", "seed1.identifi.org"},
     {"freedns.afraid.org", "seed2.identifi.org"},
+    {"freedns.afraid.org", "seed3.identifi.org"},
+    {"freedns.afraid.org", "seed4.identifi.org"},
     {NULL, NULL}
 };
 
@@ -1223,7 +1225,7 @@ void ThreadDNSAddressSeed()
 
 unsigned int pnSeed[] =
 {
-    // 0xe473042e, 0xb177f2ad // TODO: replace with real seeds
+    0xa64e3cbc // TODO: add seeds
 };
 
 void DumpAddresses()
