@@ -246,7 +246,7 @@ public:
         pindexLastGetBlocksBegin = 0;
         hashLastGetBlocksEnd = 0;
         nStartingHeight = -1;
-        fStartSync = false;
+        fStartSync = true;
         fGetAddr = false;
         nMisbehavior = 0;
         fRelayTxes = false;
