@@ -223,7 +223,7 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Keys (";
     sql << "PubKeyID            INTEGER         PRIMARY KEY,";
-    sql << "BitcoinAddressID    INTEGER         DEFAULT NULL,";
+    sql << "KeyIdentifierID     INTEGER         DEFAULT NULL,";
     sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
     sql << "IsDefault           BOOL            DEFAULT 0);";
     query(sql.str().c_str());
@@ -880,16 +880,16 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
     int pubKeyID = SaveIdentifier(pubKeyStr);
 
     CIdentifiAddress address(pubKey.GetID());
-    int bitcoinAddressID = SaveIdentifier(address.ToString());
+    int KeyIdentifierID = SaveIdentifier(address.ToString());
 
     if (setDefault)
         query("UPDATE Keys SET IsDefault = 0");
 
     sqlite3_stmt *statement;
-    string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, BitcoinAddressID, PrivateKey, IsDefault) VALUES (@pubkeyid, @bitcoinaddressid, @privatekey, @isdefault);";
+    string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, KeyIdentifierID, PrivateKey, IsDefault) VALUES (@pubkeyid, @KeyIdentifierID, @privatekey, @isdefault);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int(statement, 1, pubKeyID);
-        sqlite3_bind_int(statement, 2, bitcoinAddressID);
+        sqlite3_bind_int(statement, 2, KeyIdentifierID);
         sqlite3_bind_text(statement, 3, privKey.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 4, setDefault);
         sqlite3_step(statement);
@@ -908,14 +908,14 @@ bool CIdentifiDB::SavePubKey(string pubKey) {
         throw runtime_error("SavePubKey failed: invalid key");
 
     CIdentifiAddress address(key.GetID());
-    int bitcoinAddressID = SaveIdentifier(address.ToString());
+    int KeyIdentifierID = SaveIdentifier(address.ToString());
     int pubKeyID = SaveIdentifier(pubKey);
 
     sqlite3_stmt *statement;
-    string sql = "INSERT OR IGNORE INTO Keys (PubKeyID, BitcoinAddressID) VALUES (@pubkeyid, @bitcoinaddressid);";
+    string sql = "INSERT OR IGNORE INTO Keys (PubKeyID, KeyIdentifierID) VALUES (@pubkeyid, @KeyIdentifierID);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int(statement, 1, pubKeyID);
-        sqlite3_bind_int(statement, 2, bitcoinAddressID);
+        sqlite3_bind_int(statement, 2, KeyIdentifierID);
         sqlite3_step(statement);
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
@@ -989,9 +989,9 @@ vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT pubKeyID.Value, btcAddrID.Value, k.PrivateKey FROM Identifiers AS pubKeyID ";
+    sql << "SELECT pubKeyID.Value, keyID.Value, k.PrivateKey FROM Identifiers AS pubKeyID ";
     sql << "INNER JOIN Keys AS k ON k.PubKeyID = pubKeyID.ID ";
-    sql << "INNER JOIN Identifiers AS btcAddrID ON k.BitcoinAddressID = btcAddrID.ID ";
+    sql << "INNER JOIN Identifiers AS keyID ON k.KeyIdentifierID = keyID.ID ";
     sql << "WHERE k.PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
