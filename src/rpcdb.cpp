@@ -117,6 +117,28 @@ Value getpacketsafter(const Array& params, bool fHelp)
     return packetsJSON;
 }
 
+Value getlatestpackets(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1 )
+        throw runtime_error(
+            "getlatestpackets <limit=20>\n"
+            "Get a list of packets after the given timestamp, limited to the given number of entries.");
+
+    int nLimit;
+    if (params.size() == 1)
+        nLimit = boost::lexical_cast<int>(params[0].get_str());
+    else
+        nLimit = 20;
+
+    Array packetsJSON;
+    vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(nLimit);
+    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
+        packetsJSON.push_back(it->GetJSON());
+    }
+
+    return packetsJSON;
+}
+
 Value getpath(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 4 || params.size() > 5)

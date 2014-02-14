@@ -143,6 +143,7 @@ extern json_spirit::Value gettruststep(const json_spirit::Array& params, bool fH
 extern json_spirit::Value getpacketsbyauthor(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getpacketsbyrecipient(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getpacketsafter(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getlatestpackets(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getsavedpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value savepacket(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp

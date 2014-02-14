@@ -21,6 +21,7 @@ public:
     CIdentifiDB(int sqliteMaxSize = 1000, const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
+    vector<CIdentifiPacket> GetLatestPackets(int limit = 10, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);

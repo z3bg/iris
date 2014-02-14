@@ -206,6 +206,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getpacketsbyauthor",         &getpacketsbyauthor,        true,      false },
     { "getpacketsbyrecipient",      &getpacketsbyrecipient,     true,      false },
     { "getpacketsafter",            &getpacketsafter,           true,      false },
+    { "getlatestpackets",           &getlatestpackets,          true,      false },
     { "savepacket",                 &savepacket,                true,      false },
     { "savepacketfromdata",         &savepacketfromdata,        true,      false },
     { "deletepacket",               &deletepacket,              true,      false },
