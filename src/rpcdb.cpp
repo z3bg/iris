@@ -270,7 +270,7 @@ Value listmykeys(const Array& params, bool fHelp)
     for (vector<IdentifiKey>::iterator key = keys.begin(); key != keys.end(); ++key) {
         Object keyJSON;
         keyJSON.push_back(Pair("pubkey", key->pubKey));
-        keyJSON.push_back(Pair("pubkey ID", key->bitcoinAddress));
+        keyJSON.push_back(Pair("pubkey ID", key->keyID));
         keyJSON.push_back(Pair("privkey", key->privKey));
         keyJSON.push_back(Pair("default", key->pubKey == strDefaultKey));
         keysJSON.push_back(keyJSON);

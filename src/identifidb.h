@@ -32,7 +32,9 @@ public:
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
     vector<IdentifiKey> GetMyKeys();
+    vector<string> GetMyPubKeyIDs();
     vector<string> GetMyPubKeys();
+    string GetSavedKeyID(string pubKey);
     bool ImportPrivKey(string privKey, bool setDefault=false);
     int GetPacketCount();
     int GetPacketCountByAuthor(pair<string, string> author);
@@ -66,7 +68,7 @@ private:
     void SetMaxSize(int sqliteMaxSize);
     void CheckDefaultTrustPathablePredicates();
     void SearchForPathForMyKeys();
-    bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeys, vector<uint256>* visitedPackets);
+    bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs, vector<uint256>* visitedPackets);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H

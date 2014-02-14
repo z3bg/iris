@@ -19,7 +19,7 @@ using namespace boost;
 
 struct IdentifiKey {
     string pubKey;
-    string bitcoinAddress;
+    string keyID;
     string privKey;
 };
 

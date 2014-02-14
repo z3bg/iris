@@ -98,7 +98,9 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('email', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('url', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('tel', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('keyID', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('bitcoinAddress', 1)");
     }
 }
 
@@ -118,15 +120,14 @@ void CIdentifiDB::CheckDefaultTrustList() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Packets");
     if (lexical_cast<int>(result[0][0]) < 1) {
         CKey defaultKey = GetDefaultKey();
-        vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
-        string strPubKey = EncodeBase58(vchPubKey);
+        CIdentifiAddress address(defaultKey.GetPubKey().GetID());
 
         Array author, author1, recipient, recipient1, signatures;
-        author1.push_back("base58pubkey");
-        author1.push_back(strPubKey);
+        author1.push_back("keyID");
+        author1.push_back(address.ToString());
         author.push_back(author1);
-        recipient1.push_back("base58pubkey");
-        recipient1.push_back("NdudNBcekP9rQW425xpnpeVtDu1DLTFiMuAMkBsXRVpM8LheWfjPj7fiU7QNVxNbN1YbMXnXrhQEcuUovMB41fvm");
+        recipient1.push_back("keyID");
+        recipient1.push_back("17UG6qcurCi9872CrxTkgiTJLpCbo5Npgu");
         recipient.push_back(recipient1);
         
         time_t now = time(NULL);
@@ -235,9 +236,9 @@ void CIdentifiDB::Initialize() {
 }
 
 void CIdentifiDB::SearchForPathForMyKeys() {
-    vector<string> myPubKeys = GetMyPubKeys();
-    BOOST_FOREACH (string key, myPubKeys) {
-        SearchForPath(make_pair("base58pubkey", key));
+    vector<string> myPubKeyIDs = GetMyPubKeyIDs();
+    BOOST_FOREACH (string keyID, myPubKeyIDs) {
+        SearchForPath(make_pair("keyID", keyID));
     } 
 }
 
@@ -755,19 +756,21 @@ int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
 // Arbitrary storage priority metric
 int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     const int MAX_PRIORITY = 100;
-    vector<string> myPubKeys = GetMyPubKeys();
-    string keyType = "base58pubkey";
+    vector<string> myPubKeyIDs = GetMyPubKeyIDs();
+    string keyType = "keyID";
 
     int nShortestPathToSignature = 1000000;
     vector<CSignature> sigs = packet.GetSignatures();
     BOOST_FOREACH (CSignature sig, sigs) {
-        string signerPubKey = sig.GetSignerPubKey();
-        BOOST_FOREACH (string myPubKey, myPubKeys) {
-            if (signerPubKey == myPubKey) {
+        string signerPubKeyID = GetSavedKeyID(sig.GetSignerPubKey());
+        if (signerPubKeyID.empty())
+            break;
+        BOOST_FOREACH (string myPubKeyID, myPubKeyIDs) {
+            if (signerPubKeyID == myPubKeyID) {
                 nShortestPathToSignature = 1;
                 break;            
             }
-            int nPath = GetSavedPath(make_pair(keyType, myPubKey), make_pair(keyType, signerPubKey)).size();
+            int nPath = GetSavedPath(make_pair(keyType, myPubKeyID), make_pair(keyType, signerPubKeyID)).size();
             if (nPath > 0 && nPath < nShortestPathToSignature)
                 nShortestPathToSignature = nPath + 1;
         }
@@ -782,13 +785,13 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     vector<string_pair> authors = packet.GetAuthors();
     BOOST_FOREACH (string_pair author, authors) {
         if (nShortestPathToAuthor > 1) {
-            BOOST_FOREACH (string myPubKey, myPubKeys) {            
-                if (author == make_pair(keyType, myPubKey)) {
+            BOOST_FOREACH (string myPubKeyID, myPubKeyIDs) {            
+                if (author == make_pair(keyType, myPubKeyID)) {
                     nShortestPathToAuthor = 1;
                     isMyPacket = true;
                     break;            
                 }
-                int nPath = GetSavedPath(make_pair(keyType, myPubKey), author).size();
+                int nPath = GetSavedPath(make_pair(keyType, myPubKeyID), author).size();
                 if (nPath > 0 && nPath < nShortestPathToAuthor)
                     nShortestPathToAuthor = nPath + 1;
             }
@@ -880,16 +883,16 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
     int pubKeyID = SaveIdentifier(pubKeyStr);
 
     CIdentifiAddress address(pubKey.GetID());
-    int KeyIdentifierID = SaveIdentifier(address.ToString());
+    int keyIdentifierID = SaveIdentifier(address.ToString());
 
     if (setDefault)
         query("UPDATE Keys SET IsDefault = 0");
 
     sqlite3_stmt *statement;
-    string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, KeyIdentifierID, PrivateKey, IsDefault) VALUES (@pubkeyid, @KeyIdentifierID, @privatekey, @isdefault);";
+    string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, KeyIdentifierID, PrivateKey, IsDefault) VALUES (@pubkeyid, @keyIdentifierID, @privatekey, @isdefault);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int(statement, 1, pubKeyID);
-        sqlite3_bind_int(statement, 2, KeyIdentifierID);
+        sqlite3_bind_int(statement, 2, keyIdentifierID);
         sqlite3_bind_text(statement, 3, privKey.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 4, setDefault);
         sqlite3_step(statement);
@@ -961,7 +964,6 @@ CKey CIdentifiDB::GetDefaultKey() {
     return key;
 }
 
-
 vector<string> CIdentifiDB::GetMyPubKeys() {
     vector<string> myPubKeys;
 
@@ -970,8 +972,28 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
     ostringstream sql;
     sql.str("");
     sql << "SELECT id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN Keys AS pk ON pk.PubKeyID = id.ID ";
-    sql << "WHERE pk.PrivateKey IS NOT NULL";
+    sql << "INNER JOIN Keys AS k ON k.PubKeyID = id.ID ";
+    sql << "WHERE k.PrivateKey IS NOT NULL";
+
+    vector<vector<string> > result = query(sql.str().c_str());
+
+    BOOST_FOREACH (vector<string> vStr, result) {
+        myPubKeys.push_back(vStr.front());
+    }
+
+    return myPubKeys;
+}
+
+vector<string> CIdentifiDB::GetMyPubKeyIDs() {
+    vector<string> myPubKeys;
+
+    string pubKey, privKey;
+
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT id.Value FROM Identifiers AS id ";
+    sql << "INNER JOIN Keys AS k ON k.KeyIdentifierID = id.ID ";
+    sql << "WHERE k.PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -999,7 +1021,7 @@ vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
     BOOST_FOREACH (vector<string> vStr, result) {
         IdentifiKey key;
         key.pubKey = vStr[0];
-        key.bitcoinAddress = vStr[1];
+        key.keyID = vStr[1];
         key.privKey = vStr[2];
         myKeys.push_back(key);
     }
@@ -1007,17 +1029,41 @@ vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
     return myKeys;
 }
 
-bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeys, vector<uint256>* visitedPackets) {
+string CIdentifiDB::GetSavedKeyID(string pubKey) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT keyID.Value FROM Identifiers AS keyID ";
+    sql << "INNER JOIN Keys AS k ON keyID.ID = k.KeyIdentifierID ";
+    sql << "INNER JOIN Identifiers AS pubKey ON k.PubKeyID = pubKey.ID ";
+    sql << "WHERE pubKey.Value = @pubkey";
+
+    string keyID = "";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, pubKey.c_str(), -1, SQLITE_TRANSIENT);
+        int result = sqlite3_step(statement);
+        if(result == SQLITE_ROW)
+        {
+            keyID = string((char*)sqlite3_column_text(statement, 0));
+        }
+    }
+    sqlite3_finalize(statement);    
+    return keyID;
+}
+
+bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs, vector<uint256>* visitedPackets) {
     bool hasTrustedSigner = false;
     vector<CSignature> signatures = packet.GetSignatures();
     BOOST_FOREACH (CSignature sig, signatures) {
-        string strSignerPubKey = sig.GetSignerPubKey();
-        if (find(trustedKeys.begin(), trustedKeys.end(), strSignerPubKey) != trustedKeys.end()) {
+        string strSignerKeyID = GetSavedKeyID(sig.GetSignerPubKey());
+        if (strSignerKeyID.empty())
+            return false;
+        if (find(trustedKeyIDs.begin(), trustedKeyIDs.end(), strSignerKeyID) != trustedKeyIDs.end()) {
             hasTrustedSigner = true;
             break;
         }
-        BOOST_FOREACH (string key, trustedKeys) {
-            if (GetSavedPath(make_pair("base58pubkey", key), make_pair("base58pubkey", strSignerPubKey), 3, visitedPackets).size() > 0) {
+        BOOST_FOREACH (string key, trustedKeyIDs) {
+            if (GetSavedPath(make_pair("keyID", key), make_pair("keyID", strSignerKeyID), 3, visitedPackets).size() > 0) {
                 hasTrustedSigner = true;
                 break;
             }
@@ -1073,12 +1119,12 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
 }
 
 void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
-    vector<string> myPubKeys = GetMyPubKeys();
+    vector<string> myPubKeyIDs = GetMyPubKeyIDs();
     CKey defaultKey = GetDefaultKey();
     vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
     string strPubKey = EncodeBase58(vchPubKey);
 
-    if (!HasTrustedSigner(packet, myPubKeys, 0))
+    if (!HasTrustedSigner(packet, myPubKeyIDs, 0))
         return;
 
     vector<string_pair> savedPacketAuthors = packet.GetAuthors();
@@ -1091,15 +1137,15 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     // Check if packet is authored by our key
     bool isMyPacket = false;
     BOOST_FOREACH (string_pair author, savedPacketAuthors) {
-        if (author.first == "base58pubkey") {
-            BOOST_FOREACH (string myKey, myPubKeys) {
-                if (myKey == author.second) {
+        if (author.first == "keyID") {
+            BOOST_FOREACH (string myKeyID, myPubKeyIDs) {
+                if (myKeyID == author.second) {
                     // Save trust step from our key to this packet
-                    SaveTrustStep(make_pair("base58pubkey", myKey), make_pair("",savedPacketHash), savedPacketHash);
+                    SaveTrustStep(make_pair("keyID", myKeyID), make_pair("",savedPacketHash), savedPacketHash);
                     
                     // Save trust steps from our key to packet's identifiers via the packet
                     BOOST_FOREACH (string_pair id, savedPacketIdentifiers) {
-                        SaveTrustStep(make_pair("base58pubkey", myKey), id, savedPacketHash);
+                        SaveTrustStep(make_pair("keyID", myKeyID), id, savedPacketHash);
                     }
                     isMyPacket = true;
                     break;
@@ -1112,8 +1158,8 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
         vector<CIdentifiPacket> shortestPath;
         // Find the packet's author identifier with the shortest trust path to our keys
         BOOST_FOREACH (string_pair author, savedPacketAuthors) {
-            BOOST_FOREACH (string myKey, myPubKeys) {
-                vector<CIdentifiPacket> path = GetSavedPath(make_pair("base58pubkey", myKey), author);
+            BOOST_FOREACH (string myKeyID, myPubKeyIDs) {
+                vector<CIdentifiPacket> path = GetSavedPath(make_pair("keyID", myKeyID), author);
                 if ((shortestPath.empty() && !path.empty())
                     || (!path.empty() && path.size() < shortestPath.size())) {
                     shortestPath = path;
@@ -1258,7 +1304,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         if (currentPacket.GetRating() <= (currentPacket.GetMaxRating() + currentPacket.GetMinRating()) / 2)
             continue;
 
-        if (!HasTrustedSigner(currentPacket, GetMyPubKeys(), visitedPackets))
+        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs(), visitedPackets))
             continue;
 
         if (packetDistanceFromStart.find(currentPacket.GetHash()) != packetDistanceFromStart.end())
