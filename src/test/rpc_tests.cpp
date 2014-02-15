@@ -119,24 +119,24 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:bill@example.com"));
     BOOST_CHECK(r.get_array().empty());
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs trusted 5 true"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1389757332,\"author\":[[\"base58pubkey\",\"PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs\"]],\"recipient\":[[\"base58pubkey\",\"S5FajXsvQsce4GJ1LS6a3P2ZTh39tHURXL27Ffgv82JteDpn5DCGL3R93XGaCTTnJV4EtV9Ab9WPECuZfaWBKB32\"]],\"type\":\"review\",\"comment\":\"trusted\",\"rating\":10,\"maxRating\":10,\"minRating\":-10},\"signatures\":[{\"pubKey\":\"PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs\",\"signature\":\"AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH\"}]}"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr trusted 5 true"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1392476848,\"author\":[[\"keyID\",\"1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr\"]],\"recipient\":[[\"email\",\"james@example.com\"]],\"type\":\"review\",\"comment\":\"trusted\",\"rating\":1,\"maxRating\":10,\"minRating\":-10},\"signatures\":[{\"pubKey\":\"RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU\",\"signature\":\"381yXZQ5LQ2YiuPqtgUAuP3TUMCQQQR7g3gZMS5KHjChRoJoaQFZpuVZXXb6u7dW1rG5cH8AmwxXerjJdHLskgp2HJG24FqE\"}]}"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     firstPacket = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep p1 nobody1 p2 nobody2"));
     BOOST_CHECK(r.get_str().empty());
-    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     BOOST_CHECK(!r.get_str().empty());
-    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey S5FajXsvQsce4GJ1LS6a3P2ZTh39tHURXL27Ffgv82JteDpn5DCGL3R93XGaCTTnJV4EtV9Ab9WPECuZfaWBKB32"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
     BOOST_CHECK(!r.get_str().empty());
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath p1 nobody1 p2 nobody2"));
     BOOST_CHECK(r.get_array().empty());
-    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey PRxWKWcQjqpnAxy9FTVGBcQg2mxYv6QRi39rMX3L65fT1WB1TNDgGfY864gGpCjRgtHcS6mTGZqBB8mYiCfvj9Gs"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath base58pubkey RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU base58pubkey S5FajXsvQsce4GJ1LS6a3P2ZTh39tHURXL27Ffgv82JteDpn5DCGL3R93XGaCTTnJV4EtV9Ab9WPECuZfaWBKB32"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor http://www.example.com/alice"));
