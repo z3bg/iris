@@ -221,6 +221,51 @@ Value savepacket(const Array& params, bool fHelp)
     return pidentifidb->SavePacket(packet);
 }
 
+Value saveconnection(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 6 || params.size() > 7)
+        throw runtime_error(
+            "saveconnection <author_id_type> <author_id_value> <connected_id1_type> <connected_id1_value> <connected_id2_type> <connected_id2_value> <publish=false>\n"
+            "Save a connection between id1 and id2");
+
+    Array author, author1, recipient, connected1, connected2, signatures;
+    author1.push_back(params[0].get_str());
+    author1.push_back(params[1].get_str());
+    author.push_back(author1);
+    connected1.push_back(params[2].get_str());
+    connected1.push_back(params[3].get_str());
+    connected2.push_back(params[4].get_str());
+    connected2.push_back(params[5].get_str());
+    recipient.push_back(connected1);
+    recipient.push_back(connected2);
+
+    time_t now = time(NULL);
+    Object data, signedData;
+    signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
+    signedData.push_back(Pair("author", author));
+    signedData.push_back(Pair("recipient", recipient));
+    signedData.push_back(Pair("type", "connect"));
+    // signedData.push_back(Pair("comment",params[4].get_str()));
+    signedData.push_back(Pair("rating",0));
+    signedData.push_back(Pair("maxRating",1));
+    signedData.push_back(Pair("minRating",-1));
+
+    data.push_back(Pair("signedData", signedData));
+    data.push_back(Pair("signatures", signatures));
+
+    string strData = write_string(Value(data), false);
+    CIdentifiPacket packet(strData);
+    CKey defaultKey = pidentifidb->GetDefaultKey();
+    packet.Sign(defaultKey);
+
+    bool publish = (params.size() == 7 && params[6].get_str() == "true");
+    if (publish) {
+        packet.SetPublished();
+        RelayPacket(packet);
+    }
+    return pidentifidb->SavePacket(packet);
+}
+
 Value savepacketfromdata(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
