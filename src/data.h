@@ -25,14 +25,17 @@ struct IdentifiKey {
 
 class CSignature {
 public:
-    CSignature(string signerPubKey = "", string signature = "") : signerPubKey(signerPubKey), signature(signature) {}
+    CSignature(string signerPubKey = "", string signature = "", string signerKeyID = "") : signerPubKey(signerPubKey), signature(signature), signerKeyID(signerKeyID) {}
     string GetSignerPubKey() const;
     string GetSignature() const;
+    string GetSignerKeyID();
     bool IsValid(string signedData) const;
+    json_spirit::Object GetJSON();
 
 private:
     string signerPubKey;
     string signature;
+    string signerKeyID;         
 };
 
 class CIdentifiPacket {

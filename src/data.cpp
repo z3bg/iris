@@ -172,6 +172,11 @@ Value CIdentifiPacket::GetJSON() const {
     packetJSON.push_back(Pair("data", data));
     packetJSON.push_back(Pair("published", published));
     packetJSON.push_back(Pair("priority", priority));
+    Array signatureDetails;
+    BOOST_FOREACH(CSignature sig, signatures) {
+        signatureDetails.push_back(sig.GetJSON());
+    }
+    packetJSON.push_back(Pair("signatureDetails", signatureDetails));
 
     return packetJSON;
 }
@@ -220,6 +225,19 @@ string CSignature::GetSignature() const {
     return signature;
 }
 
+string CSignature::GetSignerKeyID() {
+    if (signerKeyID.empty()) {
+        vector<unsigned char> vchPubKey;
+        DecodeBase58(signerPubKey, vchPubKey);
+        CPubKey key(vchPubKey);
+        if (!key.IsValid())
+            return "";
+        CIdentifiAddress address(key.GetID());
+        signerKeyID = address.ToString();
+    }
+    return signerKeyID;
+}
+
 bool CSignature::IsValid(string signedData) const {    
     vector<unsigned char> vchPubKey, vchSig;
     if (!DecodeBase58(signerPubKey, vchPubKey) ||
@@ -234,4 +252,12 @@ bool CSignature::IsValid(string signedData) const {
     uint256 hash = Hash(signedData.begin(), signedData.end());
 
     return key.Verify(hash, vchSig);
+}
+
+Object CSignature::GetJSON() {
+    Object json;
+    json.push_back(Pair("signerPubKey",signerPubKey));
+    json.push_back(Pair("signerKeyID",GetSignerKeyID()));
+    json.push_back(Pair("signature",signature));
+    return json;
 }
