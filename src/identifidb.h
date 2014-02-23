@@ -24,9 +24,9 @@ public:
     vector<CIdentifiPacket> GetLatestPackets(int limit = 10, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByIdentifier(pair<string, string> identifier, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByAuthor(pair<string, string> author, bool trustPathablePredicatesOnly = true, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByRecipient(pair<string, string> object, bool trustPathablePredicatesOnly = true, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);
@@ -37,24 +37,25 @@ public:
     string GetSavedKeyID(string pubKey);
     bool ImportPrivKey(string privKey, bool setDefault=false);
     int GetPacketCount();
-    int GetPacketCountByAuthor(pair<string, string> author);
+    int GetPacketCountByAuthor(string_pair author);
     int GetIdentifierCount();
-    string GetTrustStep(pair<string, string> start, pair<string, string> end);
+    string GetTrustStep(string_pair start, string_pair end);
     CIdentifiPacket GetPacketByHash(string hash);
     int GetPriority(CIdentifiPacket &packet);
-    bool MakeFreeSpace(int nFreeBytesNeeded);
+    string_pair GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates);
+    pair<string_pair, string_pair > GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates);    bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
-    vector<CIdentifiPacket> GetSavedPath(pair<string, string> start, pair<string, string> end, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
-    vector<CIdentifiPacket> SearchForPath(pair<string, string> start, pair<string, string> end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
-    vector<CIdentifiPacket> GetPath(pair<string, string> start, pair<string, string> end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
-    void SaveTrustStep(pair<string, string> start, pair<string,string> end, string nextStep);
+    vector<CIdentifiPacket> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    vector<CIdentifiPacket> SearchForPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    vector<CIdentifiPacket> GetPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    void SaveTrustStep(string_pair start, pair<string,string> end, string nextStep);
     void SavePacketTrustPaths(CIdentifiPacket &packet);
 
 private:
     sqlite3 *db;
-    vector<pair<string, string> > GetAuthorsByPacketHash(string packetHash);
-    vector<pair<string, string> > GetRecipientsByPacketHash(string packetHash);
+    vector<string_pair > GetAuthorsByPacketHash(string packetHash);
+    vector<string_pair > GetRecipientsByPacketHash(string packetHash);
     vector<CSignature> GetSignaturesByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
     void SavePacketAuthor(string packetHash, int predicateID, int authorID);

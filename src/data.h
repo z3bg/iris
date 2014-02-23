@@ -17,6 +17,8 @@
 using namespace std;
 using namespace boost;
 
+typedef std::pair<string, string> string_pair;
+
 struct IdentifiKey {
     string pubKey;
     string keyID;
@@ -68,8 +70,8 @@ public:
     uint256 GetSignedDataHash() const;
     uint256 GetHash() const;
     time_t GetTimestamp() const;
-    vector<pair<string, string> > GetAuthors() const;
-    vector<pair<string, string> > GetRecipients() const;
+    vector<string_pair > GetAuthors() const;
+    vector<string_pair > GetRecipients() const;
     vector<CSignature> GetSignatures() const;
     json_spirit::Value GetJSON() const;
 
@@ -94,8 +96,8 @@ private:
     int rating;
     int maxRating;
     int minRating;
-    vector<pair<string, string> > authors;
-    vector<pair<string, string> > recipients;
+    vector<string_pair > authors;
+    vector<string_pair > recipients;
     vector<CSignature> signatures;
     time_t timestamp;
     bool published;

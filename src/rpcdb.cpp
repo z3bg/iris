@@ -12,6 +12,30 @@
 using namespace json_spirit;
 using namespace std;
 
+Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = true) {
+    Array packetsJSON;
+    BOOST_FOREACH(CIdentifiPacket packet, packets) {
+        Object packetJSON = packet.GetJSON().get_obj();
+        if (findNames) {
+            vector<string> nameTypes;
+            nameTypes.push_back("name");
+            nameTypes.push_back("nickname");
+            
+            pair<string_pair, string_pair> linkedIDs = pidentifidb->GetPacketLinkedIdentifiers(packet, nameTypes);
+            
+            Array author, recipient;
+            author.push_back(linkedIDs.first.first);
+            author.push_back(linkedIDs.first.second);
+            recipient.push_back(linkedIDs.second.first);
+            recipient.push_back(linkedIDs.second.second);
+            packetJSON.push_back(Pair("authorName", author));
+            packetJSON.push_back(Pair("recipientName", recipient));
+        }
+        packetsJSON.push_back(packetJSON);
+    }
+    return packetsJSON; 
+}
+
 Value getpacketcount(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -64,34 +88,35 @@ Value gettruststep(const Array& params, bool fHelp)
 
 Value getpacketsbyauthor(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "getpacketsbyauthor <id_value>\n"
+            "getpacketsbyauthor <id_value> | <id_type> <id_value>\n"
             "Returns a list of packets associated with the given author identifier.");
 
-    Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), false);
-    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
-        packetsJSON.push_back(it->GetJSON());
-    }
+    vector<CIdentifiPacket> packets;
+    if (params.size() == 1)
+        packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), false);
+    else
+        packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), false);
 
-    return packetsJSON;
+    return packetVectorToJSONArray(packets);
 }
 
 Value getpacketsbyrecipient(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getpacketsbyrecipient <id_value>\n"
-            "Returns a list of packets associated with the given object identifier.");
+            "getpacketsbyrecipient <id_value> | <id_type> <id_value>\n"
+            "Returns a list of packets associated with the given recipient identifier.");
 
-    Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), false);
-    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
-        packetsJSON.push_back(it->GetJSON());
-    }
+    vector<CIdentifiPacket> packets;
+    if (params.size() == 1)
+        packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), false);
+    else
+        packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), false);
 
-    return packetsJSON;
+    return packetVectorToJSONArray(packets);
+
 }
 
 Value getpacketsafter(const Array& params, bool fHelp)
@@ -108,13 +133,9 @@ Value getpacketsafter(const Array& params, bool fHelp)
     else
         nLimit = 20;
 
-    Array packetsJSON;
     vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(timestamp, nLimit);
-    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
-        packetsJSON.push_back(it->GetJSON());
-    }
+    return packetVectorToJSONArray(packets);
 
-    return packetsJSON;
 }
 
 Value getlatestpackets(const Array& params, bool fHelp)
@@ -130,13 +151,9 @@ Value getlatestpackets(const Array& params, bool fHelp)
     else
         nLimit = 20;
 
-    Array packetsJSON;
     vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(nLimit);
-    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
-        packetsJSON.push_back(it->GetJSON());
-    }
+    return packetVectorToJSONArray(packets);
 
-    return packetsJSON;
 }
 
 Value getpath(const Array& params, bool fHelp)
@@ -183,7 +200,7 @@ Value savepacket(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 6 || params.size() > 7)
         throw runtime_error(
-            "savepacket <subject_id_type> <subject_id_value> <object_id_type> <object_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
+            "savepacket <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
             "Save a packet");
 
     Array author, author1, recipient, recipient1, signatures;
@@ -244,7 +261,7 @@ Value saveconnection(const Array& params, bool fHelp)
     signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
     signedData.push_back(Pair("author", author));
     signedData.push_back(Pair("recipient", recipient));
-    signedData.push_back(Pair("type", "connect"));
+    signedData.push_back(Pair("type", "connection"));
     // signedData.push_back(Pair("comment",params[4].get_str()));
     signedData.push_back(Pair("rating",0));
     signedData.push_back(Pair("maxRating",1));
@@ -285,6 +302,22 @@ Value savepacketfromdata(const Array& params, bool fHelp)
         RelayPacket(packet);
     }
     return pidentifidb->SavePacket(packet);
+}
+
+Value getlinkedidentifier(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "getlinkedidentifier <start_predicate> <start_id> <end_predicate>\n"
+            "For example, find a nickname that corresponds to the given identifier.");
+
+    vector<string> searchTypes;
+    searchTypes.push_back(params[2].get_str());
+    string_pair result = pidentifidb->GetLinkedIdentifier(make_pair(params[0].get_str(), params[1].get_str()), searchTypes);
+    Array a;
+    a.push_back(result.first);
+    a.push_back(result.second);
+    return a;
 }
 
 Value deletepacket(const Array& params, bool fHelp)

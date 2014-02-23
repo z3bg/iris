@@ -22,8 +22,6 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
-typedef std::pair<string, string> string_pair;
-
 #ifndef RETRY_IF_DB_FULL
 #define RETRY_IF_DB_FULL(statements)                            \
     int sqliteReturnCode = -1;                                  \
@@ -96,11 +94,12 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
     if (lexical_cast<int>(result[0][0]) < 1) {
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('mbox', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('email', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('account', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('url', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('tel', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('keyID', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('bitcoinAddress', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('bitcoin_address', 1)");
     }
 }
 
@@ -136,7 +135,7 @@ void CIdentifiDB::CheckDefaultTrustList() {
         signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
         signedData.push_back(Pair("author", author));
         signedData.push_back(Pair("recipient", recipient));
-        signedData.push_back(Pair("type", "rating"));
+        signedData.push_back(Pair("type", "review"));
         signedData.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
         signedData.push_back(Pair("rating", 1));
         signedData.push_back(Pair("maxRating", 1));
@@ -394,6 +393,56 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     }
     
     return packets;
+}
+
+// "Find a 'name' or a 'nickname' for the author and recipient of this packet"
+pair<string_pair, string_pair> CIdentifiDB::GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates) {
+    string_pair authorID, recipientID;
+
+    vector<string_pair> authors = packet.GetAuthors();
+    BOOST_FOREACH(string_pair author, authors) {
+        string_pair linkedID = GetLinkedIdentifier(author, searchedPredicates);
+        if (linkedID.first != "") {
+            authorID = linkedID;
+            break;
+        }
+    }
+
+    vector<string_pair> recipients = packet.GetRecipients();
+    BOOST_FOREACH(string_pair recipient, recipients) {
+        string_pair linkedID = GetLinkedIdentifier(recipient, searchedPredicates);
+        if (linkedID.first != "") {
+            recipientID = linkedID;
+            break;
+        }
+    }
+
+    return make_pair(authorID, recipientID);
+}
+
+// "Find a 'name' or a 'nickname' linked to this identifier"
+// TODO: make it find the most trusted or frequent link
+string_pair CIdentifiDB::GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates) {
+    vector<CIdentifiPacket> asAuthor = GetPacketsByAuthor(startID);
+
+    BOOST_FOREACH(CIdentifiPacket packet, asAuthor) {
+        vector<string_pair> authors = packet.GetAuthors();
+        BOOST_FOREACH(string_pair author, authors) {
+            if (find(searchedPredicates.begin(), searchedPredicates.end(), author.first) != searchedPredicates.end())
+                return author;
+        }
+    }
+
+    vector<CIdentifiPacket> asRecipient = GetPacketsByRecipient(startID);
+    BOOST_FOREACH(CIdentifiPacket packet, asRecipient) {
+        vector<string_pair> recipients = packet.GetRecipients();
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            if (find(searchedPredicates.begin(), searchedPredicates.end(), recipient.first) != searchedPredicates.end())
+                return recipient;            
+        } 
+    }
+
+    return make_pair("","");
 }
 
 CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
