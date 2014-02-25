@@ -121,13 +121,16 @@ void CIdentifiDB::CheckDefaultTrustList() {
         CKey defaultKey = GetDefaultKey();
         CIdentifiAddress address(defaultKey.GetPubKey().GetID());
 
-        Array author, author1, recipient, recipient1, signatures;
+        Array author, author1, recipient, recipient1, recipient2, signatures;
         author1.push_back("keyID");
         author1.push_back(address.ToString());
         author.push_back(author1);
         recipient1.push_back("keyID");
         recipient1.push_back("17UG6qcurCi9872CrxTkgiTJLpCbo5Npgu");
+        recipient2.push_back("nickname");
+        recipient2.push_back("Identifi dev key");
         recipient.push_back(recipient1);
+        recipient.push_back(recipient2);
         
         time_t now = time(NULL);
 
