@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 4);
+    BOOST_CHECK_EQUAL(r.get_int(), 5);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:alice@example.com mbox mailto:bob@example.com positive 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket mbox mailto:bob@example.com mbox mailto:carl@example.com positive 1"));
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 7);
+    BOOST_CHECK_EQUAL(r.get_int(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor mailto:alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_str(), "6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP");
     BOOST_CHECK_NO_THROW(CallRPC("publish 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 9);
+    BOOST_CHECK_EQUAL(r.get_int(), 10);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getlinkedidentifier mbox mailto:alice@example.com profile"));
     BOOST_CHECK(!r.get_array().empty());
@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("listmykeys"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 11);
+    BOOST_CHECK_EQUAL(r.get_int(), 12);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath p1 nobody1 p2 nobody2"));
     BOOST_CHECK(r.get_array().empty());

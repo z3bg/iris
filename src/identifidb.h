@@ -24,6 +24,7 @@ public:
     vector<CIdentifiPacket> GetLatestPackets(int limit = 10, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsBeforePacket(string packetHash, int limit, bool showUnpublished);
     vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);

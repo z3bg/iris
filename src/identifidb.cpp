@@ -472,7 +472,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool
         sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
-    sql << "id.Value = @idValue;";
+    sql << "id.Value = @idValue ";
+    sql << "ORDER BY p.Created DESC";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         if (!author.first.empty()) {
@@ -520,7 +521,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
         sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
-    sql << "id.Value = @idValue;";
+    sql << "id.Value = @idValue ";
+    sql << "ORDER BY p.Created DESC";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         if (!recipient.first.empty()) {
@@ -1490,6 +1492,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     sql << "SELECT * FROM Packets WHERE Created >= @timestamp ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
+    sql << "ORDER BY Created DESC ";
     sql << "LIMIT @limit";
 
 
@@ -1529,7 +1532,46 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     sql << "(Created > @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
-    sql << "ORDER BY Created, Hash LIMIT @limit";
+    sql << "ORDER BY Created DESC, Hash LIMIT @limit";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
+        sqlite3_bind_int(statement, 3, limit);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+             
+            if(result == SQLITE_ROW)
+            {
+                packets.push_back(GetPacketFromStatement(statement));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return packets;
+}
+
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, int limit, bool showUnpublished) {
+    CIdentifiPacket rel = GetPacketByHash(packetHash);
+    sqlite3_stmt *statement;
+    vector<CIdentifiPacket> packets;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM Packets WHERE ";
+    sql << "((Created = @timestamp AND Hash < @packethash) OR ";
+    sql << "(Created < @timestamp)) ";
+    if (!showUnpublished)
+        sql << "AND Published = 1 ";
+    sql << "ORDER BY Created DESC, Hash LIMIT @limit";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
