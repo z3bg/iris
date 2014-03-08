@@ -22,12 +22,12 @@ public:
     ~CIdentifiDB();
     void Initialize();
     vector<CIdentifiPacket> GetLatestPackets(int limit = 10, int offset = 0, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsBeforePacket(string packetHash, int limit, bool showUnpublished);
-    vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
-    vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, int offset = 0, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, int offset = 0, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsBeforePacket(string packetHash, int limit = 500, int offset = 0, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);

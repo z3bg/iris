@@ -346,7 +346,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
     return signatures;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, bool trustPathablePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -365,7 +365,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
         sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
-    sql << "id.Value = @idValue;";
+    sql << "id.Value = @idValue ";
+    sql << "ORDER BY p.Created ";
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         if (!identifier.first.empty()) {
@@ -373,6 +376,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
             sqlite3_bind_text(statement, 2, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
         } else {
             sqlite3_bind_text(statement, 1, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
+        }
+
+        if (limit) {
+            sqlite3_bind_int(statement, 3, limit);
+            sqlite3_bind_int(statement, 4, offset);            
         }
 
         int result = 0;
@@ -457,7 +465,7 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return packet;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool trustPathablePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -473,7 +481,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue ";
-    sql << "ORDER BY p.Created DESC";
+    sql << "ORDER BY p.Created DESC ";
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         if (!author.first.empty()) {
@@ -481,6 +491,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool
             sqlite3_bind_text(statement, 2, author.second.c_str(), -1, SQLITE_TRANSIENT);
         } else {
             sqlite3_bind_text(statement, 1, author.second.c_str(), -1, SQLITE_TRANSIENT);            
+        }
+        if (limit) {
+            sqlite3_bind_int(statement, 3, limit);
+            sqlite3_bind_int(statement, 4, offset);
         }
 
         int result = 0;
@@ -506,7 +520,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, bool
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, bool trustPathablePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -522,7 +536,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue ";
-    sql << "ORDER BY p.Created DESC";
+    sql << "ORDER BY p.Created DESC ";
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         if (!recipient.first.empty()) {
@@ -530,6 +546,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
             sqlite3_bind_text(statement, 2, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
         } else {
             sqlite3_bind_text(statement, 1, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
+        }
+
+        if (limit) {
+            sqlite3_bind_int(statement, 3, limit);
+            sqlite3_bind_int(statement, 4, limit);
         }
 
         int result = 0;
@@ -1343,7 +1364,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
 
-    vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start, true);
+    vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start, 0, 0, true);
     searchQueue.insert(searchQueue.end(), packets.begin(), packets.end());
     int currentDistanceFromStart = 1;
 
@@ -1391,7 +1412,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
                     return path;
             }
             // add packets involving this identifier to search queue
-            vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier, true);
+            vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier, 0, 0, true);
 
             searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
 
@@ -1485,7 +1506,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
 }
 
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, int limit, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, int limit, int offset, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -1494,12 +1515,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     if (!showUnpublished)
         sql << "AND Published = 1 ";
     sql << "ORDER BY Created DESC ";
-    sql << "LIMIT @limit";
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
 
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int64(statement, 1, timestamp);
-        sqlite3_bind_int(statement, 2, limit);
+        if (limit) {
+            sqlite3_bind_int(statement, 2, limit);
+            sqlite3_bind_int(statement, 3, offset);
+        }
 
         int result = 0;
         while(true)
@@ -1522,7 +1547,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, int limit, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, int limit, int offset, bool showUnpublished) {
     CIdentifiPacket rel = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
@@ -1533,12 +1558,17 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     sql << "(Created > @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
-    sql << "ORDER BY Created DESC, Hash LIMIT @limit";
+    sql << "ORDER BY Created DESC, Hash ";
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
-        sqlite3_bind_int(statement, 3, limit);
+        if (limit) {
+            sqlite3_bind_int(statement, 3, limit);
+            sqlite3_bind_int(statement, 4, offset);            
+        }
 
         int result = 0;
         while(true)
@@ -1561,7 +1591,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, int limit, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, int limit, int offset, bool showUnpublished) {
     CIdentifiPacket rel = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
@@ -1572,12 +1602,13 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
     sql << "(Created < @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
-    sql << "ORDER BY Created DESC, Hash LIMIT @limit";
+    sql << "ORDER BY Created DESC, Hash LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
         sqlite3_bind_int(statement, 3, limit);
+        sqlite3_bind_int(statement, 4, offset);
 
         int result = 0;
         while(true)

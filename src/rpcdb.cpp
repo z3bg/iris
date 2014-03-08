@@ -94,10 +94,11 @@ Value getpacketsbyauthor(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given author identifier.");
 
     vector<CIdentifiPacket> packets;
+    int limit, offset;
     if (params.size() == 1)
-        packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), false);
+        packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), limit, offset, false);
     else
-        packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), false);
+        packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
 
     return packetVectorToJSONArray(packets);
 }
@@ -110,10 +111,11 @@ Value getpacketsbyrecipient(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given recipient identifier.");
 
     vector<CIdentifiPacket> packets;
+    int limit, offset;
     if (params.size() == 1)
-        packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), false);
+        packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), limit, offset, false);
     else
-        packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), false);
+        packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
 
     return packetVectorToJSONArray(packets);
 
