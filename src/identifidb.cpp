@@ -1449,7 +1449,7 @@ int CIdentifiDB::GetPacketCount() {
     return lexical_cast<int>(result[0][0]);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, bool showUnpublished) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -1457,10 +1457,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, bool showUnpubl
     sql << "SELECT * FROM Packets ";
     if (!showUnpublished)
         sql << "WHERE Published = 1 ";
-    sql << "ORDER BY Created DESC LIMIT @limit";
+    sql << "ORDER BY Created DESC LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_int(statement, 1, limit);
+        sqlite3_bind_int(statement, 2, offset);
 
         int result = 0;
         while(true)
