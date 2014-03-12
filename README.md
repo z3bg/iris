@@ -2,7 +2,10 @@ Identifi
 ========
 
 http://identifi.org
+
 http://slid.es/mmalmi/identifi
+
+Test deployment with identifi & identifi-rails: http://identi.fi (username & pass: identifi)
 
 What
 ----
@@ -142,6 +145,8 @@ Message encoding is UTF-8.
 TODO
 ----
 
+* Allow only 1 signature per packet or separate signatures from packets
+* Prevent packet "malleability" with canonical JSON
 * Refine pathfinding algorithm, take into account the amount of positive and negative ratings
 * Add support for up / downvoting of packets and marking identifier connections expired or incorrect
 * Recalculate packet priorities when new packets are saved
@@ -149,9 +154,6 @@ TODO
 * Improve network functions, add sanity checks and invalid packet spam protection
 * Remove unnecessary Bitcoin code
 * Improve efficiency, measured by packet save time tests
-* Crawlers
-* Visualizations
-* Trusted sites as entry points to the WoT. Let users authenticate with email, FB, pubkey, etc.
 * Merge build tools from Bitcoin master branch
 
 Future considerations
