@@ -22,14 +22,25 @@ Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = 
             nameTypes.push_back("nickname");
             
             pair<string_pair, string_pair> linkedIDs = pidentifidb->GetPacketLinkedIdentifiers(packet, nameTypes);
-            
-            Array author, recipient;
+
+            vector<CSignature> signatures = packet.GetSignatures();
+            string_pair signerName = make_pair("", "");
+            if (!signatures.empty())
+                signerName = pidentifidb->GetLinkedIdentifier(make_pair("keyID", signatures.front().GetSignerKeyID()), nameTypes);
+
+            Array author, recipient, signer;
             author.push_back(linkedIDs.first.first);
             author.push_back(linkedIDs.first.second);
             recipient.push_back(linkedIDs.second.first);
             recipient.push_back(linkedIDs.second.second);
             packetJSON.push_back(Pair("authorName", author));
             packetJSON.push_back(Pair("recipientName", recipient));
+
+            if (signerName.first != "") {
+                signer.push_back(signerName.first);
+                signer.push_back(signerName.second);
+                packetJSON.push_back(Pair("signerName", signer));
+            }
         }
         packetsJSON.push_back(packetJSON);
     }
@@ -63,15 +74,15 @@ Value getpacketbyhash(const Array& params, bool fHelp)
             "getpacketbyhash <hash>\n"
             "Looks for a packet that matches the given hash.");
 
-    Array packets;
+    vector<CIdentifiPacket> packets;
     try {
         CIdentifiPacket packet = pidentifidb->GetPacketByHash(params[0].get_str()); 
-        packets.push_back(packet.GetJSON());       
+        packets.push_back(packet);       
     } catch (runtime_error) {
 
     }
 
-    return packets;
+    return packetVectorToJSONArray(packets);
 }
 
 Value gettruststep(const Array& params, bool fHelp)
