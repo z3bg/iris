@@ -227,7 +227,7 @@ Value search(const Array& params, bool fHelp)
     if (params.size() == 1)
         query = make_pair("", params[0].get_str());
     if (params.size() >= 2)
-        query = make_pair(params[0].get_str(), params[1].get_str());
+        query = make_pair(params[1].get_str(), params[0].get_str());
     if (params.size() >= 3)
         limit = boost::lexical_cast<int>(params[2].get_str());
     if (params.size() == 4)
