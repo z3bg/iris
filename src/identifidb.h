@@ -28,6 +28,7 @@ public:
     vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
+    vector<string_pair> SearchForID(string_pair query, int limit = 50, int offset = 0, bool trustPathablePredicatesOnly = false);
     string SavePacket(CIdentifiPacket &packet);
     void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);

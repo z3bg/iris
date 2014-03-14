@@ -105,7 +105,7 @@ Value getpacketsbyauthor(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given author identifier.");
 
     vector<CIdentifiPacket> packets;
-    int limit, offset;
+    int limit = 0, offset = 0;
     if (params.size() == 1)
         packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), limit, offset, false);
     else
@@ -122,7 +122,7 @@ Value getpacketsbyrecipient(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given recipient identifier.");
 
     vector<CIdentifiPacket> packets;
-    int limit, offset;
+    int limit = 0, offset = 0;
     if (params.size() == 1)
         packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), limit, offset, false);
     else
@@ -212,6 +212,37 @@ Value getsavedpath(const Array& params, bool fHelp)
     }
 
     return packetsJSON;
+}
+
+Value search(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "search <query> <predicate=\"\"> <limit=10> <offset=0>\n"
+            "Returns a list of predicate / identifier pairs matching the query and predicate (optional).");
+
+    Array resultsJSON;
+    string_pair query;
+    int limit = 10, offset = 0;
+    if (params.size() == 1)
+        query = make_pair("", params[0].get_str());
+    if (params.size() >= 2)
+        query = make_pair(params[0].get_str(), params[1].get_str());
+    if (params.size() >= 3)
+        limit = boost::lexical_cast<int>(params[2].get_str());
+    if (params.size() == 4)
+        offset = boost::lexical_cast<int>(params[3].get_str());
+
+    vector<string_pair> results = pidentifidb->SearchForID(query, limit, offset);
+
+    BOOST_FOREACH(string_pair result, results) {
+        Array pair;
+        pair.push_back(result.first);
+        pair.push_back(result.second);
+        resultsJSON.push_back(pair);
+    }
+
+    return resultsJSON;
 }
 
 Value savepacket(const Array& params, bool fHelp)

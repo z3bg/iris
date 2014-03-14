@@ -208,6 +208,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getpacketsafter",            &getpacketsafter,           true,      false },
     { "getlatestpackets",           &getlatestpackets,          true,      false },
     { "savepacket",                 &savepacket,                true,      false },
+    { "search",                     &search,                    true,      false },
     { "saveconnection",             &saveconnection,            true,      false },
     { "savepacketfromdata",         &savepacketfromdata,        true,      false },
     { "getlinkedidentifier",        &getlinkedidentifier,        true,      false },

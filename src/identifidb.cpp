@@ -374,13 +374,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
         if (!identifier.first.empty()) {
             sqlite3_bind_text(statement, 1, identifier.first.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
+            if (limit) {
+                sqlite3_bind_int(statement, 3, limit);
+                sqlite3_bind_int(statement, 4, offset);            
+            }
         } else {
             sqlite3_bind_text(statement, 1, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
-        }
-
-        if (limit) {
-            sqlite3_bind_int(statement, 3, limit);
-            sqlite3_bind_int(statement, 4, offset);            
+            if (limit) {
+                sqlite3_bind_int(statement, 2, limit);
+                sqlite3_bind_int(statement, 3, offset);            
+            }
         }
 
         int result = 0;
@@ -489,12 +492,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, int 
         if (!author.first.empty()) {
             sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, author.second.c_str(), -1, SQLITE_TRANSIENT);
+            if (limit) {
+                sqlite3_bind_int(statement, 3, limit);
+                sqlite3_bind_int(statement, 4, offset);
+            }
         } else {
-            sqlite3_bind_text(statement, 1, author.second.c_str(), -1, SQLITE_TRANSIENT);            
-        }
-        if (limit) {
-            sqlite3_bind_int(statement, 3, limit);
-            sqlite3_bind_int(statement, 4, offset);
+            sqlite3_bind_text(statement, 1, author.second.c_str(), -1, SQLITE_TRANSIENT); 
+            if (limit) {
+                sqlite3_bind_int(statement, 2, limit);
+                sqlite3_bind_int(statement, 3, offset);
+            }           
         }
 
         int result = 0;
@@ -544,13 +551,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
         if (!recipient.first.empty()) {
             sqlite3_bind_text(statement, 1, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
+            if (limit) {
+                sqlite3_bind_int(statement, 3, limit);
+                sqlite3_bind_int(statement, 4, offset);
+            }
         } else {
             sqlite3_bind_text(statement, 1, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
-        }
-
-        if (limit) {
-            sqlite3_bind_int(statement, 3, limit);
-            sqlite3_bind_int(statement, 4, limit);
+            if (limit) {
+                sqlite3_bind_int(statement, 2, limit);
+                sqlite3_bind_int(statement, 3, offset);
+            }
         }
 
         int result = 0;
@@ -572,6 +582,65 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
     }
     
     return packets;
+}
+
+vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly) {
+    vector<string_pair> results;
+
+    sqlite3_stmt *statement;
+    vector<CIdentifiPacket> packets;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT DISTINCT pred.Value, id.Value FROM Identifiers AS id, ";
+    sql << "Predicates AS pred, PacketAuthors AS pa, PacketRecipients AS pr ";
+    sql << "WHERE ";
+    if (!query.first.empty())
+        sql << "pred.Value = @predValue AND ";
+    else if (trustPathablePredicatesOnly)
+        sql << "pred.TrustPathable = 1 AND ";
+    sql << "id.Value LIKE @query || '%%' ";
+    sql << "AND ((pa.PredicateID = pred.id AND pa.AuthorID = id.ID) ";
+    sql << "OR (pr.PredicateID = pred.id AND pr.RecipientID = id.ID)) ";
+
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        if (!query.first.empty()) {
+            sqlite3_bind_text(statement, 1, query.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            if (limit) {
+                sqlite3_bind_int(statement, 3, limit);
+                sqlite3_bind_int(statement, 4, offset);
+            }
+        } else {
+            sqlite3_bind_text(statement, 1, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            if (limit) {
+                sqlite3_bind_int(statement, 2, limit);
+                sqlite3_bind_int(statement, 3, offset);
+            }
+        }
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+            if(result == SQLITE_ROW)
+            {
+                string type = (char*)sqlite3_column_text(statement, 0);
+                string value = (char*)sqlite3_column_text(statement, 1);
+                results.push_back(make_pair(type, value));
+            }
+            else
+            {
+                break;  
+            }
+        }
+        
+        sqlite3_finalize(statement);
+    }
+    
+    return results;
 }
 
 int CIdentifiDB::SavePredicate(string predicate) {

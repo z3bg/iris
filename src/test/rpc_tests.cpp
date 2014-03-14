@@ -169,6 +169,9 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 6);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email alice@example.com email bob@example.com email bob@example.org"));
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("search alice"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 }
 
 BOOST_AUTO_TEST_CASE(savepacket_performance)
