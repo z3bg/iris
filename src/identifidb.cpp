@@ -592,15 +592,18 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     ostringstream sql;
     sql.str("");
     sql << "SELECT DISTINCT pred.Value, id.Value FROM Identifiers AS id, ";
-    sql << "Predicates AS pred, PacketAuthors AS pa, PacketRecipients AS pr ";
+    sql << "Predicates AS pred ";
+    sql << "INNER JOIN ";
+    sql << "(SELECT PredicateID, AuthorID AS IDID FROM PacketAuthors AS pa ";
+    sql << "UNION ALL ";
+    sql << "SELECT PredicateID, RecipientID AS IDID FROM PacketRecipients AS pr) ";
+    sql << "ON PredicateID = pred.id AND IDID = id.ID ";
     sql << "WHERE ";
     if (!query.first.empty())
         sql << "pred.Value = @predValue AND ";
     else if (trustPathablePredicatesOnly)
         sql << "pred.TrustPathable = 1 AND ";
-    sql << "id.Value LIKE @query || '%%' ";
-    sql << "AND ((pa.PredicateID = pred.id AND pa.AuthorID = id.ID) ";
-    sql << "OR (pr.PredicateID = pred.id AND pr.RecipientID = id.ID)) ";
+    sql << "id.Value LIKE @query || '%' ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
