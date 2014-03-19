@@ -116,7 +116,7 @@ Value getpacketsbyauthor(const Array& params, bool fHelp)
 
 Value getpacketsbyrecipient(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() < 1 || params.size() > 2 )
         throw runtime_error(
             "getpacketsbyrecipient <id_value> | <id_type> <id_value>\n"
             "Returns a list of packets associated with the given recipient identifier.");
