@@ -459,6 +459,34 @@ string_pair CIdentifiDB::GetLinkedIdentifier(string_pair startID, vector<string>
     return make_pair("","");
 }
 
+// "Find all 'names' or a 'nicknames' linked to this identifier"
+vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates) {
+    vector<LinkedID> results;
+
+    vector<CIdentifiPacket> asAuthor = GetPacketsByAuthor(startID);
+
+    BOOST_FOREACH(CIdentifiPacket packet, asAuthor) {
+        vector<string_pair> authors = packet.GetAuthors();
+        BOOST_FOREACH(string_pair author, authors) {
+            if (find(searchedPredicates.begin(), searchedPredicates.end(), author.first) != searchedPredicates.end()) {
+
+            }
+        }
+    }
+
+    vector<CIdentifiPacket> asRecipient = GetPacketsByRecipient(startID);
+    BOOST_FOREACH(CIdentifiPacket packet, asRecipient) {
+        vector<string_pair> recipients = packet.GetRecipients();
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            if (find(searchedPredicates.begin(), searchedPredicates.end(), recipient.first) != searchedPredicates.end()) {
+                
+            }
+        } 
+    }
+
+    return results;
+}
+
 CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     string strData = (char*)sqlite3_column_text(statement, 1);
     CIdentifiPacket packet(strData);
@@ -1716,4 +1744,37 @@ time_t CIdentifiDB::GetLatestPacketTimestamp() {
     }
     sqlite3_finalize(statement);
     return timestamp;
+}
+
+IDOverview CIdentifiDB::GetIDOverview(string_pair id) {
+    IDOverview overview;
+
+    sqlite3_stmt *statement;
+
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT COUNT(1) FROM Packets AS p ";
+    sql << "INNER JOIN PacketAuthors AS pa ON pa.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON id.ID = pa.AuthorID ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = pa.PredicateID ";
+    sql << "WHERE pred.Value = @type AND id.Value = @value";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
+    }
+
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        overview.authoredPositive = sqlite3_column_int(statement, 0);
+        overview.authoredNeutral = sqlite3_column_int(statement, 1);
+        overview.authoredNegative = sqlite3_column_int(statement, 2);
+        overview.receivedPositive = sqlite3_column_int(statement, 3);
+        overview.receivedNeutral = sqlite3_column_int(statement, 4);
+        overview.receivedNegative = sqlite3_column_int(statement, 5);
+        sqlite3_finalize(statement);
+        return overview;
+    } else {
+        sqlite3_finalize(statement);
+        throw runtime_error("GetIDOverview failed");
+    }
 }

@@ -169,9 +169,19 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 6);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email alice@example.com email bob@example.com email bob@example.org"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("refuteconnection email alice@example.com email bob@example.com email bob@example.org"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("search alice"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("overview email alice@example.com"));
+    data=r.get_obj();
+    BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 1);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNeutral").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "receivedNeutral").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "receivedNegative").get_int(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(savepacket_performance)

@@ -245,6 +245,26 @@ Value search(const Array& params, bool fHelp)
     return resultsJSON;
 }
 
+Value overview(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "overview <id_type> <id_value>\n"
+            "Gives an overview of an identifier.");
+
+    IDOverview overview = pidentifidb->GetIDOverview(make_pair(params[0].get_str(), params[1].get_str()));
+    Object overviewJSON;
+    overviewJSON.push_back(Pair("authoredPositive", overview.authoredPositive));
+    overviewJSON.push_back(Pair("authoredNeutral", overview.authoredPositive));
+    overviewJSON.push_back(Pair("authoredNegative", overview.authoredPositive));
+    overviewJSON.push_back(Pair("receivedPositive", overview.authoredPositive));
+    overviewJSON.push_back(Pair("receivedNeutral", overview.authoredPositive));
+    overviewJSON.push_back(Pair("receivedNegative", overview.authoredPositive));
+    overviewJSON.push_back(Pair("firstSeen", overview.authoredPositive));
+
+    return overviewJSON;
+}
+
 Value savepacket(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 6 || params.size() > 7)
@@ -287,7 +307,7 @@ Value savepacket(const Array& params, bool fHelp)
     return pidentifidb->SavePacket(packet);
 }
 
-Value saveconnection(const Array& params, bool fHelp)
+Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
 {
     if (fHelp || params.size() < 6 || params.size() > 7)
         throw runtime_error(
@@ -310,7 +330,10 @@ Value saveconnection(const Array& params, bool fHelp)
     signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
     signedData.push_back(Pair("author", author));
     signedData.push_back(Pair("recipient", recipient));
-    signedData.push_back(Pair("type", "connection"));
+    if (confirm)
+        signedData.push_back(Pair("type", "connection"));
+    else
+        signedData.push_back(Pair("type", "refute_connection"));
     // signedData.push_back(Pair("comment",params[4].get_str()));
     signedData.push_back(Pair("rating",0));
     signedData.push_back(Pair("maxRating",1));
@@ -330,6 +353,19 @@ Value saveconnection(const Array& params, bool fHelp)
         RelayPacket(packet);
     }
     return pidentifidb->SavePacket(packet);
+}
+
+Value saveconnection(const Array& params, bool fHelp) {
+    return confirmOrRefuteConnection(params, fHelp, true);
+}
+
+Value refuteconnection(const Array& params, bool fHelp) {
+    if (fHelp || params.size() < 6 || params.size() > 7)
+    throw runtime_error(
+        "refuteconnection <author_id_type> <author_id_value> <disconnected_id1_type> <disconnected_id1_value> <disconnected_id2_type> <disconnected_id2_value> <publish=false>\n"
+        "Save a connection between id1 and id2");
+
+    else return confirmOrRefuteConnection(params, fHelp, false);
 }
 
 Value savepacketfromdata(const Array& params, bool fHelp)

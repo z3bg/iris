@@ -25,6 +25,22 @@ struct IdentifiKey {
     string privKey;
 };
 
+struct LinkedID {
+    string_pair id;
+    int confirmations;
+    int refutations;
+};
+
+struct IDOverview {
+    int receivedPositive;
+    int receivedNeutral;
+    int receivedNegative;
+    int authoredPositive;
+    int authoredNeutral;
+    int authoredNegative;
+    time_t firstSeen;
+};
+
 class CSignature {
 public:
     CSignature(string signerPubKey = "", string signature = "", string signerKeyID = "") : signerPubKey(signerPubKey), signature(signature), signerKeyID(signerKeyID) {}

@@ -45,6 +45,7 @@ public:
     CIdentifiPacket GetPacketByHash(string hash);
     int GetPriority(CIdentifiPacket &packet);
     string_pair GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates);
+    vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates);
     pair<string_pair, string_pair > GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates);    bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
@@ -53,7 +54,7 @@ public:
     vector<CIdentifiPacket> GetPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
     void SaveTrustStep(string_pair start, pair<string,string> end, string nextStep);
     void SavePacketTrustPaths(CIdentifiPacket &packet);
-
+    IDOverview GetIDOverview(string_pair id);
 private:
     sqlite3 *db;
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);
