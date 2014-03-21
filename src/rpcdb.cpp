@@ -331,10 +331,9 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
     signedData.push_back(Pair("author", author));
     signedData.push_back(Pair("recipient", recipient));
     if (confirm)
-        signedData.push_back(Pair("type", "connection"));
+        signedData.push_back(Pair("type", "confirm_connection"));
     else
         signedData.push_back(Pair("type", "refute_connection"));
-    // signedData.push_back(Pair("comment",params[4].get_str()));
     signedData.push_back(Pair("rating",0));
     signedData.push_back(Pair("maxRating",1));
     signedData.push_back(Pair("minRating",-1));
