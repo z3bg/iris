@@ -1753,11 +1753,18 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id) {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT COUNT(1) FROM Packets AS p ";
+    sql << "SELECT ";
+    sql << "SUM(CASE WHEN p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "MIN(p.Created) ";
+    sql << "FROM Packets AS p ";
     sql << "INNER JOIN PacketAuthors AS pa ON pa.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON id.ID = pa.AuthorID ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = pa.PredicateID ";
-    sql << "WHERE pred.Value = @type AND id.Value = @value";
+    sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
+    sql << "WHERE packetType.Value = 'review' ";
+    sql << "AND pred.Value = @type AND id.Value = @value ";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1768,13 +1775,46 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id) {
         overview.authoredPositive = sqlite3_column_int(statement, 0);
         overview.authoredNeutral = sqlite3_column_int(statement, 1);
         overview.authoredNegative = sqlite3_column_int(statement, 2);
-        overview.receivedPositive = sqlite3_column_int(statement, 3);
-        overview.receivedNeutral = sqlite3_column_int(statement, 4);
-        overview.receivedNegative = sqlite3_column_int(statement, 5);
+        overview.firstSeen = sqlite3_column_int64(statement, 3);
         sqlite3_finalize(statement);
-        return overview;
     } else {
         sqlite3_finalize(statement);
         throw runtime_error("GetIDOverview failed");
     }
+
+    // Can these two be combined?
+
+    sql.str("");
+    sql << "SELECT ";
+    sql << "SUM(CASE WHEN p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "MIN(p.Created) ";
+    sql << "FROM Packets AS p ";
+    sql << "INNER JOIN PacketRecipients AS pr ON pr.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON id.ID = pr.RecipientID ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = pr.PredicateID ";
+    sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
+    sql << "WHERE packetType.Value = 'review' ";
+    sql << "AND pred.Value = @type AND id.Value = @value ";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
+    }
+
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        overview.receivedPositive = sqlite3_column_int(statement, 0);
+        overview.receivedNeutral = sqlite3_column_int(statement, 1);
+        overview.receivedNegative = sqlite3_column_int(statement, 2);
+        long int firstSeen = sqlite3_column_int64(statement, 3);
+        if (firstSeen < overview.firstSeen)
+            overview.firstSeen = firstSeen;
+        sqlite3_finalize(statement);
+    } else {
+        sqlite3_finalize(statement);
+        throw runtime_error("GetIDOverview failed");
+    }
+
+    return overview;
 }

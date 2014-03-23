@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 8);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor mailto:alice@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor mbox mailto:alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     Object firstPacket, data, signedData;
     BOOST_CHECK_NO_THROW(firstPacket = r.get_array().front().get_obj());
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK(!find_value(data, "signatures").get_array().empty());
     BOOST_CHECK_EQUAL(find_value(firstPacket, "published").get_bool(), false);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyrecipient mailto:bob@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyrecipient mbox mailto:bob@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     BOOST_CHECK_NO_THROW(firstPacket = r.get_array().front().get_obj());
     BOOST_CHECK_NO_THROW(data=find_value(firstPacket, "data").get_obj());
@@ -124,7 +124,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr trusted 5 true"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1392476848,\"author\":[[\"keyID\",\"1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr\"]],\"recipient\":[[\"email\",\"james@example.com\"]],\"type\":\"review\",\"comment\":\"trusted\",\"rating\":1,\"maxRating\":10,\"minRating\":-10},\"signatures\":[{\"pubKey\":\"RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU\",\"signature\":\"381yXZQ5LQ2YiuPqtgUAuP3TUMCQQQR7g3gZMS5KHjChRoJoaQFZpuVZXXb6u7dW1rG5cH8AmwxXerjJdHLskgp2HJG24FqE\"}]}"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     firstPacket = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
 
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor http://www.example.com/alice"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor profile http://www.example.com/alice"));
     firstPacket = r.get_array().front().get_obj();
     data=find_value(firstPacket, "data").get_obj();
     BOOST_CHECK_EQUAL(find_value(data, "signatures").get_array().size(), 1);
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_THROW(r=CallRPC("addsignature 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP QuFEJZLioVcvzrGjfdm2QFsV7Nrmm8vdDMCmW9X2xgpZpYPKrTkZzXjQNjcvfjuu7GrxQKGiUZjXznLkULYjet3V invalidsignature"), runtime_error);
     BOOST_CHECK_NO_THROW(r=CallRPC("addsignature 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP QuFEJZLioVcvzrGjfdm2QFsV7Nrmm8vdDMCmW9X2xgpZpYPKrTkZzXjQNjcvfjuu7GrxQKGiUZjXznLkULYjet3V AN1rKvt2BThjKHbzpNrgxrfRrssN3Fq6byGGaQL3GjjKsqnYgaCJmQqh5Pj5fDjd7UNTHTSY21Xncpe2NigZ2sZFR57brJnJZ"));
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor http://www.example.com/alice"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor profile http://www.example.com/alice"));
     firstPacket = r.get_array().front().get_obj();
     data=find_value(firstPacket, "data").get_obj();
     BOOST_CHECK_EQUAL(find_value(data, "signatures").get_array().size(), 2);
@@ -174,14 +174,15 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("search alice"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("overview email alice@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("overview mbox mailto:alice@example.com"));
     data=r.get_obj();
     BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "authoredNeutral").get_int(), 0);
-    BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 0);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNeutral").get_int(), 0);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNegative").get_int(), 0);
+    BOOST_CHECK(find_value(data, "firstSeen").get_int() != 0);
 }
 
 BOOST_AUTO_TEST_CASE(savepacket_performance)

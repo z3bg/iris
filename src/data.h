@@ -38,7 +38,7 @@ struct IDOverview {
     int authoredPositive;
     int authoredNeutral;
     int authoredNegative;
-    time_t firstSeen;
+    long int firstSeen;
 };
 
 class CSignature {

@@ -99,34 +99,36 @@ Value gettruststep(const Array& params, bool fHelp)
 
 Value getpacketsbyauthor(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
-            "getpacketsbyauthor <id_value> | <id_type> <id_value>\n"
+            "getpacketsbyauthor <id_type> <id_value> <limit=20> <offset=0> <\n"
             "Returns a list of packets associated with the given author identifier.");
 
     vector<CIdentifiPacket> packets;
     int limit = 0, offset = 0;
-    if (params.size() == 1)
-        packets = pidentifidb->GetPacketsByAuthor(make_pair("", params[0].get_str()), limit, offset, false);
-    else
-        packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
+    if (params.size() >= 3)
+        limit = params[2].get_int();
+    if (params.size() == 4)
+        offset = params[3].get_int();
+    packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
 
     return packetVectorToJSONArray(packets);
 }
 
 Value getpacketsbyrecipient(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2 )
+    if (fHelp || params.size() < 2 || params.size() > 4 )
         throw runtime_error(
-            "getpacketsbyrecipient <id_value> | <id_type> <id_value>\n"
+            "getpacketsbyrecipient <id_type> <id_value> <limit=20> <offset=0>\n"
             "Returns a list of packets associated with the given recipient identifier.");
 
     vector<CIdentifiPacket> packets;
     int limit = 0, offset = 0;
-    if (params.size() == 1)
-        packets = pidentifidb->GetPacketsByRecipient(make_pair("", params[0].get_str()), limit, offset, false);
-    else
-        packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
+    if (params.size() >= 3)
+        limit = params[2].get_int();
+    if (params.size() == 4)
+        offset = params[3].get_int();
+    packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
 
     return packetVectorToJSONArray(packets);
 
@@ -255,12 +257,12 @@ Value overview(const Array& params, bool fHelp)
     IDOverview overview = pidentifidb->GetIDOverview(make_pair(params[0].get_str(), params[1].get_str()));
     Object overviewJSON;
     overviewJSON.push_back(Pair("authoredPositive", overview.authoredPositive));
-    overviewJSON.push_back(Pair("authoredNeutral", overview.authoredPositive));
-    overviewJSON.push_back(Pair("authoredNegative", overview.authoredPositive));
-    overviewJSON.push_back(Pair("receivedPositive", overview.authoredPositive));
-    overviewJSON.push_back(Pair("receivedNeutral", overview.authoredPositive));
-    overviewJSON.push_back(Pair("receivedNegative", overview.authoredPositive));
-    overviewJSON.push_back(Pair("firstSeen", overview.authoredPositive));
+    overviewJSON.push_back(Pair("authoredNeutral", overview.authoredNeutral));
+    overviewJSON.push_back(Pair("authoredNegative", overview.authoredNegative));
+    overviewJSON.push_back(Pair("receivedPositive", overview.receivedPositive));
+    overviewJSON.push_back(Pair("receivedNeutral", overview.receivedNeutral));
+    overviewJSON.push_back(Pair("receivedNegative", overview.receivedNegative));
+    overviewJSON.push_back(Pair("firstSeen", overview.firstSeen));
 
     return overviewJSON;
 }
