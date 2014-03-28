@@ -261,6 +261,13 @@ Value overview(const Array& params, bool fHelp)
     overviewJSON.push_back(Pair("receivedNegative", overview.receivedNegative));
     overviewJSON.push_back(Pair("firstSeen", overview.firstSeen));
 
+    vector<string> nameTypes;
+    nameTypes.push_back("name");
+    nameTypes.push_back("nickname");
+    string_pair result = pidentifidb->GetLinkedIdentifier(make_pair(params[0].get_str(), params[1].get_str()), nameTypes);
+    if (!result.first.empty())
+        overviewJSON.push_back(Pair("name", result.second));
+
     return overviewJSON;
 }
 
