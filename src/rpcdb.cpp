@@ -189,11 +189,8 @@ Value getpath(const Array& params, bool fHelp)
         packets = pidentifidb->SearchForPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), false);
     else
         packets = pidentifidb->SearchForPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), false, boost::lexical_cast<int>(params[4].get_str()));
-    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
-        packetsJSON.push_back(it->GetJSON());
-    }
 
-    return packetsJSON;
+    return packetVectorToJSONArray(packets);
 }
 
 Value getsavedpath(const Array& params, bool fHelp)
