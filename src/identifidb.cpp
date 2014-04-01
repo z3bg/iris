@@ -464,7 +464,7 @@ string_pair CIdentifiDB::GetLinkedIdentifier(string_pair startID, vector<string>
     return make_pair("","");
 }
 
-// "Find all 'names' or a 'nicknames' linked to this identifier"
+// "Find all 'names' or a 'nicknames' linked to this identifier". Empty searchedPredicates catches all.
 vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates) {
     vector<LinkedID> results;
 
@@ -472,31 +472,46 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT pred.Value AS IdType, id.Value AS IdValue, "; 
-    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' THEN 1 ELSE 0 END) AS Confirmations, ";
-    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' THEN 1 ELSE 0 END) AS Refutations ";
-    sql << "FROM Identifiers AS id, Predicates AS pred ";
-    sql << "INNER JOIN PacketRecipients AS LinkedRecipient ";
-    sql << "ON LinkedRecipient.PredicateID = pred.id AND LinkedRecipient.RecipientID = id.ID ";
-    sql << "INNER JOIN PacketRecipients AS SearchedRecipient ";
-    sql << "ON LinkedRecipient.PacketHash = SearchedRecipient.PacketHash ";
-    sql << "INNER JOIN Identifiers AS SearchedID ON SearchedRecipient.RecipientID = SearchedID.ID ";
-    sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedRecipient.PredicateID = SearchedPredicate.ID ";
+
+    // What a monster
+    sql << "SELECT pred.Value AS IdType, id.Value AS IdValue, ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' ";
+    sql << "AND IsRecipient2 THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' ";
+    sql << "AND IsRecipient2 THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Predicates AS pred, Identifiers AS id ";
+
+    sql << "INNER JOIN ";
+    sql << "(SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, ";
+    sql << "AuthorID AS LinkedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
+    sql << "UNION ";
+    sql << "SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, ";
+    sql << "RecipientID AS LinkedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
+    sql << "ON LinkedPredicateID = pred.id AND LinkedIDID = id.ID ";
+
+    sql << "INNER JOIN ";
+    sql << "(SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, ";
+    sql << "AuthorID AS SearchedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
+    sql << "UNION ";
+    sql << "SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, ";
+    sql << "RecipientID AS SearchedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
+    sql << "ON ph1 = ph2 AND IsRecipient1 = IsRecipient2 ";
+
+    sql << "INNER JOIN Identifiers AS SearchedID ON SearchedIDID = SearchedID.ID ";
+    sql << "INNER JOIN Predicates AS SearchedPredicate ";
+    sql << "ON SearchedPredicateID = SearchedPredicate.ID ";
+
     sql << "INNER JOIN ";
     sql << "(SELECT Hash, p.PredicateID AS PacketTypeID FROM Packets AS p ";
     sql << "INNER JOIN PacketAuthors AS LinkAuthor ON LinkAuthor.PacketHash = Hash ";
     sql << "GROUP BY LinkAuthor.PredicateID, LinkAuthor.AuthorID) ";
-    sql << "ON Hash = LinkedRecipient.PacketHash ";
+    sql << "ON Hash = ph2 ";
     sql << "INNER JOIN Predicates AS PacketType ON PacketTypeID = PacketType.id ";
+
     sql << "WHERE SearchedPredicate.Value = @type ";
     sql << "AND SearchedID.Value = @value ";
-    sql << "GROUP BY IdType, IdValue";
-    //sql << "WHERE ";
-    //if (!query.first.empty())
-    //    sql << "pred.Value = @predValue AND ";
-
-    //if (limit)
-    //    sql << "LIMIT @limit OFFSET @offset";
+    sql << "AND NOT (IdType = SearchedPredicate.Value AND IdValue = SearchedID.Value) ";
+    sql << "GROUP BY IdType, IdValue ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
