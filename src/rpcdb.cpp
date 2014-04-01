@@ -373,6 +373,26 @@ Value refuteconnection(const Array& params, bool fHelp) {
     else return confirmOrRefuteConnection(params, fHelp, false);
 }
 
+Value getconnections(const Array& params, bool fHelp) {
+    if (fHelp || params.size() != 2)
+    throw runtime_error(
+        "getconnections <id_type> <id_value>\n"
+        "Get identifiers linked to the given identifier");
+
+    vector<string> searchTypes;
+    vector<LinkedID> results = pidentifidb->GetLinkedIdentifiers(make_pair(params[0].get_str(), params[1].get_str()), searchTypes);
+    Array resultsJSON;
+    BOOST_FOREACH(LinkedID result, results) {
+        Object id;
+        id.push_back(Pair("type", result.id.first));
+        id.push_back(Pair("value", result.id.second));
+        id.push_back(Pair("confirmations", result.confirmations));
+        id.push_back(Pair("refutations", result.refutations));
+        resultsJSON.push_back(id);
+    }
+    return resultsJSON;
+}
+
 Value savepacketfromdata(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)

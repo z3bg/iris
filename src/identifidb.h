@@ -38,6 +38,7 @@ public:
     vector<string> GetMyPubKeys();
     string GetSavedKeyID(string pubKey);
     bool ImportPrivKey(string privKey, bool setDefault=false);
+    vector<LinkedID> GetConnections(string_pair id);
     int GetPacketCount();
     int GetPacketCountByAuthor(string_pair author);
     int GetIdentifierCount();

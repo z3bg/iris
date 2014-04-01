@@ -409,6 +409,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     return packets;
 }
 
+vector<LinkedID> CIdentifiDB::GetConnections(string_pair id) {
+    vector<LinkedID> results;
+    return results;
+}
+
 // "Find a 'name' or a 'nickname' for the author and recipient of this packet"
 pair<string_pair, string_pair> CIdentifiDB::GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates) {
     string_pair authorID, recipientID;
@@ -463,27 +468,63 @@ string_pair CIdentifiDB::GetLinkedIdentifier(string_pair startID, vector<string>
 vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates) {
     vector<LinkedID> results;
 
-    vector<CIdentifiPacket> asAuthor = GetPacketsByAuthor(startID);
+    sqlite3_stmt *statement;
+    vector<CIdentifiPacket> packets;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT pred.Value AS IdType, id.Value AS IdValue, "; 
+    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Identifiers AS id, Predicates AS pred ";
+    sql << "INNER JOIN PacketRecipients AS LinkedRecipient ";
+    sql << "ON LinkedRecipient.PredicateID = pred.id AND LinkedRecipient.RecipientID = id.ID ";
+    sql << "INNER JOIN PacketRecipients AS SearchedRecipient ";
+    sql << "ON LinkedRecipient.PacketHash = SearchedRecipient.PacketHash ";
+    sql << "INNER JOIN Identifiers AS SearchedID ON SearchedRecipient.RecipientID = SearchedID.ID ";
+    sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedRecipient.PredicateID = SearchedPredicate.ID ";
+    sql << "INNER JOIN ";
+    sql << "(SELECT Hash, p.PredicateID AS PacketTypeID FROM Packets AS p ";
+    sql << "INNER JOIN PacketAuthors AS LinkAuthor ON LinkAuthor.PacketHash = Hash ";
+    sql << "GROUP BY LinkAuthor.PredicateID, LinkAuthor.AuthorID) ";
+    sql << "ON Hash = LinkedRecipient.PacketHash ";
+    sql << "INNER JOIN Predicates AS PacketType ON PacketTypeID = PacketType.id ";
+    sql << "WHERE SearchedPredicate.Value = @type ";
+    sql << "AND SearchedID.Value = @value ";
+    sql << "GROUP BY IdType, IdValue";
+    //sql << "WHERE ";
+    //if (!query.first.empty())
+    //    sql << "pred.Value = @predValue AND ";
 
-    BOOST_FOREACH(CIdentifiPacket packet, asAuthor) {
-        vector<string_pair> authors = packet.GetAuthors();
-        BOOST_FOREACH(string_pair author, authors) {
-            if (find(searchedPredicates.begin(), searchedPredicates.end(), author.first) != searchedPredicates.end()) {
+    //if (limit)
+    //    sql << "LIMIT @limit OFFSET @offset";
 
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+            if(result == SQLITE_ROW)
+            {
+                LinkedID id;
+                string type = (char*)sqlite3_column_text(statement, 0);
+                string value = (char*)sqlite3_column_text(statement, 1);
+                id.id = make_pair(type, value);
+                id.confirmations = sqlite3_column_int(statement, 2);
+                id.refutations = sqlite3_column_int(statement, 3);
+                results.push_back(id);
+            }
+            else
+            {
+                break;  
             }
         }
+        
+        sqlite3_finalize(statement);
     }
-
-    vector<CIdentifiPacket> asRecipient = GetPacketsByRecipient(startID);
-    BOOST_FOREACH(CIdentifiPacket packet, asRecipient) {
-        vector<string_pair> recipients = packet.GetRecipients();
-        BOOST_FOREACH(string_pair recipient, recipients) {
-            if (find(searchedPredicates.begin(), searchedPredicates.end(), recipient.first) != searchedPredicates.end()) {
-                
-            }
-        } 
-    }
-
+    
     return results;
 }
 
