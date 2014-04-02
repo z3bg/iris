@@ -182,7 +182,6 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 0);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNeutral").get_int(), 0);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNegative").get_int(), 0);
-    BOOST_CHECK(find_value(data, "firstSeen").get_int() != 0);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getconnections mbox mailto:alice@example.com"));
 }

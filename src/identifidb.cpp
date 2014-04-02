@@ -466,15 +466,15 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "FROM Packets AS p ";
 
     sql << "INNER JOIN ";
-    sql << "(SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, AuthorID AS LinkedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
+    sql << "(SELECT PacketHash AS ph1, PredicateID AS SearchedPredicateID, AuthorID AS SearchedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
     sql << "UNION ";
-    sql << "SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, RecipientID AS LinkedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
-    sql << "ON ph1 = p.Hash ";
+    sql << "SELECT PacketHash AS ph1, PredicateID AS SearchedPredicateID, RecipientID AS SearchedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
+    sql << "ON p.Hash = ph1 ";
 
     sql << "INNER JOIN ";
-    sql << "(SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, AuthorID AS SearchedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
+    sql << "(SELECT PacketHash AS ph2, PredicateID AS LinkedPredicateID, AuthorID AS LinkedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
     sql << "UNION ";
-    sql << "SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, RecipientID AS SearchedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
+    sql << "SELECT PacketHash AS ph2, PredicateID AS LinkedPredicateID, RecipientID AS LinkedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
     sql << "ON ph1 = ph2 AND IsRecipient1 = IsRecipient2 ";
 
     sql << "INNER JOIN Identifiers AS SearchedID ON SearchedIDID = SearchedID.ID ";
