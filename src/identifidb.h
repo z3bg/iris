@@ -46,7 +46,7 @@ public:
     CIdentifiPacket GetPacketByHash(string hash);
     int GetPriority(CIdentifiPacket &packet);
     string_pair GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates);
-    vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates);
+    vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit = 0, int offset = 0);
     pair<string_pair, string_pair > GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates);    bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();

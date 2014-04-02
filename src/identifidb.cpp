@@ -7,6 +7,7 @@
 #include <deque>
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <map>
 #include <cmath>
 
@@ -442,30 +443,15 @@ pair<string_pair, string_pair> CIdentifiDB::GetPacketLinkedIdentifiers(CIdentifi
 // "Find a 'name' or a 'nickname' linked to this identifier"
 // TODO: make it find the most trusted or frequent link
 string_pair CIdentifiDB::GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates) {
-    vector<CIdentifiPacket> asAuthor = GetPacketsByAuthor(startID);
-
-    BOOST_FOREACH(CIdentifiPacket packet, asAuthor) {
-        vector<string_pair> authors = packet.GetAuthors();
-        BOOST_FOREACH(string_pair author, authors) {
-            if (find(searchedPredicates.begin(), searchedPredicates.end(), author.first) != searchedPredicates.end())
-                return author;
-        }
-    }
-
-    vector<CIdentifiPacket> asRecipient = GetPacketsByRecipient(startID);
-    BOOST_FOREACH(CIdentifiPacket packet, asRecipient) {
-        vector<string_pair> recipients = packet.GetRecipients();
-        BOOST_FOREACH(string_pair recipient, recipients) {
-            if (find(searchedPredicates.begin(), searchedPredicates.end(), recipient.first) != searchedPredicates.end())
-                return recipient;            
-        } 
-    }
-
-    return make_pair("","");
+    vector<LinkedID> linkedIDs = GetLinkedIdentifiers(startID, searchedPredicates, 1);
+    if (linkedIDs.empty())
+        return make_pair("","");
+    else
+        return linkedIDs.front().id;
 }
 
 // "Find all 'names' or a 'nicknames' linked to this identifier". Empty searchedPredicates catches all.
-vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates) {
+vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit, int offset) {
     vector<LinkedID> results;
 
     sqlite3_stmt *statement;
@@ -474,48 +460,57 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql.str("");
 
     // What a monster
-    sql << "SELECT pred.Value AS IdType, id.Value AS IdValue, ";
-    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' ";
-    sql << "AND IsRecipient2 THEN 1 ELSE 0 END) AS Confirmations, ";
-    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' ";
-    sql << "AND IsRecipient2 THEN 1 ELSE 0 END) AS Refutations ";
-    sql << "FROM Predicates AS pred, Identifiers AS id ";
+    sql << "SELECT LinkedPredicate.Value AS IdType, LinkedID.Value AS IdValue, ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' AND IsRecipient2 THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' AND IsRecipient2 THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Packets AS p ";
 
     sql << "INNER JOIN ";
-    sql << "(SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, ";
-    sql << "AuthorID AS LinkedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
+    sql << "(SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, AuthorID AS LinkedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
     sql << "UNION ";
-    sql << "SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, ";
-    sql << "RecipientID AS LinkedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
-    sql << "ON LinkedPredicateID = pred.id AND LinkedIDID = id.ID ";
+    sql << "SELECT PacketHash AS ph1, PredicateID AS LinkedPredicateID, RecipientID AS LinkedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
+    sql << "ON ph1 = p.Hash ";
 
     sql << "INNER JOIN ";
-    sql << "(SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, ";
-    sql << "AuthorID AS SearchedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
+    sql << "(SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, AuthorID AS SearchedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
     sql << "UNION ";
-    sql << "SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, ";
-    sql << "RecipientID AS SearchedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
+    sql << "SELECT PacketHash AS ph2, PredicateID AS SearchedPredicateID, RecipientID AS SearchedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
     sql << "ON ph1 = ph2 AND IsRecipient1 = IsRecipient2 ";
 
     sql << "INNER JOIN Identifiers AS SearchedID ON SearchedIDID = SearchedID.ID ";
-    sql << "INNER JOIN Predicates AS SearchedPredicate ";
-    sql << "ON SearchedPredicateID = SearchedPredicate.ID ";
+    sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedPredicateID = SearchedPredicate.ID ";
 
-    sql << "INNER JOIN ";
-    sql << "(SELECT Hash, p.PredicateID AS PacketTypeID FROM Packets AS p ";
-    sql << "INNER JOIN PacketAuthors AS LinkAuthor ON LinkAuthor.PacketHash = Hash ";
-    sql << "GROUP BY LinkAuthor.PredicateID, LinkAuthor.AuthorID) ";
-    sql << "ON Hash = ph2 ";
-    sql << "INNER JOIN Predicates AS PacketType ON PacketTypeID = PacketType.id ";
+    sql << "INNER JOIN Identifiers AS LinkedID ON LinkedIDID = LinkedID.ID ";
+    sql << "INNER JOIN Predicates AS LinkedPredicate ON LinkedPredicateID = LinkedPredicate.ID ";
+
+    sql << "INNER JOIN Predicates AS PacketType ON p.PredicateID = PacketType.id ";
 
     sql << "WHERE SearchedPredicate.Value = @type ";
     sql << "AND SearchedID.Value = @value ";
     sql << "AND NOT (IdType = SearchedPredicate.Value AND IdValue = SearchedID.Value) ";
+
+    if (!searchedPredicates.empty()) {
+        vector<string> questionMarks(searchedPredicates.size(), "?");
+        sql << "AND IdType IN (" << algorithm::join(questionMarks, ", ") << ") ";
+    }
+
     sql << "GROUP BY IdType, IdValue ";
+    sql << "ORDER BY Confirmations DESC ";
+
+    if (limit > 0) {
+        sql << "LIMIT " << limit;
+        sql << " OFFSET " << offset;
+    }
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (!searchedPredicates.empty()) {
+            for (unsigned int i = 0; i < searchedPredicates.size(); i++) {
+                sqlite3_bind_text(statement, i + 3, searchedPredicates.at(i).c_str(), -1, SQLITE_TRANSIENT);
+            }
+        }
 
         int result = 0;
         while(true)

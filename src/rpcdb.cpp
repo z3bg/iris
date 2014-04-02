@@ -419,7 +419,7 @@ Value getlinkedidentifier(const Array& params, bool fHelp)
     if (fHelp || params.size() != 3)
         throw runtime_error(
             "getlinkedidentifier <start_predicate> <start_id> <end_predicate>\n"
-            "For example, find a nickname that corresponds to the given identifier.");
+            "For example, find a nickname that is linked to the given identifier with the biggest number of confirmations.");
 
     vector<string> searchTypes;
     searchTypes.push_back(params[2].get_str());
