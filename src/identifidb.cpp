@@ -198,21 +198,29 @@ void CIdentifiDB::Initialize() {
     sql << "CREATE TABLE IF NOT EXISTS PacketAuthors (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "AuthorID            INTEGER         NOT NULL);";
+    sql << "AuthorID            INTEGER         NOT NULL,";
+    sql << "FOREIGN KEY(AuthorID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PredicateID) REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketRecipients (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "RecipientID         INTEGER         NOT NULL);";
+    sql << "RecipientID         INTEGER         NOT NULL,";
+    sql << "FOREIGN KEY(RecipientID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PredicateID) REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketSignatures (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
-    sql << "PubKeyID            INTEGER         NOT NULL);";
+    sql << "PubKeyID            INTEGER         NOT NULL,";
+    sql << "FOREIGN KEY(PubKeyID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
     query(sql.str().c_str());
 
     sql.str("");
@@ -221,7 +229,12 @@ void CIdentifiDB::Initialize() {
     sql << "StartPredicateID    INTEGER,";
     sql << "EndID               INTEGER         NOT NULL,";
     sql << "EndPredicateID      INTEGER,";
-    sql << "NextStep            NVARCHAR(45)    NOT NULL);";
+    sql << "NextStep            NVARCHAR(45)    NOT NULL,";
+    sql << "FOREIGN KEY(StartID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(StartPredicateID) REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(EndID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(EndPredicateID) REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(NextStep) REFERENCES Packets(PacketHash));";
     query(sql.str().c_str());
 
     sql.str("");
@@ -229,7 +242,9 @@ void CIdentifiDB::Initialize() {
     sql << "PubKeyID            INTEGER         PRIMARY KEY,";
     sql << "KeyIdentifierID     INTEGER         DEFAULT NULL,";
     sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
-    sql << "IsDefault           BOOL            DEFAULT 0);";
+    sql << "IsDefault           BOOL            DEFAULT 0,";
+    sql << "FOREIGN KEY(KeyIdentifierID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PubKeyID) REFERENCES Identifiers(ID));";
     query(sql.str().c_str());
 
     CheckDefaultTrustPathablePredicates();
@@ -467,15 +482,15 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     sql << "INNER JOIN ";
     sql << "(SELECT PacketHash AS ph1, PredicateID AS SearchedPredicateID, AuthorID AS SearchedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
-    sql << "UNION ";
+    sql << "UNION ALL ";
     sql << "SELECT PacketHash AS ph1, PredicateID AS SearchedPredicateID, RecipientID AS SearchedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
     sql << "ON p.Hash = ph1 ";
 
     sql << "INNER JOIN ";
     sql << "(SELECT PacketHash AS ph2, PredicateID AS LinkedPredicateID, AuthorID AS LinkedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
-    sql << "UNION ";
+    sql << "UNION ALL ";
     sql << "SELECT PacketHash AS ph2, PredicateID AS LinkedPredicateID, RecipientID AS LinkedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
-    sql << "ON ph1 = ph2 AND IsRecipient1 = IsRecipient2 ";
+    sql << "ON p.Hash = ph1 AND p.Hash = ph2 AND ph1 = ph2 AND IsRecipient1 = IsRecipient2 ";
 
     sql << "INNER JOIN Identifiers AS SearchedID ON SearchedIDID = SearchedID.ID ";
     sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedPredicateID = SearchedPredicate.ID ";
@@ -781,7 +796,21 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     ostringstream sql;
 
     sql.str("");
-    sql << "DELETE FROM Packets WHERE Hash = @hash;";
+    sql << "DELETE FROM PacketRecipients WHERE PacketHash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sql.str("");
+    sql << "DELETE FROM PacketAuthors WHERE PacketHash = @hash;";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    }
+
+    sql.str("");
+    sql << "DELETE FROM PacketSignatures WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
@@ -808,21 +837,7 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     }
 
     sql.str("");
-    sql << "DELETE FROM PacketRecipients WHERE PacketHash = @hash;";
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-    }
-
-    sql.str("");
-    sql << "DELETE FROM PacketAuthors WHERE PacketHash = @hash;";
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-    }
-
-    sql.str("");
-    sql << "DELETE FROM PacketSignatures WHERE PacketHash = @hash;";
+    sql << "DELETE FROM Packets WHERE Hash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
