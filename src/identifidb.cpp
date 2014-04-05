@@ -195,21 +195,12 @@ void CIdentifiDB::Initialize() {
     query(sql.str().c_str());
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS PacketAuthors (";
+    sql << "CREATE TABLE IF NOT EXISTS PacketIdentifiers (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "AuthorID            INTEGER         NOT NULL,";
-    sql << "FOREIGN KEY(AuthorID) REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PredicateID) REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
-    query(sql.str().c_str());
-
-    sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS PacketRecipients (";
-    sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
-    sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "RecipientID         INTEGER         NOT NULL,";
-    sql << "FOREIGN KEY(RecipientID) REFERENCES Identifiers(ID),";
+    sql << "IdentifierID        INTEGER         NOT NULL,";
+    sql << "IsRecipient         BOOL            DEFAULT 0,";
+    sql << "FOREIGN KEY(IdentifierID) REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(PredicateID) REFERENCES Predicates(ID),";
     sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
     query(sql.str().c_str());
@@ -260,19 +251,20 @@ void CIdentifiDB::SearchForPathForMyKeys() {
     } 
 }
 
-vector<string_pair> CIdentifiDB::GetAuthorsByPacketHash(string packetHash) {
+vector<string_pair> CIdentifiDB::GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient) {
     vector<string_pair> authors;
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
     sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN PacketAuthors AS rs ON rs.PacketHash = @packethash ";
-    sql << "INNER JOIN Predicates AS p ON rs.PredicateID = p.ID ";
-    sql << "WHERE id.ID = rs.AuthorID;";
+    sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = @packethash ";
+    sql << "INNER JOIN Predicates AS p ON pi.PredicateID = p.ID ";
+    sql << "WHERE id.ID = pi.IdentifierID AND pi.IsRecipient = @isrecipient;";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 2, isRecipient);
 
         int result = 0;
         while(true) {
@@ -293,39 +285,12 @@ vector<string_pair> CIdentifiDB::GetAuthorsByPacketHash(string packetHash) {
     return authors;
 }
 
+vector<string_pair> CIdentifiDB::GetAuthorsByPacketHash(string packetHash) {
+    return GetAuthorsOrRecipientsByPacketHash(packetHash, false);
+}
+
 vector<string_pair> CIdentifiDB::GetRecipientsByPacketHash(string packetHash) {
-    vector<string_pair> recipients;
-    sqlite3_stmt *statement;
-    ostringstream sql;
-
-    sql.str("");
-    sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN PacketRecipients AS ro ON ro.PacketHash = @packethash ";
-    sql << "INNER JOIN Predicates AS p ON ro.PredicateID = p.ID ";
-    sql << "WHERE id.ID = ro.RecipientID;";
-
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-
-        int result = 0;
-        while(true) {
-            result = sqlite3_step(statement);
-            
-            if(result == SQLITE_ROW) {
-                string predicate = string((char*)sqlite3_column_text(statement, 0));
-                string identifier = string((char*)sqlite3_column_text(statement, 1));
-                recipients.push_back(make_pair(predicate, identifier));
-            } else {
-                break;  
-            }
-        }
-        
-        sqlite3_finalize(statement);
-    } else {
-        printf("DB Error: %s\n", sqlite3_errmsg(db));
-    }
-    
-    return recipients;
+    return GetAuthorsOrRecipientsByPacketHash(packetHash, true);
 }
 
 vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
@@ -368,12 +333,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Packets AS p ";
-    sql << "INNER JOIN PacketAuthors AS ps ON ps.PacketHash = p.Hash ";
-    sql << "INNER JOIN PacketRecipients AS po ON po.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON (ps.AuthorID = id.ID ";
-    sql << "OR po.RecipientID = id.ID) ";
-    sql << "INNER JOIN Predicates AS pred ON (ps.PredicateID = pred.ID ";
-    sql << "OR po.PredicateID = pred.ID) ";
+    sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
+    sql << "INNER JOIN Predicates AS pred ON pi.PredicateID = pred.ID ";
     sql << "WHERE ";
     if (!identifier.first.empty())
         sql << "pred.Value = @predValue AND ";
@@ -474,29 +436,21 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     ostringstream sql;
     sql.str("");
 
-    // What a monster
     sql << "SELECT LinkedPredicate.Value AS IdType, LinkedID.Value AS IdValue, ";
-    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' AND IsRecipient2 THEN 1 ELSE 0 END) AS Confirmations, ";
-    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' AND IsRecipient2 THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'confirm_connection' AND LinkedPacketID.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' AND LinkedPacketID.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Packets AS p ";
 
-    sql << "INNER JOIN ";
-    sql << "(SELECT PacketHash AS ph1, PredicateID AS SearchedPredicateID, AuthorID AS SearchedIDID, 0 AS IsRecipient1 FROM PacketAuthors ";
-    sql << "UNION ALL ";
-    sql << "SELECT PacketHash AS ph1, PredicateID AS SearchedPredicateID, RecipientID AS SearchedIDID, 1 AS IsRecipient1 FROM PacketRecipients) ";
-    sql << "ON p.Hash = ph1 ";
+    sql << "INNER JOIN PacketIdentifiers AS SearchedPacketID ON p.Hash = SearchedPacketID.PacketHash ";
+    sql << "INNER JOIN PacketIdentifiers AS LinkedPacketID ";
+    sql << "ON (LinkedPacketID.PacketHash = SearchedPacketID.PacketHash ";
+    sql << "AND LinkedPacketID.IsRecipient = SearchedPacketID.IsRecipient) ";
 
-    sql << "INNER JOIN ";
-    sql << "(SELECT PacketHash AS ph2, PredicateID AS LinkedPredicateID, AuthorID AS LinkedIDID, 0 AS IsRecipient2 FROM PacketAuthors ";
-    sql << "UNION ALL ";
-    sql << "SELECT PacketHash AS ph2, PredicateID AS LinkedPredicateID, RecipientID AS LinkedIDID, 1 AS IsRecipient2 FROM PacketRecipients) ";
-    sql << "ON p.Hash = ph1 AND p.Hash = ph2 AND ph1 = ph2 AND IsRecipient1 = IsRecipient2 ";
+    sql << "INNER JOIN Identifiers AS SearchedID ON SearchedPacketID.IdentifierID = SearchedID.ID ";
+    sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedPacketID.PredicateID = SearchedPredicate.ID ";
 
-    sql << "INNER JOIN Identifiers AS SearchedID ON SearchedIDID = SearchedID.ID ";
-    sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedPredicateID = SearchedPredicate.ID ";
-
-    sql << "INNER JOIN Identifiers AS LinkedID ON LinkedIDID = LinkedID.ID ";
-    sql << "INNER JOIN Predicates AS LinkedPredicate ON LinkedPredicateID = LinkedPredicate.ID ";
+    sql << "INNER JOIN Identifiers AS LinkedID ON LinkedPacketID.IdentifierID = LinkedID.ID ";
+    sql << "INNER JOIN Predicates AS LinkedPredicate ON LinkedPacketID.PredicateID = LinkedPredicate.ID ";
 
     sql << "INNER JOIN Predicates AS PacketType ON p.PredicateID = PacketType.id ";
 
@@ -562,15 +516,19 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return packet;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool byRecipient) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Packets AS p ";
-    sql << "INNER JOIN PacketAuthors AS ps ON ps.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON ps.AuthorID = id.ID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID WHERE ";
+    sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID WHERE ";
+    if (byRecipient)
+        sql << "pi.IsRecipient = 1 AND ";
+    else 
+        sql << "pi.IsRecipient = 0 AND ";
     if (!author.first.empty())
         sql << "pred.Value = @predValue AND ";
     if (trustPathablePredicatesOnly)
@@ -621,61 +579,12 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair author, int 
     return packets;
 }
 
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
+    return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, false);
+}
+
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
-    sqlite3_stmt *statement;
-    vector<CIdentifiPacket> packets;
-    ostringstream sql;
-    sql.str("");
-    sql << "SELECT * FROM Packets AS p ";
-    sql << "INNER JOIN PacketRecipients AS po ON po.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON po.RecipientID = id.ID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = po.PredicateID WHERE ";
-    if (!recipient.first.empty())
-        sql << "pred.Value = @predValue AND ";
-    if (trustPathablePredicatesOnly)
-        sql << "pred.TrustPathable = 1 AND ";
-    if (!showUnpublished)
-        sql << "p.Published = 1 AND ";
-    sql << "id.Value = @idValue ";
-    sql << "ORDER BY p.Created DESC ";
-    if (limit)
-        sql << "LIMIT @limit OFFSET @offset";
-
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        if (!recipient.first.empty()) {
-            sqlite3_bind_text(statement, 1, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
-            if (limit) {
-                sqlite3_bind_int(statement, 3, limit);
-                sqlite3_bind_int(statement, 4, offset);
-            }
-        } else {
-            sqlite3_bind_text(statement, 1, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
-            if (limit) {
-                sqlite3_bind_int(statement, 2, limit);
-                sqlite3_bind_int(statement, 3, offset);
-            }
-        }
-
-        int result = 0;
-        while(true)
-        {
-            result = sqlite3_step(statement);
-             
-            if(result == SQLITE_ROW)
-            {
-                packets.push_back(GetPacketFromStatement(statement));
-            }
-            else
-            {
-                break;  
-            }
-        }
-        
-        sqlite3_finalize(statement);
-    }
-    
-    return packets;
+    return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true);
 }
 
 vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly) {
@@ -687,11 +596,8 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     sql.str("");
     sql << "SELECT DISTINCT pred.Value, id.Value FROM Identifiers AS id, ";
     sql << "Predicates AS pred ";
-    sql << "INNER JOIN ";
-    sql << "(SELECT PredicateID, AuthorID AS IDID FROM PacketAuthors AS pa ";
-    sql << "UNION ALL ";
-    sql << "SELECT PredicateID, RecipientID AS IDID FROM PacketRecipients AS pr) ";
-    sql << "ON PredicateID = pred.id AND IDID = id.ID ";
+    sql << "INNER JOIN PacketIdentifiers AS pi ";
+    sql << "ON pi.PredicateID = pred.id AND pi.IdentifierID = id.ID ";
     sql << "WHERE ";
     if (!query.first.empty())
         sql << "pred.Value = @predValue AND ";
@@ -796,14 +702,7 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     ostringstream sql;
 
     sql.str("");
-    sql << "DELETE FROM PacketRecipients WHERE PacketHash = @hash;";
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-    }
-
-    sql.str("");
-    sql << "DELETE FROM PacketAuthors WHERE PacketHash = @hash;";
+    sql << "DELETE FROM PacketIdentifiers WHERE PacketHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
@@ -818,21 +717,17 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
 
     // Remove identifiers that were mentioned in this packet only
     sql.str("");
-    sql << "DELETE FROM Identifiers WHERE Hash IN ";
+    sql << "DELETE FROM Identifiers WHERE ID IN ";
     sql << "(SELECT id.ID FROM Identifiers AS id ";
-    sql << "JOIN PacketRecipients AS ro ON ro.RecipientID = id.ID ";
-    sql << "JOIN PacketAuthors AS rs ON rs.AuthorID = id.ID ";
-    sql << "WHERE ro.PacketHash = @relhash OR rs.PacketHash = @relhash) ";
-    sql << "AND Hash NOT IN ";
+    sql << "JOIN PacketIdentifiers AS pi ON pi.IdentifierID = id.ID ";
+    sql << "WHERE pi.PacketHash = @packethash) ";
+    sql << "AND ID NOT IN ";
     sql << "(SELECT id.ID FROM Identifiers AS id ";
-    sql << "JOIN PacketRecipients AS ro ON ro.RecipientID = id.ID ";
-    sql << "JOIN PacketAuthors AS rs ON rs.AuthorID = id.ID ";
-    sql << "WHERE ro.PacketHash != @relhash AND rs.PacketHash != @relhash)";
+    sql << "JOIN PacketIdentifiers AS pi ON pi.IdentifierID = id.ID ";
+    sql << "WHERE pi.PacketHash != @packethash)";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 3, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 4, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
@@ -867,32 +762,35 @@ bool CIdentifiDB::MakeFreeSpace(int nFreeBytesNeeded) {
     return true;
 }
 
-void CIdentifiDB::SavePacketAuthor(string packetHash, int predicateID, int authorID) {
+void CIdentifiDB::SavePacketAuthorOrRecipient(string packetHash, int predicateID, int identifierID, bool isRecipient) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT * FROM PacketAuthors ";
+    sql << "SELECT * FROM PacketIdentifiers ";
     sql << "WHERE PacketHash = @packethash ";
     sql << "AND PredicateID = @predicateid ";
-    sql << "AND AuthorID = @authorhash";
+    sql << "AND IdentifierID = @idid ";
+    sql << "AND IsRecipient = @isrecipient";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 2, predicateID);
-        sqlite3_bind_int(statement, 3, authorID);
+        sqlite3_bind_int(statement, 3, identifierID);
+        sqlite3_bind_int(statement, 4, isRecipient);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO PacketAuthors (PacketHash, PredicateID, AuthorID) ";
-        sql << "VALUES (@packethash, @predicateid, @authorid);";
+        sql << "INSERT OR IGNORE INTO PacketIdentifiers (PacketHash, PredicateID, IdentifierID, IsRecipient) ";
+        sql << "VALUES (@packethash, @predicateid, @identifierid, @isRecipient);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                 sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(statement, 2, predicateID);
-                sqlite3_bind_int(statement, 3, authorID);
+                sqlite3_bind_int(statement, 3, identifierID);
+                sqlite3_bind_int(statement, 4, isRecipient);
                 sqlite3_step(statement);
                 sqliteReturnCode = sqlite3_reset(statement);
             }
@@ -901,38 +799,12 @@ void CIdentifiDB::SavePacketAuthor(string packetHash, int predicateID, int autho
     sqlite3_finalize(statement);
 }
 
+void CIdentifiDB::SavePacketAuthor(string packetHash, int predicateID, int authorID) {
+    SavePacketAuthorOrRecipient(packetHash, predicateID, authorID, false);
+}
+
 void CIdentifiDB::SavePacketRecipient(string packetHash, int predicateID, int recipientID) {
-    sqlite3_stmt *statement;
-
-    ostringstream sql;
-    sql.str("");
-
-    sql << "SELECT * FROM PacketRecipients ";
-    sql << "WHERE PacketHash = @packethash ";
-    sql << "AND PredicateID = @predicateid ";
-    sql << "AND RecipientID = @recipienthash";
-
-    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 2, predicateID);
-        sqlite3_bind_int(statement, 3, recipientID);
-    }
-    if (sqlite3_step(statement) != SQLITE_ROW) {
-        sql.str("");
-        sql << "INSERT OR IGNORE INTO PacketRecipients (PacketHash, PredicateID, RecipientID) ";
-        sql << "VALUES (@packethash, @predicateid, @recipientid);";
-        
-        RETRY_IF_DB_FULL(
-            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_int(statement, 2, predicateID);
-                sqlite3_bind_int(statement, 3, recipientID);
-                sqlite3_step(statement);
-                sqliteReturnCode = sqlite3_reset(statement);
-            }
-        )
-    }
-    sqlite3_finalize(statement);
+    SavePacketAuthorOrRecipient(packetHash, predicateID, recipientID, true);
 }
 
 void CIdentifiDB::SavePacketSignature(CSignature &signature, string packetHash) {
@@ -974,10 +846,10 @@ int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
     ostringstream sql;
     sql.str("");
     sql << "SELECT COUNT(1) FROM Packets AS p ";
-    sql << "INNER JOIN PacketAuthors AS ps ON ps.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = ps.AuthorID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = ps.PredicateID ";
-    sql << "WHERE pred.Value = @type AND id.Value = @value";
+    sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID ";
+    sql << "WHERE pred.Value = @type AND id.Value = @value AND pi.IsRecipient = 0";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1820,14 +1692,17 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id) {
     ostringstream sql;
     sql.str("");
     sql << "SELECT ";
-    sql << "SUM(CASE WHEN p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     sql << "MIN(p.Created) ";
     sql << "FROM Packets AS p ";
-    sql << "INNER JOIN PacketAuthors AS pa ON pa.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = pa.AuthorID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = pa.PredicateID ";
+    sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
+    sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID ";
     sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
     sql << "WHERE packetType.Value = 'review' ";
     sql << "AND pred.Value = @type AND id.Value = @value ";
@@ -1841,41 +1716,10 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id) {
         overview.authoredPositive = sqlite3_column_int(statement, 0);
         overview.authoredNeutral = sqlite3_column_int(statement, 1);
         overview.authoredNegative = sqlite3_column_int(statement, 2);
-        overview.firstSeen = sqlite3_column_int64(statement, 3);
-        sqlite3_finalize(statement);
-    } else {
-        sqlite3_finalize(statement);
-        throw runtime_error("GetIDOverview failed");
-    }
-
-    // Can these two be combined?
-
-    sql.str("");
-    sql << "SELECT ";
-    sql << "SUM(CASE WHEN p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "MIN(p.Created) ";
-    sql << "FROM Packets AS p ";
-    sql << "INNER JOIN PacketRecipients AS pr ON pr.PacketHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = pr.RecipientID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = pr.PredicateID ";
-    sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
-    sql << "WHERE packetType.Value = 'review' ";
-    sql << "AND pred.Value = @type AND id.Value = @value ";
-
-    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
-    }
-
-    if (sqlite3_step(statement) == SQLITE_ROW) {
-        overview.receivedPositive = sqlite3_column_int(statement, 0);
-        overview.receivedNeutral = sqlite3_column_int(statement, 1);
-        overview.receivedNegative = sqlite3_column_int(statement, 2);
-        long int firstSeen = sqlite3_column_int64(statement, 3);
-        if (firstSeen < overview.firstSeen)
-            overview.firstSeen = firstSeen;
+        overview.receivedPositive = sqlite3_column_int(statement, 3);
+        overview.receivedNeutral = sqlite3_column_int(statement, 4);
+        overview.receivedNegative = sqlite3_column_int(statement, 5);
+        overview.firstSeen = sqlite3_column_int64(statement, 6);
         sqlite3_finalize(statement);
     } else {
         sqlite3_finalize(statement);
