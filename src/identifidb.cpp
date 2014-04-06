@@ -1552,7 +1552,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     sql << "SELECT * FROM Packets WHERE Created >= @timestamp ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
-    sql << "ORDER BY Created DESC ";
+    sql << "ORDER BY Created ASC ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
 
@@ -1586,7 +1586,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, int limit, int offset, bool showUnpublished) {
-    CIdentifiPacket rel = GetPacketByHash(packetHash);
+    CIdentifiPacket packet = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -1596,13 +1596,13 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     sql << "(Created > @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
-    sql << "ORDER BY Created DESC, Hash ";
+    sql << "ORDER BY Created ASC, Hash ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
+        sqlite3_bind_int64(statement, 1, packet.GetTimestamp());
+        sqlite3_bind_text(statement, 2, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         if (limit) {
             sqlite3_bind_int(statement, 3, limit);
             sqlite3_bind_int(statement, 4, offset);            
@@ -1630,7 +1630,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, int limit, int offset, bool showUnpublished) {
-    CIdentifiPacket rel = GetPacketByHash(packetHash);
+    CIdentifiPacket packet = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -1644,7 +1644,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(statement, 2, rel.GetTimestamp());
+        sqlite3_bind_int64(statement, 2, packet.GetTimestamp());
         sqlite3_bind_int(statement, 3, limit);
         sqlite3_bind_int(statement, 4, offset);
 

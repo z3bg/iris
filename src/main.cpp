@@ -647,9 +647,6 @@ bool static AlreadyHave(const CInv& inv)
 {
     switch (inv.type)
     {
-    case MSG_BLOCK:
-        return mapBlockIndex.count(inv.hash) ||
-               mapOrphanBlocks.count(inv.hash);
     case MSG_PACKET:
         {
             try {
@@ -942,19 +939,23 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             const CInv &inv = vInv[nInv];
 
             boost::this_thread::interruption_point();
-            pfrom->AddInventoryKnown(inv);
 
-            bool fAlreadyHave = AlreadyHave(inv);
-            if (fDebug)
-                printf("  got inventory: %s  %s\n", inv.ToString().c_str(), fAlreadyHave ? "have" : "new");
+            if (inv.hash == 0) {
+                pfrom->PushGetPackets(0);
+            } else {
+                pfrom->AddInventoryKnown(inv);
 
-            if (!fAlreadyHave) {
-                if (!fImporting && !fReindex)
-                    pfrom->AskFor(inv);
+                bool fAlreadyHave = AlreadyHave(inv);
+                if (fDebug)
+                    printf("  got inventory: %s  %s\n", inv.ToString().c_str(), fAlreadyHave ? "have" : "new");
+
+                if (!fAlreadyHave) {
+                    if (!fImporting && !fReindex)
+                        pfrom->AskFor(inv);
+                }
+                // Track requests for our stuff
+                Inventory(inv.hash);
             }
-
-            // Track requests for our stuff
-            Inventory(inv.hash);
         }
     }
 
@@ -981,47 +982,33 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
 
     else if (strCommand == "getpackets") {
-        printf("getpackets");
-
         time_t afterTimestamp;
         vRecv >> afterTimestamp;
 
-        int nLimit = 500;
+        unsigned int nLimit = 500;
+        vector<CIdentifiPacket> packets;
 
-        vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit, false);
-        BOOST_FOREACH(const CIdentifiPacket &packet, packets)
-            pfrom->PushInventory(CInv(MSG_PACKET, packet.GetHash()));
+        if (afterTimestamp == 0 && pfrom->hashContinue != 0) {
+            packets = pidentifidb->GetPacketsAfterPacket(EncodeBase58(pfrom->hashContinue), nLimit, 0, false);
+            cout << "afterpacket " << EncodeBase58(pfrom->hashContinue) << "\n";
+            cout << "afterpacket packets.size() " << packets.size() << "\n";
+        } else {
+            packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit, 0, false);            
+            cout << "aftertimestamp " << afterTimestamp << "\n";
+            cout <<  "packets.size() " << packets.size() << "\n";
+        }
 
-        /*        CBlockLocator locator;
-        uint256 hashStop;
-        vRecv >> locator >> hashStop;
+        for (unsigned int i = 0; i < packets.size(); i++) {
+            pfrom->PushInventory(CInv(MSG_PACKET, packets.at(i).GetHash()));
 
-        // Find the last block the caller has in the main chain
-        CBlockIndex* pindex = locator.GetBlockIndex();
-
-        // Send the rest of the chain
-        if (pindex)
-            pindex = pindex->GetNextInMainChain();
-        int nLimit = 500;
-        LogPrint("net", "getblocks %d to %s limit %d\n", (pindex ? pindex->nHeight : -1), hashStop.ToString().c_str(), nLimit);
-        for (; pindex; pindex = pindex->GetNextInMainChain())
-        {
-            if (pindex->GetBlockHash() == hashStop)
-            {
-                LogPrint("net", " getblocks stopping at %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
-                break;
-            }
-            pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash()));
-            if (--nLimit <= 0)
-            {
-                // When this block is requested, we'll send an inv that'll make them
-                // getblocks the next batch of inventory.
-                LogPrint("net", " getblocks stopping at limit %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
-                pfrom->hashContinue = pindex->GetBlockHash();
-                break;
+            // Make them getpackets the next batch of inventory.
+            if (i == 0) {
+                pfrom->PushInventory(CInv(MSG_PACKET, 0));
+                pfrom->hashContinue = packets.at(i).GetHash();
             }
         }
-        */
+        if (packets.size() < nLimit)
+            pfrom->hashContinue = 0;
     }
 
 
