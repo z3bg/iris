@@ -83,8 +83,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
     BOOST_CHECK_EQUAL(r.get_int(), 10);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getlinkedidentifier mbox mailto:alice@example.com profile"));
-    BOOST_CHECK(!r.get_array().empty());
+    BOOST_CHECK_NO_THROW(r=CallRPC("getname mbox mailto:alice@example.com"));
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketbyhash 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK(!r.get_array().empty());

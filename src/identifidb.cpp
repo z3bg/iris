@@ -167,8 +167,8 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Identifiers (";
-    sql << "ID        INTEGER         PRIMARY KEY,";
-    sql << "Value     NVARCHAR(255)   NOT NULL";
+    sql << "ID              INTEGER         PRIMARY KEY,";
+    sql << "Value           NVARCHAR(255)   NOT NULL";
     sql << ");";
     query(sql.str().c_str());
 
@@ -190,7 +190,8 @@ void CIdentifiDB::Initialize() {
     sql << "MinRating           INTEGER         DEFAULT 0,";
     sql << "MaxRating           INTEGER         DEFAULT 0,";
     sql << "Published           BOOL            DEFAULT 0,";
-    sql << "Priority            INTEGER         DEFAULT 0";
+    sql << "Priority            INTEGER         DEFAULT 0,";
+    sql << "IsLatest            BOOL            DEFAULT 0";
     sql << ");";
     query(sql.str().c_str());
 
@@ -200,19 +201,21 @@ void CIdentifiDB::Initialize() {
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "IdentifierID        INTEGER         NOT NULL,";
     sql << "IsRecipient         BOOL            DEFAULT 0,";
-    sql << "FOREIGN KEY(IdentifierID) REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PredicateID) REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
+    sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(PacketHash)     REFERENCES Packets(Hash));";
     query(sql.str().c_str());
+    query("CREATE INDEX IF NOT EXISTS PIIndex ON PacketIdentifiers(PacketHash)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketSignatures (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
     sql << "PubKeyID            INTEGER         NOT NULL,";
-    sql << "FOREIGN KEY(PubKeyID) REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PubKeyID)   REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
     query(sql.str().c_str());
+    query("CREATE INDEX IF NOT EXISTS PSIndex ON PacketSignatures(PacketHash)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
@@ -221,11 +224,11 @@ void CIdentifiDB::Initialize() {
     sql << "EndID               INTEGER         NOT NULL,";
     sql << "EndPredicateID      INTEGER,";
     sql << "NextStep            NVARCHAR(45)    NOT NULL,";
-    sql << "FOREIGN KEY(StartID) REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(StartPredicateID) REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(EndID) REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(EndPredicateID) REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(NextStep) REFERENCES Packets(PacketHash));";
+    sql << "FOREIGN KEY(StartID)            REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(StartPredicateID)   REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(EndID)              REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(EndPredicateID)     REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(NextStep)           REFERENCES Packets(PacketHash));";
     query(sql.str().c_str());
 
     sql.str("");
@@ -234,9 +237,21 @@ void CIdentifiDB::Initialize() {
     sql << "KeyIdentifierID     INTEGER         DEFAULT NULL,";
     sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
     sql << "IsDefault           BOOL            DEFAULT 0,";
-    sql << "FOREIGN KEY(KeyIdentifierID) REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PubKeyID) REFERENCES Identifiers(ID));";
+    sql << "FOREIGN KEY(KeyIdentifierID)    REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PubKeyID)           REFERENCES Identifiers(ID));";
     query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS CachedNames (";
+    sql << "IdentifierID        INTEGER         NOT NULL,";
+    sql << "PredicateID         INTEGER         NOT NULL,";
+    sql << "CachedNameID        INTEGER         NOT NULL,";
+    sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(CachedNameID)   REFERENCES Identifiers(ID))";
+    query(sql.str().c_str());
+
+    query("CREATE UNIQUE INDEX IF NOT EXISTS cachedname_type_and_value ON CachedNames(IdentifierID, PredicateID)");
 
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
@@ -393,38 +408,68 @@ vector<LinkedID> CIdentifiDB::GetConnections(string_pair id) {
 }
 
 // "Find a 'name' or a 'nickname' for the author and recipient of this packet"
-pair<string_pair, string_pair> CIdentifiDB::GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates) {
-    string_pair authorID, recipientID;
+pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet) {
+    string authorName, recipientName;
 
     vector<string_pair> authors = packet.GetAuthors();
     BOOST_FOREACH(string_pair author, authors) {
-        string_pair linkedID = GetLinkedIdentifier(author, searchedPredicates);
-        if (linkedID.first != "") {
-            authorID = linkedID;
+        authorName = GetName(author);
+        if (authorName != "") {
             break;
         }
     }
 
     vector<string_pair> recipients = packet.GetRecipients();
     BOOST_FOREACH(string_pair recipient, recipients) {
-        string_pair linkedID = GetLinkedIdentifier(recipient, searchedPredicates);
-        if (linkedID.first != "") {
-            recipientID = linkedID;
+        recipientName = GetName(recipient);
+        if (recipientName != "") {
             break;
         }
     }
 
-    return make_pair(authorID, recipientID);
+    return make_pair(authorName, recipientName);
 }
 
-// "Find a 'name' or a 'nickname' linked to this identifier"
-// TODO: make it find the most trusted or frequent link
-string_pair CIdentifiDB::GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates) {
-    vector<LinkedID> linkedIDs = GetLinkedIdentifiers(startID, searchedPredicates, 1);
-    if (linkedIDs.empty())
-        return make_pair("","");
-    else
-        return linkedIDs.front().id;
+string CIdentifiDB::GetName(string_pair id) {
+    string name = GetCachedName(id);
+    if (name.empty()) {
+        vector<string> nameTypes;
+        nameTypes.push_back("name");
+        nameTypes.push_back("nickname");
+        vector<LinkedID> linkedIDs = GetLinkedIdentifiers(id, nameTypes, 1);
+        if (linkedIDs.size() == 1) {
+            name = linkedIDs.front().id.second;
+        }
+    }
+
+    return name;
+}
+
+string CIdentifiDB::GetCachedName(string_pair id) {
+    string name = "";
+
+    sqlite3_stmt *statement;
+    vector<CIdentifiPacket> packets;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT nameID.Value FROM CachedNames AS cn ";
+    sql << "INNER JOIN Identifiers AS searchedID ON cn.IdentifierID = searchedID.ID ";
+    sql << "INNER JOIN Predicates AS searchedPred ON cn.PredicateID = searchedPred.ID ";
+    sql << "INNER JOIN Identifiers AS nameID ON cn.CachedNameID = nameID.ID ";
+    sql << "WHERE searchedPred.Value = @type AND searchedID.Value = @value";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = sqlite3_step(statement);
+
+        if (result == SQLITE_ROW) {
+            name = (char*)sqlite3_column_text(statement, 0);
+        }
+    }
+
+    return name;
 }
 
 // "Find all 'names' or a 'nicknames' linked to this identifier". Empty searchedPredicates catches all.
@@ -471,6 +516,9 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         sql << " OFFSET " << offset;
     }
 
+    int mostConfirmations = 0;
+    string mostConfirmedName;
+
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -494,6 +542,11 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 id.confirmations = sqlite3_column_int(statement, 2);
                 id.refutations = sqlite3_column_int(statement, 3);
                 results.push_back(id);
+                if (type == "name" || type == "nickname") {
+                    if (id.confirmations >= mostConfirmations) {
+                        mostConfirmedName = value;
+                    }
+                }
             }
             else
             {
@@ -503,8 +556,30 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         
         sqlite3_finalize(statement);
     }
-    
+
+    if (!mostConfirmedName.empty())
+        UpdateCachedName(startID, mostConfirmedName);
+
     return results;
+}
+
+void CIdentifiDB::UpdateCachedName(string_pair startID, string name) {
+    sqlite3_stmt *statement;
+
+    const char* sql = "INSERT OR REPLACE INTO CachedNames (PredicateID, IdentifierID, CachedNameID) VALUES (?,?,?);";
+    RETRY_IF_DB_FULL(
+        if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+            int predicateID = SavePredicate(startID.first);
+            int identifierID = SaveIdentifier(startID.second);
+            int nameID = SaveIdentifier(name);
+            sqlite3_bind_int(statement, 1, predicateID);
+            sqlite3_bind_int(statement, 2, identifierID);
+            sqlite3_bind_int(statement, 3, nameID);
+            sqlite3_step(statement);
+        }
+    )
+
+    sqlite3_finalize(statement);
 }
 
 CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {

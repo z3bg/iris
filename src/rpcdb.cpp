@@ -16,31 +16,17 @@ Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = 
     Array packetsJSON;
     BOOST_FOREACH(CIdentifiPacket packet, packets) {
         Object packetJSON = packet.GetJSON().get_obj();
-        if (findNames) {
-            vector<string> nameTypes;
-            nameTypes.push_back("name");
-            nameTypes.push_back("nickname");
-            
-            pair<string_pair, string_pair> linkedIDs = pidentifidb->GetPacketLinkedIdentifiers(packet, nameTypes);
+        if (findNames) {            
+            pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet);
 
             vector<CSignature> signatures = packet.GetSignatures();
-            string_pair signerName = make_pair("", "");
+            string signerName;
             if (!signatures.empty())
-                signerName = pidentifidb->GetLinkedIdentifier(make_pair("keyID", signatures.front().GetSignerKeyID()), nameTypes);
+                signerName = pidentifidb->GetName(make_pair("keyID", signatures.front().GetSignerKeyID()));
 
-            Array author, recipient, signer;
-            author.push_back(linkedIDs.first.first);
-            author.push_back(linkedIDs.first.second);
-            recipient.push_back(linkedIDs.second.first);
-            recipient.push_back(linkedIDs.second.second);
-            packetJSON.push_back(Pair("authorName", author));
-            packetJSON.push_back(Pair("recipientName", recipient));
-
-            if (signerName.first != "") {
-                signer.push_back(signerName.first);
-                signer.push_back(signerName.second);
-                packetJSON.push_back(Pair("signerName", signer));
-            }
+            packetJSON.push_back(Pair("authorName", linkedNames.first));
+            packetJSON.push_back(Pair("recipientName", linkedNames.second));
+            packetJSON.push_back(Pair("signerName", signerName));
         }
         packetsJSON.push_back(packetJSON);
     }
@@ -261,12 +247,8 @@ Value overview(const Array& params, bool fHelp)
     overviewJSON.push_back(Pair("receivedNegative", overview.receivedNegative));
     overviewJSON.push_back(Pair("firstSeen", overview.firstSeen));
 
-    vector<string> nameTypes;
-    nameTypes.push_back("name");
-    nameTypes.push_back("nickname");
-    string_pair result = pidentifidb->GetLinkedIdentifier(make_pair(params[0].get_str(), params[1].get_str()), nameTypes);
-    if (!result.first.empty())
-        overviewJSON.push_back(Pair("name", result.second));
+    string name = pidentifidb->GetName(make_pair(params[0].get_str(), params[1].get_str()));
+    overviewJSON.push_back(Pair("name", name));
 
     return overviewJSON;
 }
@@ -414,20 +396,14 @@ Value savepacketfromdata(const Array& params, bool fHelp)
     return pidentifidb->SavePacket(packet);
 }
 
-Value getlinkedidentifier(const Array& params, bool fHelp)
+Value getname(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 3)
+    if (fHelp || params.size() != 2)
         throw runtime_error(
-            "getlinkedidentifier <start_predicate> <start_id> <end_predicate>\n"
-            "For example, find a nickname that is linked to the given identifier with the biggest number of confirmations.");
+            "getname <id_type> <id_value>\n"
+            "Find the name related to an identifier.");
 
-    vector<string> searchTypes;
-    searchTypes.push_back(params[2].get_str());
-    string_pair result = pidentifidb->GetLinkedIdentifier(make_pair(params[0].get_str(), params[1].get_str()), searchTypes);
-    Array a;
-    a.push_back(result.first);
-    a.push_back(result.second);
-    return a;
+    return pidentifidb->GetName(make_pair(params[0].get_str(), params[1].get_str()));
 }
 
 Value deletepacket(const Array& params, bool fHelp)

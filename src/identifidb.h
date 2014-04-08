@@ -45,9 +45,9 @@ public:
     string GetTrustStep(string_pair start, string_pair end);
     CIdentifiPacket GetPacketByHash(string hash);
     int GetPriority(CIdentifiPacket &packet);
-    string_pair GetLinkedIdentifier(string_pair startID, vector<string> searchedPredicates);
     vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit = 0, int offset = 0);
-    pair<string_pair, string_pair > GetPacketLinkedIdentifiers(CIdentifiPacket &packet, vector<string> searchedPredicates);    bool MakeFreeSpace(int nFreeBytesNeeded);
+    pair<string, string> GetPacketLinkedNames(CIdentifiPacket &packet);
+    bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
     vector<CIdentifiPacket> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
@@ -56,6 +56,8 @@ public:
     void SaveTrustStep(string_pair start, pair<string,string> end, string nextStep);
     void SavePacketTrustPaths(CIdentifiPacket &packet);
     IDOverview GetIDOverview(string_pair id);
+    string GetName(string_pair id);
+    string GetCachedName(string_pair id);
 private:
     sqlite3 *db;
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);
@@ -77,6 +79,7 @@ private:
     void CheckDefaultTrustPathablePredicates();
     void SearchForPathForMyKeys();
     bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs, vector<uint256>* visitedPackets);
+    void UpdateCachedName(string_pair startID, string name);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H
