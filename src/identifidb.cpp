@@ -184,14 +184,14 @@ void CIdentifiDB::Initialize() {
     sql << "CREATE TABLE IF NOT EXISTS Packets (";
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
-    sql << "Created             DATETIME,";
+    sql << "Created             DATETIME        NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "Rating              INTEGER         DEFAULT 0,";
-    sql << "MinRating           INTEGER         DEFAULT 0,";
-    sql << "MaxRating           INTEGER         DEFAULT 0,";
-    sql << "Published           BOOL            DEFAULT 0,";
-    sql << "Priority            INTEGER         DEFAULT 0,";
-    sql << "IsLatest            BOOL            DEFAULT 0";
+    sql << "Rating              INTEGER         DEFAULT 0 NOT NULL,";
+    sql << "MinRating           INTEGER         DEFAULT 0 NOT NULL,";
+    sql << "MaxRating           INTEGER         DEFAULT 0 NOT NULL,";
+    sql << "Published           BOOL            DEFAULT 0 NOT NULL,";
+    sql << "Priority            INTEGER         DEFAULT 0 NOT NULL,";
+    sql << "IsLatest            BOOL            DEFAULT 0 NOT NULL";
     sql << ");";
     query(sql.str().c_str());
 
@@ -200,18 +200,23 @@ void CIdentifiDB::Initialize() {
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "IdentifierID        INTEGER         NOT NULL,";
-    sql << "IsRecipient         BOOL            DEFAULT 0,";
+    sql << "IsRecipient         BOOL            NOT NULL,";
+    sql << "PRIMARY KEY(PacketHash, PredicateID, IdentifierID, IsRecipient),";
     sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
     sql << "FOREIGN KEY(PacketHash)     REFERENCES Packets(Hash));";
     query(sql.str().c_str());
     query("CREATE INDEX IF NOT EXISTS PIIndex ON PacketIdentifiers(PacketHash)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_predID ON PacketIdentifiers(PredicateID)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_idID ON PacketIdentifiers(IdentifierID)");
+
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS PacketSignatures (";
     sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
     sql << "PubKeyID            INTEGER         NOT NULL,";
+    sql << "PRIMARY KEY(PacketHash, PubKeyID),";
     sql << "FOREIGN KEY(PubKeyID)   REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
     query(sql.str().c_str());
@@ -220,10 +225,11 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
     sql << "StartID             INTEGER         NOT NULL,";
-    sql << "StartPredicateID    INTEGER,";
+    sql << "StartPredicateID    INTEGER         NOT NULL,";
     sql << "EndID               INTEGER         NOT NULL,";
-    sql << "EndPredicateID      INTEGER,";
+    sql << "EndPredicateID      INTEGER         NOT NULL,";
     sql << "NextStep            NVARCHAR(45)    NOT NULL,";
+    sql << "PRIMARY KEY(StartID, StartPredicateID, EndID, EndPredicateID, NextStep),";
     sql << "FOREIGN KEY(StartID)            REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(StartPredicateID)   REFERENCES Predicates(ID),";
     sql << "FOREIGN KEY(EndID)              REFERENCES Identifiers(ID),";
@@ -236,7 +242,7 @@ void CIdentifiDB::Initialize() {
     sql << "PubKeyID            INTEGER         PRIMARY KEY,";
     sql << "KeyIdentifierID     INTEGER         DEFAULT NULL,";
     sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
-    sql << "IsDefault           BOOL            DEFAULT 0,";
+    sql << "IsDefault           BOOL            NOT NULL DEFAULT 0,";
     sql << "FOREIGN KEY(KeyIdentifierID)    REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(PubKeyID)           REFERENCES Identifiers(ID));";
     query(sql.str().c_str());
@@ -246,12 +252,11 @@ void CIdentifiDB::Initialize() {
     sql << "IdentifierID        INTEGER         NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "CachedNameID        INTEGER         NOT NULL,";
+    sql << "PRIMARY KEY(PredicateID, IdentifierID),";
     sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
     sql << "FOREIGN KEY(CachedNameID)   REFERENCES Identifiers(ID))";
     query(sql.str().c_str());
-
-    query("CREATE UNIQUE INDEX IF NOT EXISTS cachedname_type_and_value ON CachedNames(IdentifierID, PredicateID)");
 
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
