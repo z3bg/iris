@@ -990,19 +990,15 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
         if (afterTimestamp == 0 && pfrom->hashContinue != 0) {
             packets = pidentifidb->GetPacketsAfterPacket(EncodeBase58(pfrom->hashContinue), nLimit, 0, false);
-            cout << "afterpacket " << EncodeBase58(pfrom->hashContinue) << "\n";
-            cout << "afterpacket packets.size() " << packets.size() << "\n";
         } else {
             packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit, 0, false);            
-            cout << "aftertimestamp " << afterTimestamp << "\n";
-            cout <<  "packets.size() " << packets.size() << "\n";
         }
 
         for (unsigned int i = 0; i < packets.size(); i++) {
             pfrom->PushInventory(CInv(MSG_PACKET, packets.at(i).GetHash()));
 
             // Make them getpackets the next batch of inventory.
-            if (i == 0) {
+            if (i == nLimit - 1) {
                 pfrom->PushInventory(CInv(MSG_PACKET, 0));
                 pfrom->hashContinue = packets.at(i).GetHash();
             }
