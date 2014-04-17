@@ -1011,14 +1011,45 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     if (priority == 0 && !GetArg("-saveuntrustedpackets", false)) return "";
 
     sqlite3_stmt *statement;
-    string sql;
-    string packetHash;
+    ostringstream sql;
 
-    sql = "INSERT OR REPLACE INTO Packets (Hash, SignedData, Created, PredicateID, Rating, MaxRating, MinRating, Published, Priority) VALUES (@id, @data, @timestamp, @predicateid, @rating, @maxRating, @minRating, @published, @priority);";
-    packetHash = EncodeBase58(packet.GetHash());
+    string packetHash = EncodeBase58(packet.GetHash());
+
+    vector<string_pair> authors = packet.GetAuthors();
+    BOOST_FOREACH (string_pair author, authors) {
+        int predicateID = SavePredicate(author.first);
+        int authorID = SaveIdentifier(author.second);
+        SavePacketAuthor(packetHash, predicateID, authorID);
+        /*
+        sql.str("");
+        sql << "UPDATE Packets SET IsLatest = 0 ";
+        sql << "WHERE Hash IN ";
+        sql << "(SELECT author.PacketHash FROM PacketIdentifiers AS author ";
+        sql << "INNER JOIN PacketIdentifiers AS recipient ON recipient.PacketHash = author.PacketHash ";
+        sql << "WHERE aPred.TrustPathable = 1 AND pred.Value = @type ";
+        sql << "AND id.Value = @value AND IsRecipient = 0)";
+        */
+    }
+    vector<string_pair> recipients = packet.GetRecipients();
+    BOOST_FOREACH (string_pair recipient, recipients) {
+        int predicateID = SavePredicate(recipient.first);
+        int recipientID = SaveIdentifier(recipient.second);
+        SavePacketRecipient(packetHash, predicateID, recipientID);
+    }
+    vector<CSignature> signatures = packet.GetSignatures();
+    BOOST_FOREACH (CSignature sig, signatures) {
+        SavePacketSignature(sig, EncodeBase58(packet.GetHash()));
+    }
+
+    sql.str("");
+    sql << "INSERT OR REPLACE INTO Packets ";
+    sql << "(Hash, SignedData, Created, PredicateID, Rating, ";
+    sql << "MaxRating, MinRating, Published, Priority, IsLatest) ";
+    sql << "VALUES (@id, @data, @timestamp, @predicateid, @rating, ";
+    sql << "@maxRating, @minRating, @published, @priority, 1);";
 
     RETRY_IF_DB_FULL(
-        if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
+        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, packet.GetData().c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int64(statement, 3, packet.GetTimestamp());
@@ -1034,23 +1065,6 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
         sqlite3_step(statement);
         sqliteReturnCode = sqlite3_reset(statement);
     )
-
-    vector<string_pair> authors = packet.GetAuthors();
-    BOOST_FOREACH (string_pair author, authors) {
-        int predicateID = SavePredicate(author.first);
-        int authorID = SaveIdentifier(author.second);
-        SavePacketAuthor(packetHash, predicateID, authorID);
-    }
-    vector<string_pair> recipients = packet.GetRecipients();
-    BOOST_FOREACH (string_pair recipient, recipients) {
-        int predicateID = SavePredicate(recipient.first);
-        int recipientID = SaveIdentifier(recipient.second);
-        SavePacketRecipient(packetHash, predicateID, recipientID);
-    }
-    vector<CSignature> signatures = packet.GetSignatures();
-    BOOST_FOREACH (CSignature sig, signatures) {
-        SavePacketSignature(sig, EncodeBase58(packet.GetHash()));
-    }
 
     sqlite3_finalize(statement);
 

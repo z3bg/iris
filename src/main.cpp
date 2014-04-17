@@ -1026,7 +1026,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         vEraseQueue.push_back(inv.hash);
 
         pidentifidb->SavePacket(packet);
-
+        pfrom->nLastPacketTime = packet.GetTimestamp();
 
             /*
             CValidationState state;
@@ -1266,10 +1266,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             pto->fStartSync = false;
 
             // TODO: fixme
-            if (pidentifidb->GetPacketCount() < 10)
-                pto->PushGetPackets(0);
-            else
-                pto->PushGetPackets(pidentifidb->GetLatestPacketTimestamp() - 24 * 60 * 60 * 7);
+            pto->PushGetPackets(pto->nLastPacketTime);
         }
 
         // Address refresh broadcast

@@ -202,7 +202,7 @@ protected:
 public:
     uint256 hashContinue;
     CBlockIndex* pindexLastGetBlocksBegin;
-    uint256 hashLastGetBlocksEnd;
+    time_t nLastPacketTime;
     int nStartingHeight;
     bool fStartSync;
 
@@ -244,7 +244,7 @@ public:
         nSendOffset = 0;
         hashContinue = 0;
         pindexLastGetBlocksBegin = 0;
-        hashLastGetBlocksEnd = 0;
+        nLastPacketTime = 0;
         nStartingHeight = -1;
         fStartSync = true;
         fGetAddr = false;
