@@ -496,6 +496,13 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "ON (LinkedPacketID.PacketHash = SearchedPacketID.PacketHash ";
     sql << "AND LinkedPacketID.IsRecipient = SearchedPacketID.IsRecipient) ";
 
+    // Only count one packet from author to recipient
+    sql << "INNER JOIN (SELECT DISTINCT LinkAuthor.PacketHash AS ph FROM PacketIdentifiers AS LinkAuthor ";
+    sql << "INNER JOIN PacketIdentifiers AS LinkRecipient ON (LinkRecipient.IsRecipient = 1 AND LinkAuthor.PacketHash = LinkRecipient.PacketHash) ";
+    sql << "WHERE LinkAuthor.IsRecipient = 0 ";
+    sql << "GROUP BY LinkAuthor.IdentifierID, LinkAuthor.PredicateID, LinkRecipient.PredicateID, LinkRecipient.IdentifierID ";
+    sql << ") ON ph = p.Hash ";
+
     sql << "INNER JOIN Identifiers AS SearchedID ON SearchedPacketID.IdentifierID = SearchedID.ID ";
     sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedPacketID.PredicateID = SearchedPredicate.ID ";
 
