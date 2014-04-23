@@ -63,7 +63,7 @@ private:
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);
     vector<string_pair > GetRecipientsByPacketHash(string packetHash);
-    vector<CSignature> GetSignaturesByPacketHash(string packetHash);
+    CSignature GetSignatureByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
     vector<CIdentifiPacket> GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient);
     void SavePacketAuthorOrRecipient(string packetHash, int predicateID, int identifierID, bool isRecipient);

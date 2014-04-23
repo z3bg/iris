@@ -37,12 +37,10 @@ void CIdentifiPacket::UpdateSignatures() {
     data = packet.get_obj();
     signedData = find_value(data, "signedData").get_obj();
 
-    for (vector<CSignature>::const_iterator it = signatures.begin(); it != signatures.end(); ++it) {
-        Object signature;
-        signature.push_back(Pair("pubKey", it->GetSignerPubKey()));
-        signature.push_back(Pair("signature", it->GetSignature()));
-        signaturesJSON.push_back(signature);
-    }
+    Object sig;
+    sig.push_back(Pair("pubKey", signature.GetSignerPubKey()));
+    sig.push_back(Pair("signature", signature.GetSignature()));
+    signaturesJSON.push_back(sig);
 
     newData.push_back(Pair("signedData", signedData));
     newData.push_back(Pair("signatures", signaturesJSON));
@@ -52,22 +50,21 @@ void CIdentifiPacket::UpdateSignatures() {
 
 void CIdentifiPacket::SetData(string strData) {
     Value json;
-    Object data, signedData;
-    Array authorsArray, recipientsArray, signaturesArray;
+    Object data, signedData, sigObj;
+    Array authorsArray, recipientsArray;
     authors.clear();
     recipients.clear();
-    signatures.clear();
 
     read_string(strData, json);
 
     data = json.get_obj();
     signedData = find_value(data, "signedData").get_obj();
+    sigObj = find_value(data, "signature").get_obj();
     string strSignedData = write_string(Value(signedData), false);
 
     timestamp = find_value(signedData, "timestamp").get_int();
     authorsArray = find_value(signedData, "author").get_array();
     recipientsArray = find_value(signedData, "recipient").get_array();
-    signaturesArray = find_value(data, "signatures").get_array();
     type = find_value(signedData, "type").get_str();
 
     bool hasRating;
@@ -107,15 +104,13 @@ void CIdentifiPacket::SetData(string strData) {
         recipients.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
-    for (Array::iterator it = signaturesArray.begin(); it != signaturesArray.end(); it++) {
-        Object signature = it->get_obj();
-        string pubKey = find_value(signature, "pubKey").get_str();
-        string strSignature = find_value(signature, "signature").get_str();
-        CSignature sig(pubKey, strSignature);
-        if (!sig.IsValid(strSignedData))
-            throw runtime_error("Invalid signature");
-        signatures.push_back(sig);
-    }
+
+    string pubKey = find_value(sigObj, "pubKey").get_str();
+    string strSignature = find_value(sigObj, "signature").get_str();
+    CSignature sig(pubKey, strSignature);
+    if (!sig.IsValid(strSignedData))
+        throw runtime_error("Invalid signature");
+    signature = sig;
 
     CIdentifiPacket::strData = strData;
 }
@@ -131,16 +126,16 @@ bool CIdentifiPacket::Sign(CKey& key) {
     key.Sign(hashToSign, vchSig);
     string signatureString = EncodeBase58(vchSig);
 
-    CSignature signature(pubKeyStr, signatureString);
-    signatures.push_back(signature);
+    CSignature sig(pubKeyStr, signatureString);
+    signature = sig;
 
     UpdateSignatures();
     return true;
 }
 
-bool CIdentifiPacket::AddSignature(CSignature signature) {
-    if (signature.IsValid(GetSignedData())) {
-        signatures.push_back(signature);
+bool CIdentifiPacket::AddSignature(CSignature sig) {
+    if (sig.IsValid(GetSignedData())) {
+        signature = sig;
         UpdateSignatures();
         return true;
     }
@@ -155,8 +150,8 @@ vector<pair<string, string> > CIdentifiPacket::GetRecipients() const {
     return recipients;
 }
 
-vector<CSignature> CIdentifiPacket::GetSignatures() const {
-    return signatures;
+CSignature CIdentifiPacket::GetSignature() const {
+    return signature;
 }
 
 time_t CIdentifiPacket::GetTimestamp() const {
@@ -172,11 +167,7 @@ Value CIdentifiPacket::GetJSON() const {
     packetJSON.push_back(Pair("data", data));
     packetJSON.push_back(Pair("published", published));
     packetJSON.push_back(Pair("priority", priority));
-    Array signatureDetails;
-    BOOST_FOREACH(CSignature sig, signatures) {
-        signatureDetails.push_back(sig.GetJSON());
-    }
-    packetJSON.push_back(Pair("signatureDetails", signatureDetails));
+    //packetJSON.push_back(Pair("signatureDetails", signature.GetJSON()));
 
     return packetJSON;
 }

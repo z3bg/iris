@@ -88,7 +88,7 @@ public:
     time_t GetTimestamp() const;
     vector<string_pair > GetAuthors() const;
     vector<string_pair > GetRecipients() const;
-    vector<CSignature> GetSignatures() const;
+    CSignature GetSignature() const;
     json_spirit::Value GetJSON() const;
 
     IMPLEMENT_SERIALIZE
@@ -114,7 +114,7 @@ private:
     int minRating;
     vector<string_pair > authors;
     vector<string_pair > recipients;
-    vector<CSignature> signatures;
+    CSignature signature;
     time_t timestamp;
     bool published;
     int priority;

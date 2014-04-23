@@ -313,8 +313,8 @@ vector<string_pair> CIdentifiDB::GetRecipientsByPacketHash(string packetHash) {
     return GetAuthorsOrRecipientsByPacketHash(packetHash, true);
 }
 
-vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
-    vector<CSignature> signatures;
+CSignature CIdentifiDB::GetSignatureByPacketHash(string packetHash) {
+    CSignature signature;
     sqlite3_stmt *statement;
     ostringstream sql;
 
@@ -332,8 +332,8 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
             
             if(result == SQLITE_ROW) {
                 string pubKey = string((char*)sqlite3_column_text(statement, 0));
-                string signature = string((char*)sqlite3_column_text(statement, 1));
-                signatures.push_back(CSignature(pubKey, signature));
+                string strSignature = string((char*)sqlite3_column_text(statement, 1));
+                signature = CSignature(pubKey, strSignature);
             } else {
                 break;  
             }
@@ -344,7 +344,7 @@ vector<CSignature> CIdentifiDB::GetSignaturesByPacketHash(string packetHash) {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
-    return signatures;
+    return signature;
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
@@ -1013,11 +1013,10 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     string keyType = "keyID";
 
     int nShortestPathToSignature = 1000000;
-    vector<CSignature> sigs = packet.GetSignatures();
-    BOOST_FOREACH (CSignature sig, sigs) {
-        string signerPubKeyID = GetSavedKeyID(sig.GetSignerPubKey());
-        if (signerPubKeyID.empty())
-            break;
+    CSignature sig = packet.GetSignature();
+
+    string signerPubKeyID = GetSavedKeyID(sig.GetSignerPubKey());
+    if (!signerPubKeyID.empty()) {
         BOOST_FOREACH (string myPubKeyID, myPubKeyIDs) {
             if (signerPubKeyID == myPubKeyID) {
                 nShortestPathToSignature = 1;
@@ -1027,9 +1026,7 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
             if (nPath > 0 && nPath < nShortestPathToSignature)
                 nShortestPathToSignature = nPath + 1;
         }
-        if (nShortestPathToSignature == 1)
-            break;
-    } 
+    }
 
     int nShortestPathToAuthor = 1000000;
     int nMostPacketsFromAuthor = -1;
@@ -1096,10 +1093,8 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
         int recipientID = SaveIdentifier(recipient.second);
         SavePacketRecipient(packetHash, predicateID, recipientID);
     }
-    vector<CSignature> signatures = packet.GetSignatures();
-    BOOST_FOREACH (CSignature sig, signatures) {
-        SavePacketSignature(sig, EncodeBase58(packet.GetHash()));
-    }
+    CSignature sig = packet.GetSignature();
+    SavePacketSignature(sig, EncodeBase58(packet.GetHash()));
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO Packets ";
@@ -1319,25 +1314,21 @@ string CIdentifiDB::GetSavedKeyID(string pubKey) {
 }
 
 bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs, vector<uint256>* visitedPackets) {
-    bool hasTrustedSigner = false;
-    vector<CSignature> signatures = packet.GetSignatures();
-    BOOST_FOREACH (CSignature sig, signatures) {
-        string strSignerKeyID = GetSavedKeyID(sig.GetSignerPubKey());
-        if (strSignerKeyID.empty())
-            return false;
-        if (find(trustedKeyIDs.begin(), trustedKeyIDs.end(), strSignerKeyID) != trustedKeyIDs.end()) {
-            hasTrustedSigner = true;
-            break;
-        }
-        BOOST_FOREACH (string key, trustedKeyIDs) {
-            if (GetSavedPath(make_pair("keyID", key), make_pair("keyID", strSignerKeyID), 3, visitedPackets).size() > 0) {
-                hasTrustedSigner = true;
-                break;
-            }
-        }
-        if (hasTrustedSigner) break;
+    CSignature sig = packet.GetSignature();
+
+    string strSignerKeyID = GetSavedKeyID(sig.GetSignerPubKey());
+    if (strSignerKeyID.empty())
+        return false;
+    if (find(trustedKeyIDs.begin(), trustedKeyIDs.end(), strSignerKeyID) != trustedKeyIDs.end()) {
+        return true;
     }
-    return hasTrustedSigner;
+    BOOST_FOREACH (string key, trustedKeyIDs) {
+        if (GetSavedPath(make_pair("keyID", key), make_pair("keyID", strSignerKeyID), 3, visitedPackets).size() > 0) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair end, int searchDepth, vector<uint256>* visitedPackets) {

@@ -19,10 +19,8 @@ Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = 
         if (findNames) {            
             pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet);
 
-            vector<CSignature> signatures = packet.GetSignatures();
-            string signerName;
-            if (!signatures.empty())
-                signerName = pidentifidb->GetName(make_pair("keyID", signatures.front().GetSignerKeyID()));
+            CSignature signature = packet.GetSignature();
+            string signerName = pidentifidb->GetName(make_pair("keyID", signature.GetSignerKeyID()));
 
             packetJSON.push_back(Pair("authorName", linkedNames.first));
             packetJSON.push_back(Pair("recipientName", linkedNames.second));
