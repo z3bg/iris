@@ -111,28 +111,26 @@ Suggested data format for Identifi packets:
 		    	['name', 'Alice Smith'],
 		    	['email', 'alice@example.com']
 		    ],
-			'recipient':
-			[
-	    		['nick', 'Bob the Builder'],
-	    		['url','http://twitter.com/bob'],
-	    		['url','http://www.facebook.com/bob'],
-	    		['depiction','magnet:<photo hash>?xs=http://example.com/1.jpg']
-			],
-			'responseTo': ['magnet:<hash of bob's message>'],
-			'type': 'review',
-			'comment': 'Bought a laptop from Bob. Thanks for the trade!',
-			'rating': 1,
-			'maxRating': 10,
-			'minRating': -10
-		},
-		'signatures':
-		[
-			{
-				'signerPubKey': 'RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU',
-				'signature': 'AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH'
-			}
-		]
-	}
+  			'recipient':
+  			[
+  	    		['nick', 'Bob the Builder'],
+  	    		['url','http://twitter.com/bob'],
+  	    		['url','http://www.facebook.com/bob'],
+  	    		['depiction','magnet:<photo hash>?xs=http://example.com/1.jpg']
+  			],
+  			'responseTo': ['magnet:<hash of bob's message>'],
+  			'type': 'review',
+  			'comment': 'Bought a laptop from Bob. Thanks for the trade!',
+  			'rating': 1,
+  			'maxRating': 10,
+  			'minRating': -10
+  		},
+  		'signature':
+  		{
+  			'signerPubKey': 'RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU',
+  			'signature': 'AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH'
+  		}
+  	}
 
 SignedData may optionally contain additional fields.
 

@@ -122,7 +122,8 @@ void CIdentifiDB::CheckDefaultTrustList() {
         CKey defaultKey = GetDefaultKey();
         CIdentifiAddress address(defaultKey.GetPubKey().GetID());
 
-        Array author, author1, recipient, recipient1, recipient2, signatures;
+        Array author, author1, recipient, recipient1, recipient2;
+        Object signature;
         author1.push_back("keyID");
         author1.push_back(address.ToString());
         author.push_back(author1);
@@ -146,7 +147,7 @@ void CIdentifiDB::CheckDefaultTrustList() {
         signedData.push_back(Pair("minRating", -1));
 
         data.push_back(Pair("signedData", signedData));
-        data.push_back(Pair("signatures", signatures));
+        data.push_back(Pair("signature", signature));
 
         string strData = write_string(Value(data), false);
         CIdentifiPacket packet(strData);
@@ -327,10 +328,10 @@ CSignature CIdentifiDB::GetSignatureByPacketHash(string packetHash) {
         sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
 
         int result = 0;
-        while(true) {
+        while (true) {
             result = sqlite3_step(statement);
             
-            if(result == SQLITE_ROW) {
+            if (result == SQLITE_ROW) {
                 string pubKey = string((char*)sqlite3_column_text(statement, 0));
                 string strSignature = string((char*)sqlite3_column_text(statement, 1));
                 signature = CSignature(pubKey, strSignature);

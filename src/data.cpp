@@ -37,13 +37,8 @@ void CIdentifiPacket::UpdateSignatures() {
     data = packet.get_obj();
     signedData = find_value(data, "signedData").get_obj();
 
-    Object sig;
-    sig.push_back(Pair("pubKey", signature.GetSignerPubKey()));
-    sig.push_back(Pair("signature", signature.GetSignature()));
-    signaturesJSON.push_back(sig);
-
     newData.push_back(Pair("signedData", signedData));
-    newData.push_back(Pair("signatures", signaturesJSON));
+    newData.push_back(Pair("signature", signature.GetJSON()));
 
     strData = write_string(Value(newData), false);
 }
@@ -105,11 +100,16 @@ void CIdentifiPacket::SetData(string strData) {
     }
 
 
-    string pubKey = find_value(sigObj, "pubKey").get_str();
-    string strSignature = find_value(sigObj, "signature").get_str();
-    CSignature sig(pubKey, strSignature);
-    if (!sig.IsValid(strSignedData))
-        throw runtime_error("Invalid signature");
+    CSignature sig;
+
+    if (find_value(sigObj, "pubKey").type() != null_type && find_value(sigObj, "pubKey").type() != null_type) {
+        string pubKey = find_value(sigObj, "pubKey").get_str();
+        string strSignature = find_value(sigObj, "signature").get_str();
+        CSignature sig(pubKey, strSignature);
+        if (!sig.IsValid(strSignedData))
+            throw runtime_error("Invalid signature");
+    }
+
     signature = sig;
 
     CIdentifiPacket::strData = strData;

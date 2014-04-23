@@ -801,7 +801,7 @@ bool AppInit2(boost::thread_group& threadGroup)
                     break;
                 }
             } catch(std::exception &e) {
-                strLoadError = _("Error opening block database");
+                strLoadError = _("Error opening identifi database");
                 break;
             }
 

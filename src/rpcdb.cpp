@@ -258,7 +258,8 @@ Value savepacket(const Array& params, bool fHelp)
             "savepacket <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
             "Save a packet");
 
-    Array author, author1, recipient, recipient1, signatures;
+    Array author, author1, recipient, recipient1;
+    Object signature;
     author1.push_back(params[0].get_str());
     author1.push_back(params[1].get_str());
     author.push_back(author1);
@@ -278,7 +279,7 @@ Value savepacket(const Array& params, bool fHelp)
     signedData.push_back(Pair("minRating",-10));
 
     data.push_back(Pair("signedData", signedData));
-    data.push_back(Pair("signatures", signatures));
+    data.push_back(Pair("signature", signature));
 
     string strData = write_string(Value(data), false);
     CIdentifiPacket packet(strData);
@@ -300,7 +301,8 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
             "saveconnection <author_id_type> <author_id_value> <connected_id1_type> <connected_id1_value> <connected_id2_type> <connected_id2_value> <publish=false>\n"
             "Save a connection between id1 and id2");
 
-    Array author, author1, recipient, connected1, connected2, signatures;
+    Array author, author1, recipient, connected1, connected2;
+    Object signature;
     author1.push_back(params[0].get_str());
     author1.push_back(params[1].get_str());
     author.push_back(author1);
@@ -325,7 +327,7 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
     signedData.push_back(Pair("minRating",-1));
 
     data.push_back(Pair("signedData", signedData));
-    data.push_back(Pair("signatures", signatures));
+    data.push_back(Pair("signature", signature));
 
     string strData = write_string(Value(data), false);
     CIdentifiPacket packet(strData);
