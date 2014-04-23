@@ -1850,6 +1850,7 @@ void RelayPacket(CIdentifiPacket& packet)
 
 void RelayPacket(CIdentifiPacket& packet, const CDataStream& ss)
 {
+    if (!packet.IsPublished()) return;
     uint256 hash = packet.GetHash();
     CInv inv(MSG_PACKET, hash);
     {
