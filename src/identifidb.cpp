@@ -407,8 +407,61 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     return packets;
 }
 
-vector<LinkedID> CIdentifiDB::GetConnections(string_pair id) {
-    vector<LinkedID> results;
+vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, string_pair id2, int limit, int offset, bool showUnpublished) {
+    vector<CIdentifiPacket> results;
+    sqlite3_stmt *statement;
+
+    ostringstream sql;
+    sql.str("");
+
+    sql << "SELECT * FROM Packets AS p ";
+    sql << "INNER JOIN PacketIdentifiers AS LinkAuthor ";
+    sql << "ON (LinkAuthor.PacketHash = p.Hash AND LinkAuthor.IsRecipient = 0) ";
+    sql << "INNER JOIN PacketIdentifiers AS LinkedID1 ";
+    sql << "ON (LinkedID1.PacketHash = p.Hash AND LinkedID1.IsRecipient = 1) ";
+    sql << "INNER JOIN PacketIdentifiers AS LinkedID2 ";
+    sql << "ON (LinkedID2.PacketHash = p.Hash AND LinkedID2.IsRecipient = 1 ";
+    sql << "AND NOT (LinkedID1.IdentifierID = LinkedID2.IdentifierID AND LinkedID1.PredicateID = LinkedID2.PredicateID)) ";
+    sql << "INNER JOIN Predicates AS ID1type ON ID1type.ID = LinkedID1.PredicateID ";
+    sql << "INNER JOIN Predicates AS ID2type ON ID2type.ID = LinkedID2.PredicateID ";
+    sql << "INNER JOIN Identifiers AS ID1value ON ID1value.ID = LinkedID1.IdentifierID ";
+    sql << "INNER JOIN Identifiers AS ID2value ON ID2value.ID = LinkedID2.IdentifierID ";
+    sql << "WHERE ID1type.Value = @id1type AND ID1value.Value = @id1value ";
+    sql << "AND ID2type.Value = @id2type AND ID2value.Value = @id2value ";
+
+    if (!showUnpublished)
+        sql << "AND p.Published = 1 ";
+
+    sql << "GROUP BY LinkAuthor.PredicateID, LinkAuthor.IdentifierID ";
+
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
+
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id1.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id1.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, id2.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, id2.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (limit) {
+            sqlite3_bind_int(statement, 5, limit);
+            sqlite3_bind_int(statement, 6, offset);            
+        }
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+            if(result == SQLITE_ROW)
+                results.push_back(GetPacketFromStatement(statement));
+            else
+                break;
+        }
+        
+        sqlite3_finalize(statement);
+    }
+
     return results;
 }
 

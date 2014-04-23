@@ -151,6 +151,7 @@ extern json_spirit::Value search(const json_spirit::Array& params, bool fHelp); 
 extern json_spirit::Value saveconnection(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value refuteconnection(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getconnections(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value getconnectingpackets(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value overview(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value deletepacket(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value savepacketfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp

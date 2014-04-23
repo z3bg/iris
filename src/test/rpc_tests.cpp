@@ -231,6 +231,9 @@ BOOST_AUTO_TEST_CASE(link_confs_and_refutes)
     BOOST_CHECK_EQUAL(find_value(first, "value").get_str(), "BobTheBuilder");
     BOOST_CHECK_EQUAL(find_value(first, "confirmations").get_int(), 2);
     BOOST_CHECK_EQUAL(find_value(first, "refutations").get_int(), 1);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getconnectingpackets email bob@example.com nickname BobTheBuilder"));
+    BOOST_CHECK(!r.get_array().empty()); 
 }
 
 BOOST_AUTO_TEST_CASE(savepacket_performance)

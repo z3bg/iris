@@ -213,6 +213,7 @@ static const CRPCCommand vRPCCommands[] =
     { "saveconnection",             &saveconnection,            true,      false },
     { "refuteconnection",           &refuteconnection,          true,      false },
     { "getconnections",             &getconnections,            true,      false },
+    { "getconnectingpackets",       &getconnectingpackets,      true,      false },    
     { "savepacketfromdata",         &savepacketfromdata,        true,      false },
     { "getname",                    &getname,                   true,      false },
     { "deletepacket",               &deletepacket,              true,      false },
