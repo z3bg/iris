@@ -379,7 +379,7 @@ Value getconnectingpackets(const Array& params, bool fHelp) {
     if (fHelp || params.size() != 4)
     throw runtime_error(
         "getconnectingpackets <id1_type> <id1_value> <id2_type> <id2_value>\n"
-        "Get identifiers linked to the given identifier");
+        "Get packets that link id1 and id2");
 
     vector<CIdentifiPacket> results = pidentifidb->GetConnectingPackets(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
     return packetVectorToJSONArray(results);
