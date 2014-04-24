@@ -89,7 +89,7 @@ public:
     vector<string_pair > GetAuthors() const;
     vector<string_pair > GetRecipients() const;
     CSignature GetSignature() const;
-    json_spirit::Value GetJSON() const;
+    json_spirit::Value GetJSON();
 
     IMPLEMENT_SERIALIZE
     (

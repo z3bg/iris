@@ -30,15 +30,17 @@ string CIdentifiPacket::GetSignedData() const {
 
 void CIdentifiPacket::UpdateSignatures() {
     Value packet;
-    Object data, newData, signedData;
-    Array signaturesJSON;
+    Object data, newData, signedData, signatureJSON;
 
     read_string(strData, packet);
     data = packet.get_obj();
     signedData = find_value(data, "signedData").get_obj();
 
+    signatureJSON.push_back(Pair("pubKey", signature.GetSignerPubKey()));
+    signatureJSON.push_back(Pair("signature", signature.GetSignature()));
+
     newData.push_back(Pair("signedData", signedData));
-    newData.push_back(Pair("signature", signature.GetJSON()));
+    newData.push_back(Pair("signature", signatureJSON));
 
     strData = write_string(Value(newData), false);
 }
@@ -102,14 +104,13 @@ void CIdentifiPacket::SetData(string strData) {
 
     CSignature sig;
 
-    if (find_value(sigObj, "pubKey").type() != null_type && find_value(sigObj, "pubKey").type() != null_type) {
+    if (find_value(sigObj, "pubKey").type() != null_type && find_value(sigObj, "signature").type() != null_type) {
         string pubKey = find_value(sigObj, "pubKey").get_str();
         string strSignature = find_value(sigObj, "signature").get_str();
-        CSignature sig(pubKey, strSignature);
+        sig = CSignature(pubKey, strSignature);
         if (!sig.IsValid(strSignedData))
             throw runtime_error("Invalid signature");
     }
-
     signature = sig;
 
     CIdentifiPacket::strData = strData;
@@ -158,7 +159,7 @@ time_t CIdentifiPacket::GetTimestamp() const {
     return timestamp;
 }
 
-Value CIdentifiPacket::GetJSON() const {
+Value CIdentifiPacket::GetJSON() {
     Value data;
     Object packetJSON;
 
@@ -167,7 +168,7 @@ Value CIdentifiPacket::GetJSON() const {
     packetJSON.push_back(Pair("data", data));
     packetJSON.push_back(Pair("published", published));
     packetJSON.push_back(Pair("priority", priority));
-    //packetJSON.push_back(Pair("signatureDetails", signature.GetJSON()));
+    packetJSON.push_back(Pair("signatureDetails", signature.GetJSON()));
 
     return packetJSON;
 }

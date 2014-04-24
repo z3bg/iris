@@ -30,7 +30,6 @@ public:
     vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true);
     vector<string_pair> SearchForID(string_pair query, int limit = 50, int offset = 0, bool trustPathablePredicatesOnly = false);
     string SavePacket(CIdentifiPacket &packet);
-    void SavePacketSignature(CSignature &signature, string packetHash);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
     vector<IdentifiKey> GetMyKeys();
@@ -63,7 +62,6 @@ private:
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);
     vector<string_pair > GetRecipientsByPacketHash(string packetHash);
-    CSignature GetSignatureByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
     vector<CIdentifiPacket> GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient);
     void SavePacketAuthorOrRecipient(string packetHash, int predicateID, int identifierID, bool isRecipient);

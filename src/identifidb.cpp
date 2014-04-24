@@ -192,7 +192,9 @@ void CIdentifiDB::Initialize() {
     sql << "MaxRating           INTEGER         DEFAULT 0 NOT NULL,";
     sql << "Published           BOOL            DEFAULT 0 NOT NULL,";
     sql << "Priority            INTEGER         DEFAULT 0 NOT NULL,";
-    sql << "IsLatest            BOOL            DEFAULT 0 NOT NULL";
+    sql << "SignerPubKeyID      INTEGER         NOT NULL,";
+    sql << "Signature           NVARCHAR(100)   NOT NULL,";
+    sql << "FOREIGN KEY(SignerPubKeyID)     REFERENCES Identifiers(ID)";
     sql << ");";
     query(sql.str().c_str());
 
@@ -210,18 +212,6 @@ void CIdentifiDB::Initialize() {
     query("CREATE INDEX IF NOT EXISTS PIIndex ON PacketIdentifiers(PacketHash)");
     query("CREATE INDEX IF NOT EXISTS PIIndex_predID ON PacketIdentifiers(PredicateID)");
     query("CREATE INDEX IF NOT EXISTS PIIndex_idID ON PacketIdentifiers(IdentifierID)");
-
-
-    sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS PacketSignatures (";
-    sql << "PacketHash          NVARCHAR(45)    NOT NULL,";
-    sql << "Signature           NVARCHAR(100)   NOT NULL,";
-    sql << "PubKeyID            INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(PacketHash, PubKeyID),";
-    sql << "FOREIGN KEY(PubKeyID)   REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PacketHash) REFERENCES Packets(Hash));";
-    query(sql.str().c_str());
-    query("CREATE INDEX IF NOT EXISTS PSIndex ON PacketSignatures(PacketHash)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
@@ -312,40 +302,6 @@ vector<string_pair> CIdentifiDB::GetAuthorsByPacketHash(string packetHash) {
 
 vector<string_pair> CIdentifiDB::GetRecipientsByPacketHash(string packetHash) {
     return GetAuthorsOrRecipientsByPacketHash(packetHash, true);
-}
-
-CSignature CIdentifiDB::GetSignatureByPacketHash(string packetHash) {
-    CSignature signature;
-    sqlite3_stmt *statement;
-    ostringstream sql;
-
-    sql.str("");
-    sql << "SELECT id.Value, rs.Signature FROM PacketSignatures AS rs ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = rs.PubKeyID ";
-    sql << "WHERE rs.PacketHash = @packethash;";
-
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-
-        int result = 0;
-        while (true) {
-            result = sqlite3_step(statement);
-            
-            if (result == SQLITE_ROW) {
-                string pubKey = string((char*)sqlite3_column_text(statement, 0));
-                string strSignature = string((char*)sqlite3_column_text(statement, 1));
-                signature = CSignature(pubKey, strSignature);
-            } else {
-                break;  
-            }
-        }
-        
-        sqlite3_finalize(statement);
-    } else {
-        printf("DB Error: %s\n", sqlite3_errmsg(db));
-    }
-    
-    return signature;
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished) {
@@ -849,13 +805,6 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
         sqlite3_step(statement);
     }
 
-    sql.str("");
-    sql << "DELETE FROM PacketSignatures WHERE PacketHash = @hash;";
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-    }
-
     // Remove identifiers that were mentioned in this packet only
     sql.str("");
     sql << "DELETE FROM Identifiers WHERE ID IN ";
@@ -946,39 +895,6 @@ void CIdentifiDB::SavePacketAuthor(string packetHash, int predicateID, int autho
 
 void CIdentifiDB::SavePacketRecipient(string packetHash, int predicateID, int recipientID) {
     SavePacketAuthorOrRecipient(packetHash, predicateID, recipientID, true);
-}
-
-void CIdentifiDB::SavePacketSignature(CSignature &signature, string packetHash) {
-    sqlite3_stmt *statement;
-
-    ostringstream sql;
-    sql.str("");
-    sql << "SELECT * FROM PacketSignatures WHERE PacketHash = @packetHash ";
-    sql << "AND PubKeyID = @pubKeyHash";
-
-    string strPubKey = signature.GetSignerPubKey();
-    SavePubKey(strPubKey);
-
-    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 2, SaveIdentifier(strPubKey));
-    }
-    if (sqlite3_step(statement) != SQLITE_ROW) {
-        sql.str("");
-        sql << "INSERT OR IGNORE INTO PacketSignatures (PacketHash, PubKeyID, Signature) ";
-        sql << "VALUES (@packethash, @pubkeyhash, @signature);";
-        RETRY_IF_DB_FULL(
-            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_int(statement, 2, SaveIdentifier(signature.GetSignerPubKey()));
-                sqlite3_bind_text(statement, 3, signature.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_step(statement);
-                sqliteReturnCode = sqlite3_reset(statement); 
-            }
-        )
-    }
-    sqlite3_finalize(statement);
-    SaveIdentifier(signature.GetSignerPubKey());
 }
 
 int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
@@ -1094,15 +1010,18 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
         int recipientID = SaveIdentifier(recipient.second);
         SavePacketRecipient(packetHash, predicateID, recipientID);
     }
+
     CSignature sig = packet.GetSignature();
-    SavePacketSignature(sig, EncodeBase58(packet.GetHash()));
+    string strPubKey = sig.GetSignerPubKey();
+    SavePubKey(strPubKey);
+    int signerPubKeyID = SaveIdentifier(strPubKey);
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO Packets ";
     sql << "(Hash, SignedData, Created, PredicateID, Rating, ";
-    sql << "MaxRating, MinRating, Published, Priority, IsLatest) ";
+    sql << "MaxRating, MinRating, Published, Priority, SignerPubKeyID, Signature) ";
     sql << "VALUES (@id, @data, @timestamp, @predicateid, @rating, ";
-    sql << "@maxRating, @minRating, @published, @priority, 1);";
+    sql << "@maxRating, @minRating, @published, @priority, @signerPubKeyID, @signature);";
 
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1115,6 +1034,8 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
             sqlite3_bind_int(statement, 7, packet.GetMinRating());
             sqlite3_bind_int(statement, 8, packet.IsPublished());
             sqlite3_bind_int(statement, 9, priority);
+            sqlite3_bind_int(statement, 10, signerPubKeyID);
+            sqlite3_bind_text(statement, 11, sig.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
         } else {
             printf("DB Error: %s\n", sqlite3_errmsg(db));
         }
@@ -1310,7 +1231,7 @@ string CIdentifiDB::GetSavedKeyID(string pubKey) {
             keyID = string((char*)sqlite3_column_text(statement, 0));
         }
     }
-    sqlite3_finalize(statement);    
+    sqlite3_finalize(statement);
     return keyID;
 }
 
@@ -1563,8 +1484,9 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         if (currentPacket.GetRating() <= (currentPacket.GetMaxRating() + currentPacket.GetMinRating()) / 2)
             continue;
 
-        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs(), visitedPackets))
+        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs(), visitedPackets)) {
             continue;
+        }
 
         if (packetDistanceFromStart.find(currentPacket.GetHash()) != packetDistanceFromStart.end())
             currentDistanceFromStart = packetDistanceFromStart[currentPacket.GetHash()];
