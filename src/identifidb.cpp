@@ -258,6 +258,7 @@ void CIdentifiDB::Initialize() {
 void CIdentifiDB::SearchForPathForMyKeys() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDs();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
+        // Generate and save trust maps for our keys
         SearchForPath(make_pair("keyID", keyID));
     } 
 }
@@ -506,7 +507,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "ON (LinkedPacketID.PacketHash = SearchedPacketID.PacketHash ";
     sql << "AND LinkedPacketID.IsRecipient = SearchedPacketID.IsRecipient) ";
 
-    // Only count one packet from author to recipient
+    // Only count one packet from author to recipient. Slows down the query somewhat.
     sql << "INNER JOIN (SELECT DISTINCT LinkAuthor.PacketHash AS ph FROM PacketIdentifiers AS LinkAuthor ";
     sql << "INNER JOIN PacketIdentifiers AS LinkRecipient ON (LinkRecipient.IsRecipient = 1 AND LinkAuthor.PacketHash = LinkRecipient.PacketHash) ";
     sql << "WHERE LinkAuthor.IsRecipient = 0 ";
@@ -1469,7 +1470,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
 
-    vector<CIdentifiPacket> packets = GetPacketsByIdentifier(start, 0, 0, true);
+    vector<CIdentifiPacket> packets = GetPacketsByAuthor(start, 0, 0, true);
     searchQueue.insert(searchQueue.end(), packets.begin(), packets.end());
     int currentDistanceFromStart = 1;
 
