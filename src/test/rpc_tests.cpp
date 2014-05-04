@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE(savepacket_performance)
         char rpc[100];
         sprintf(rpc, rpcFormat, i);
         CallRPC(rpc);
-        if (i % 50 == 0) {
+        if (i % 200 == 0) {
             clock_t end = clock();
             double timeElapsed = double(end - begin) / CLOCKS_PER_SEC;
             double packetsPerSecond = i / timeElapsed;

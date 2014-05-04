@@ -322,9 +322,6 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
         signedData.push_back(Pair("type", "confirm_connection"));
     else
         signedData.push_back(Pair("type", "refute_connection"));
-    signedData.push_back(Pair("rating",0));
-    signedData.push_back(Pair("maxRating",1));
-    signedData.push_back(Pair("minRating",-1));
 
     data.push_back(Pair("signedData", signedData));
     data.push_back(Pair("signature", signature));

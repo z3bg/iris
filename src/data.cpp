@@ -54,10 +54,11 @@ void CIdentifiPacket::SetData(string strData) {
 
     read_string(strData, json);
 
+    // Enforce json_spirit non-pretty-print format
     if (write_string(json, false) != strData)
         throw runtime_error("Non-canonical json");
 
-    // TODO: a couple more canonicality checks
+    // TODO: a couple more canonicality checks, lexical ordering of fields etc
 
     data = json.get_obj();
     signedData = find_value(data, "signedData").get_obj();
@@ -69,12 +70,11 @@ void CIdentifiPacket::SetData(string strData) {
     recipientsArray = find_value(signedData, "recipient").get_array();
     type = find_value(signedData, "type").get_str();
 
-    bool hasRating;
+    bool hasRating = false;
     Value val;
-    try {
-        val = find_value(signedData, "rating");
+    val = find_value(signedData, "rating");
+    if (val.type() != null_type)
         hasRating = true;
-    } catch (json_spirit::Object& objError) {}
 
     if (hasRating) {
         rating = val.get_int();
