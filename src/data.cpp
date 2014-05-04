@@ -54,6 +54,11 @@ void CIdentifiPacket::SetData(string strData) {
 
     read_string(strData, json);
 
+    if (write_string(json, false) != strData)
+        throw runtime_error("Non-canonical json");
+
+    // TODO: a couple more canonicality checks
+
     data = json.get_obj();
     signedData = find_value(data, "signedData").get_obj();
     sigObj = find_value(data, "signature").get_obj();

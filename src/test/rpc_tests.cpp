@@ -236,6 +236,15 @@ BOOST_AUTO_TEST_CASE(link_confs_and_refutes)
     BOOST_CHECK(!r.get_array().empty()); 
 }
 
+BOOST_AUTO_TEST_CASE(canonical_json)
+{
+    Value r;
+    // No whitespace
+    BOOST_CHECK_THROW(r=CallRPC("savepacketfromdata {\"signedData\": {\"timestamp\":1234567,\"author\":[[\"email\",\"alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],\"recipient\":[[\"email\",\"bob@example.com\"],[\"nickname\",\"BobTheBuilder\"]],\"type\":\"confirm_connection\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}}"), runtime_error);
+    // No line breaks
+    BOOST_CHECK_THROW(r=CallRPC("savepacketfromdata {\"signedData\": \n{\"timestamp\":1234567,\"author\":[[\"email\",\"alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],\"recipient\":[[\"email\",\"bob@example.com\"],[\"nickname\",\"BobTheBuilder\"]],\"type\":\"confirm_connection\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}}"), runtime_error);
+}
+
 BOOST_AUTO_TEST_CASE(savepacket_performance)
 {
     delete pidentifidb;
