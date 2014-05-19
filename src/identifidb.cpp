@@ -1453,6 +1453,12 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
     return nextStep;
 }
 
+struct SearchQueuePacket {
+    CIdentifiPacket packet;
+    bool matchedByAuthor;
+    string_pair matchedByIdentifier;
+};
+
 // Breadth-first search for the shortest trust paths to all known packets, starting from id1
 vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
     bool outer = false;
@@ -1466,16 +1472,24 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         generateTrustMap = true;
 
     vector<CIdentifiPacket> path;
-    deque<CIdentifiPacket> searchQueue;
+    deque<SearchQueuePacket> searchQueue;
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
 
     vector<CIdentifiPacket> packets = GetPacketsByAuthor(start, 0, 0, true);
-    searchQueue.insert(searchQueue.end(), packets.begin(), packets.end());
+    BOOST_FOREACH(CIdentifiPacket p, packets) {
+        SearchQueuePacket sqp;
+        sqp.packet = p;
+        sqp.matchedByAuthor = true;
+        sqp.matchedByIdentifier = start;
+        searchQueue.push_back(sqp);
+    }
     int currentDistanceFromStart = 1;
 
     while (!searchQueue.empty()) {
-        CIdentifiPacket currentPacket = searchQueue.front();
+        CIdentifiPacket currentPacket = searchQueue.front().packet;
+        bool matchedByAuthor = searchQueue.front().matchedByAuthor;
+        string_pair matchedByIdentifier = searchQueue.front().matchedByIdentifier;
         searchQueue.pop_front();
         if (find(visitedPackets->begin(), visitedPackets->end(), currentPacket.GetHash()) != visitedPackets->end()) {
             continue;
@@ -1497,39 +1511,62 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
             return path;
         }
 
-        vector<string_pair> allIdentifiers = currentPacket.GetAuthors();
-        vector<string_pair> recipients = currentPacket.GetRecipients();
-        allIdentifiers.insert(allIdentifiers.end(), recipients.begin(), recipients.end());
+        vector<string_pair> authors;
+        vector<string_pair> allIdentifiers = currentPacket.GetRecipients();
+        if (matchedByAuthor) {
+            authors = currentPacket.GetAuthors();
+            allIdentifiers.insert(allIdentifiers.end(), authors.begin(), authors.end());            
+        }
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
-            if (savePath)
-                SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
+            if (identifier != matchedByIdentifier) {
+                if (savePath)
+                    SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
 
-            if (path.empty()
-                    && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
-                    && identifier.second == end.second) {
-                // Path found: backtrack it from end to start and return it
-                path.push_back(currentPacket);
+                if (path.empty()
+                        && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
+                        && identifier.second == end.second) {
+                    // Path found: backtrack it from end to start and return it
+                    path.push_back(currentPacket);
 
-                CIdentifiPacket previousPacket = currentPacket;
-                while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
-                    previousPacket = previousPackets.at(previousPacket.GetHash());
-                    path.insert(path.begin(), previousPacket);
+                    CIdentifiPacket previousPacket = currentPacket;
+                    while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
+                        previousPacket = previousPackets.at(previousPacket.GetHash());
+                        path.insert(path.begin(), previousPacket);
+                    }
+                    if (!generateTrustMap)
+                        return path;
                 }
-                if (!generateTrustMap)
-                    return path;
-            }
-            // add packets involving this identifier to search queue
-            vector<CIdentifiPacket> allPackets = GetPacketsByIdentifier(identifier, 0, 0, true);
 
-            searchQueue.insert(searchQueue.end(), allPackets.begin(), allPackets.end());
+                vector<CIdentifiPacket> allPackets;
+                vector<CIdentifiPacket> authors2 = GetPacketsByAuthor(identifier, 0, 0, true);
+                vector<CIdentifiPacket> recipients2 = GetPacketsByRecipient(identifier, 0, 0, true);
+                allPackets.insert(allPackets.end(), authors2.begin(), authors2.end());
+                allPackets.insert(allPackets.end(), recipients2.begin(), recipients2.end());
 
-            BOOST_FOREACH (CIdentifiPacket p, allPackets) {
-                if (previousPackets.find(p.GetHash()) == previousPackets.end()
-                    && find(visitedPackets->begin(), visitedPackets->end(), p.GetHash()) == visitedPackets->end())
-                    previousPackets[p.GetHash()] = currentPacket;
-                if (packetDistanceFromStart.find(p.GetHash()) == packetDistanceFromStart.end()
-                    && find(visitedPackets->begin(), visitedPackets->end(), p.GetHash()) == visitedPackets->end()) {
-                    packetDistanceFromStart[p.GetHash()] = currentDistanceFromStart + 1;
+                BOOST_FOREACH(CIdentifiPacket p, authors2) {
+                    SearchQueuePacket sqp;
+                    sqp.packet = p;
+                    sqp.matchedByAuthor = true;
+                    sqp.matchedByIdentifier = identifier;
+                    searchQueue.push_back(sqp);
+                }
+
+                BOOST_FOREACH(CIdentifiPacket p, recipients2) {
+                    SearchQueuePacket sqp;
+                    sqp.packet = p;
+                    sqp.matchedByAuthor = false;
+                    sqp.matchedByIdentifier = identifier;
+                    searchQueue.push_back(sqp);
+                }
+
+                BOOST_FOREACH (CIdentifiPacket p, allPackets) {
+                    if (previousPackets.find(p.GetHash()) == previousPackets.end()
+                        && find(visitedPackets->begin(), visitedPackets->end(), p.GetHash()) == visitedPackets->end())
+                        previousPackets[p.GetHash()] = currentPacket;
+                    if (packetDistanceFromStart.find(p.GetHash()) == packetDistanceFromStart.end()
+                        && find(visitedPackets->begin(), visitedPackets->end(), p.GetHash()) == visitedPackets->end()) {
+                        packetDistanceFromStart[p.GetHash()] = currentDistanceFromStart + 1;
+                    }
                 }
             }
         }

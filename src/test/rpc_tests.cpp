@@ -217,7 +217,13 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 
     // Trust path should be one-way
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email david@example.com email alice@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email david@example.com email emil@example.com pos 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email emil@example.com email fred@example.com pos 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email emil@example.com email david@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email fred@example.com email david@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email fred@example.com email bob@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 
     int i = CallRPC("getpacketcount").get_int();
