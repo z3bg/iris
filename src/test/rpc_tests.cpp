@@ -188,6 +188,12 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     firstPacket = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
 
+    // Packet by dev key
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1400788640,\"author\":[[\"keyID\",\"147cQZJ7Bd4ErnVYZahLfCaecJVkJVvqBP\"]],\"recipient\":[[\"keyID\",\"1Chdftd6Q9AbCih329udiYMNW46wpmS2nG\"]],\"type\":\"review\",\"comment\":\"test\",\"rating\":0,\"maxRating\":10,\"minRating\":-10},\"signature\":{\"pubKey\":\"PqxqDCkJ8h3Gj1ZqJp8qeWrrZGe5FuruJqj4YfBGj5BhUcSmphsuUWUc5eyoAwqP7N2WY7KAhpMtLuwCEiEbcEHV\",\"signature\":\"381yXZRZqUEtMPKFyzcTDJBsUgdMPvijTauLHK69jtZDVtAvGfKzeMfJjh5YdDKZcoLMHQQ7w3kL4JFipujc8EDE9kuJXoha\"}}"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketbyhash 1otjE8Sk6dFtax9V3f7jLceYxJXHJ7yFLd1btLuf82F"));
+    firstPacket = r.get_array().front().get_obj();
+    BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
+
     BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep p1 nobody1 p2 nobody2"));
     BOOST_CHECK(r.get_str().empty());
     BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
