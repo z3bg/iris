@@ -460,6 +460,24 @@ Value importprivkey(const Array& params, bool fHelp)
     return true;
 }
 
+Value getnewkey(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getnewkey\n"
+            "Create a new keypair");
+
+    CKey newKey = pidentifidb->GetNewKey();
+    IdentifiKey identifiKey = CKeyToIdentifiKey(newKey);
+
+    Object keyJSON;
+    keyJSON.push_back(Pair("pubkey", identifiKey.pubKey));
+    keyJSON.push_back(Pair("pubkey ID", identifiKey.keyID));
+    keyJSON.push_back(Pair("privkey", identifiKey.privKey));
+
+    return keyJSON;
+}
+
 Value setdefaultkey(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)

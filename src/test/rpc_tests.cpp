@@ -160,10 +160,11 @@ BOOST_AUTO_TEST_CASE(keys_and_signatures) {
     BOOST_CHECK_EQUAL(r.get_bool(), true);
     BOOST_CHECK_NO_THROW(r=CallRPC("setdefaultkey 5K1T7u3NA55ypnDDBHB61MZ2hFxCoNbBeZj5dhQttPJFKo85MfR"));
     BOOST_CHECK_EQUAL(r.get_bool(), true);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getnewkey"));
     BOOST_CHECK_NO_THROW(r=CallRPC("listmykeys"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
+    BOOST_CHECK_EQUAL(r.get_array().size(), 3);
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), identifierCountBefore + 2);
+    BOOST_CHECK_EQUAL(r.get_int(), identifierCountBefore + 4);
 }
 
 BOOST_AUTO_TEST_CASE(trust_paths) {

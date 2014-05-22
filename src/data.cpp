@@ -8,6 +8,20 @@ using namespace std;
 using namespace boost;
 using namespace json_spirit;
 
+IdentifiKey CKeyToIdentifiKey(CKey& key) {
+    bool compressed = false;
+    CSecret secret = key.GetSecret(compressed);
+    CPubKey pubKey = key.GetPubKey();
+    CIdentifiAddress address(pubKey.GetID());
+
+    IdentifiKey identifiKey;
+    identifiKey.pubKey = EncodeBase58(pubKey.Raw());
+    identifiKey.keyID = address.ToString();
+    identifiKey.privKey = CIdentifiSecret(secret, compressed).ToString();
+
+    return identifiKey;
+}
+
 uint256 CIdentifiPacket::GetHash() const {
     //return Hash(strData.begin(), strData.end());
     return GetSignedDataHash();

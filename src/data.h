@@ -25,6 +25,8 @@ struct IdentifiKey {
     string privKey;
 };
 
+IdentifiKey CKeyToIdentifiKey(CKey& key);
+
 struct LinkedID {
     string_pair id;
     int confirmations;

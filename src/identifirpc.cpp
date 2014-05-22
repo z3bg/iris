@@ -219,6 +219,7 @@ static const CRPCCommand vRPCCommands[] =
     { "deletepacket",               &deletepacket,              true,      false },
     { "listmykeys",                 &listmykeys,                true,      false },
     { "importprivkey",              &importprivkey,             true,      false },
+    { "getnewkey",                  &getnewkey,                 true,      false },
     { "setdefaultkey",              &setdefaultkey,             true,      false },
     { "addsignature",               &addsignature,              true,      false },
     { "publish",                    &publish,                   true,      false },

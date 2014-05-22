@@ -1834,3 +1834,13 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id) {
 
     return overview;
 }
+
+CKey CIdentifiDB::GetNewKey() {
+    CKey newKey;
+    newKey.MakeNewKey(false);
+    bool compressed;
+    CSecret secret = newKey.GetSecret(compressed);
+    string strPrivateKey = CIdentifiSecret(secret, compressed).ToString();
+    ImportPrivKey(strPrivateKey);
+    return newKey;
+}
