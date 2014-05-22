@@ -118,41 +118,51 @@ void CIdentifiDB::CheckDefaultKey() {
 
 void CIdentifiDB::CheckDefaultTrustList() {
     vector<vector<string> > result = query("SELECT COUNT(1) FROM Packets");
-    if (lexical_cast<int>(result[0][0]) < 1) {
-        CKey defaultKey = GetDefaultKey();
-        CIdentifiAddress address(defaultKey.GetPubKey().GetID());
+    if (lexical_cast<int>(result[0][0]) < 3) {
+        const char* devKeys[] = {"147cQZJ7Bd4ErnVYZahLfCaecJVkJVvqBP",
+                                "1KMtj7J2Jjgjk5rivpb636y6KYAov1bpc6",
+                                "16tzoJgKHUEW9y6AiWWFCUApi2R5yrffE3"};
 
-        Array author, author1, recipient, recipient1, recipient2;
-        Object signature;
-        author1.push_back("keyID");
-        author1.push_back(address.ToString());
-        author.push_back(author1);
-        recipient1.push_back("keyID");
-        recipient1.push_back("17UG6qcurCi9872CrxTkgiTJLpCbo5Npgu");
-        recipient2.push_back("nickname");
-        recipient2.push_back("Identifi dev key");
-        recipient.push_back(recipient1);
-        recipient.push_back(recipient2);
-        
-        time_t now = time(NULL);
+        int n = 0;
+        BOOST_FOREACH(const char* key, devKeys) {
+            n++;
+            CKey defaultKey = GetDefaultKey();
+            CIdentifiAddress address(defaultKey.GetPubKey().GetID());
 
-        json_spirit::Object data, signedData;
-        signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
-        signedData.push_back(Pair("author", author));
-        signedData.push_back(Pair("recipient", recipient));
-        signedData.push_back(Pair("type", "review"));
-        signedData.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
-        signedData.push_back(Pair("rating", 1));
-        signedData.push_back(Pair("maxRating", 1));
-        signedData.push_back(Pair("minRating", -1));
+            Array author, author1, recipient, recipient1, recipient2;
+            Object signature;
+            author1.push_back("keyID");
+            author1.push_back(address.ToString());
+            author.push_back(author1);
+            recipient1.push_back("keyID");
+            recipient1.push_back(key);
+            recipient2.push_back("nickname");
+            char nickname[100];
+            sprintf(nickname, "Identifi dev key %i", n);
+            recipient2.push_back(nickname);
+            recipient.push_back(recipient1);
+            recipient.push_back(recipient2);
+            
+            time_t now = time(NULL);
 
-        data.push_back(Pair("signedData", signedData));
-        data.push_back(Pair("signature", signature));
+            json_spirit::Object data, signedData;
+            signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
+            signedData.push_back(Pair("author", author));
+            signedData.push_back(Pair("recipient", recipient));
+            signedData.push_back(Pair("type", "review"));
+            signedData.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
+            signedData.push_back(Pair("rating", 1));
+            signedData.push_back(Pair("maxRating", 1));
+            signedData.push_back(Pair("minRating", -1));
 
-        string strData = write_string(Value(data), false);
-        CIdentifiPacket packet(strData);
-        packet.Sign(defaultKey);
-        SavePacket(packet);
+            data.push_back(Pair("signedData", signedData));
+            data.push_back(Pair("signature", signature));
+
+            string strData = write_string(Value(data), false);
+            CIdentifiPacket packet(strData);
+            packet.Sign(defaultKey);
+            SavePacket(packet);
+        }
     }
 }
 
