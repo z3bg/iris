@@ -262,7 +262,7 @@ void CIdentifiDB::Initialize() {
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
-    SearchForPathForMyKeys();
+    // SearchForPathForMyKeys(); // Disabled for now, takes too much time
 }
 
 void CIdentifiDB::SearchForPathForMyKeys() {
@@ -992,6 +992,7 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
 }
 
 string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
+    cout << "SavePacket " << EncodeBase58(packet.GetHash()) << "\n";
     int priority = GetPriority(packet);
     if (priority == 0 && !GetArg("-saveuntrustedpackets", false)) return "";
 
@@ -1425,6 +1426,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, pair<string,string> end, stri
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
+    cout << "GetPath" << start.first << start.second << end.first << end.second << "\n";
     vector<CIdentifiPacket> path = GetSavedPath(start, end, searchDepth);
     if (path.empty())
         path = SearchForPath(start, end, savePath, searchDepth);

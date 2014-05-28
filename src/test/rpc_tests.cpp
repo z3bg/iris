@@ -218,6 +218,11 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email david@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 3);
+    BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email james@example.com email david@example.com url http://example.com/david"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email james@example.com url http://example.com/david account user@bitcoin-otc.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com account user@bitcoin-otc.com 5"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 5);
+
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email carl@example.com 1"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email david@example.com 2"));
