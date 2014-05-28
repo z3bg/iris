@@ -51,8 +51,8 @@ public:
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
     vector<CIdentifiPacket> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
-    vector<CIdentifiPacket> SearchForPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
-    vector<CIdentifiPacket> GetPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 5, vector<uint256>* visitedPackets = 0);
+    vector<CIdentifiPacket> SearchForPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 3, vector<uint256>* visitedPackets = 0);
+    vector<CIdentifiPacket> GetPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 3, vector<uint256>* visitedPackets = 0);
     void SaveTrustStep(string_pair start, pair<string,string> end, string nextStep);
     void SavePacketTrustPaths(CIdentifiPacket &packet);
     IDOverview GetIDOverview(string_pair id);

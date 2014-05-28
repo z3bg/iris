@@ -170,9 +170,9 @@ Value getpath(const Array& params, bool fHelp)
     Array packetsJSON;
     vector<CIdentifiPacket> packets;
     if (params.size() == 4)
-        packets = pidentifidb->SearchForPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), false);
+        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true);
     else
-        packets = pidentifidb->SearchForPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), false, boost::lexical_cast<int>(params[4].get_str()));
+        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
 
     return packetVectorToJSONArray(packets);
 }
@@ -439,10 +439,13 @@ Value listmykeys(const Array& params, bool fHelp)
     Array keysJSON;
 
     for (vector<IdentifiKey>::iterator key = keys.begin(); key != keys.end(); ++key) {
+        string name = pidentifidb->GetName(make_pair("keyID", key->keyID));
         Object keyJSON;
         keyJSON.push_back(Pair("pubkey", key->pubKey));
         keyJSON.push_back(Pair("pubkey ID", key->keyID));
         keyJSON.push_back(Pair("privkey", key->privKey));
+        if (!name.empty())
+            keyJSON.push_back(Pair("name", name));
         keyJSON.push_back(Pair("default", key->pubKey == strDefaultKey));
         keysJSON.push_back(keyJSON);
     }

@@ -269,7 +269,7 @@ void CIdentifiDB::SearchForPathForMyKeys() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDs();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
         // Generate and save trust maps for our keys
-        SearchForPath(make_pair("keyID", keyID));
+        SearchForPath(make_pair("keyID", keyID), make_pair("",""), true, 2);
     } 
 }
 
@@ -992,7 +992,6 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
 }
 
 string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
-    cout << "SavePacket " << EncodeBase58(packet.GetHash()) << "\n";
     int priority = GetPriority(packet);
     if (priority == 0 && !GetArg("-saveuntrustedpackets", false)) return "";
 
@@ -1426,7 +1425,6 @@ void CIdentifiDB::SaveTrustStep(string_pair start, pair<string,string> end, stri
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
-    cout << "GetPath" << start.first << start.second << end.first << end.second << "\n";
     vector<CIdentifiPacket> path = GetSavedPath(start, end, searchDepth);
     if (path.empty())
         path = SearchForPath(start, end, savePath, searchDepth);
@@ -1473,17 +1471,26 @@ struct SearchQueuePacket {
 
 // Breadth-first search for the shortest trust paths to all known packets, starting from id1
 vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
+    vector<CIdentifiPacket> path;
+    if (start == end)
+        return path;
+
     bool outer = false;
     if (!visitedPackets) {
         visitedPackets = new vector<uint256>();
         outer = true;
     }
 
+    if (outer) {
+        vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1);
+        if (endPackets.empty())
+            return path; // Return if the end ID is not involved in any packets
+    }
+
     bool generateTrustMap;
     if (savePath && (end.first == "" && end.second == ""))
         generateTrustMap = true;
 
-    vector<CIdentifiPacket> path;
     deque<SearchQueuePacket> searchQueue;
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
