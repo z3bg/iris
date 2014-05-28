@@ -1246,7 +1246,7 @@ string CIdentifiDB::GetSavedKeyID(string pubKey) {
     return keyID;
 }
 
-bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs, vector<uint256>* visitedPackets) {
+bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs) {
     CSignature sig = packet.GetSignature();
 
     string strSignerKeyID = GetSavedKeyID(sig.GetSignerPubKey());
@@ -1256,7 +1256,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trust
         return true;
     }
     BOOST_FOREACH (string key, trustedKeyIDs) {
-        if (GetSavedPath(make_pair("keyID", key), make_pair("keyID", strSignerKeyID), 3, visitedPackets).size() > 0) {
+        if (GetSavedPath(make_pair("keyID", key), make_pair("keyID", strSignerKeyID)).size() > 0) {
             return true;
         }
     }
@@ -1264,7 +1264,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trust
     return false;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair end, int searchDepth, vector<uint256>* visitedPackets) {
+vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair end, int searchDepth) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
@@ -1315,7 +1315,7 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
     string strPubKey = EncodeBase58(vchPubKey);
 
-    if (!HasTrustedSigner(packet, myPubKeyIDs, 0))
+    if (!HasTrustedSigner(packet, myPubKeyIDs))
         return;
 
     vector<string_pair> savedPacketAuthors = packet.GetAuthors();
@@ -1424,7 +1424,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, pair<string,string> end, stri
     sqlite3_finalize(statement);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
+vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
     vector<CIdentifiPacket> path = GetSavedPath(start, end, searchDepth);
     if (path.empty())
         path = SearchForPath(start, end, savePath, searchDepth);
@@ -1470,22 +1470,14 @@ struct SearchQueuePacket {
 };
 
 // Breadth-first search for the shortest trust paths to all known packets, starting from id1
-vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth, vector<uint256>* visitedPackets) {
+vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
     vector<CIdentifiPacket> path;
     if (start == end)
         return path;
 
-    bool outer = false;
-    if (!visitedPackets) {
-        visitedPackets = new vector<uint256>();
-        outer = true;
-    }
-
-    if (outer) {
-        vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1);
-        if (endPackets.empty())
-            return path; // Return if the end ID is not involved in any packets
-    }
+    vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1);
+    if (endPackets.empty())
+        return path; // Return if the end ID is not involved in any packets
 
     bool generateTrustMap;
     if (savePath && (end.first == "" && end.second == ""))
@@ -1494,6 +1486,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
     deque<SearchQueuePacket> searchQueue;
     map<uint256, CIdentifiPacket> previousPackets;
     map<uint256, int> packetDistanceFromStart;
+    vector<uint256> visitedPackets;
 
     vector<CIdentifiPacket> packets = GetPacketsByAuthor(start, 0, 0, true);
     BOOST_FOREACH(CIdentifiPacket p, packets) {
@@ -1510,15 +1503,15 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         bool matchedByAuthor = searchQueue.front().matchedByAuthor;
         string_pair matchedByIdentifier = searchQueue.front().matchedByIdentifier;
         searchQueue.pop_front();
-        if (find(visitedPackets->begin(), visitedPackets->end(), currentPacket.GetHash()) != visitedPackets->end()) {
+        if (find(visitedPackets.begin(), visitedPackets.end(), currentPacket.GetHash()) != visitedPackets.end()) {
             continue;
         }
-        visitedPackets->push_back(currentPacket.GetHash());
+        visitedPackets.push_back(currentPacket.GetHash());
 
         if (currentPacket.GetRating() <= (currentPacket.GetMaxRating() + currentPacket.GetMinRating()) / 2)
             continue;
 
-        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs(), visitedPackets)) {
+        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs())) {
             continue;
         }
 
@@ -1580,10 +1573,10 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
 
                 BOOST_FOREACH (CIdentifiPacket p, allPackets) {
                     if (previousPackets.find(p.GetHash()) == previousPackets.end()
-                        && find(visitedPackets->begin(), visitedPackets->end(), p.GetHash()) == visitedPackets->end())
+                        && find(visitedPackets.begin(), visitedPackets.end(), p.GetHash()) == visitedPackets.end())
                         previousPackets[p.GetHash()] = currentPacket;
                     if (packetDistanceFromStart.find(p.GetHash()) == packetDistanceFromStart.end()
-                        && find(visitedPackets->begin(), visitedPackets->end(), p.GetHash()) == visitedPackets->end()) {
+                        && find(visitedPackets.begin(), visitedPackets.end(), p.GetHash()) == visitedPackets.end()) {
                         packetDistanceFromStart[p.GetHash()] = currentDistanceFromStart + 1;
                     }
                 }
@@ -1591,7 +1584,6 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         }
     }
 
-    if (outer) delete(visitedPackets);
     return path;
 }
 
