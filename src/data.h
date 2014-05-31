@@ -60,9 +60,9 @@ private:
 
 class CIdentifiPacket {
 public:
-    CIdentifiPacket(string strData = "") {
+    CIdentifiPacket(string strData = "", bool skipVerify = false) {
         if (!strData.empty())
-            SetData(strData);
+            SetData(strData, skipVerify);
         published = false;
     }
     bool operator== (const CIdentifiPacket &r) const {
@@ -71,7 +71,7 @@ public:
     bool operator!= (const CIdentifiPacket &r) const {
         return (r.GetHash() != GetHash() || r.timestamp != timestamp);
     }
-    void SetData(string strData);
+    void SetData(string strData, bool skipVerify = false);
     void SetPublished();
     bool IsPublished();
     int GetPriority();

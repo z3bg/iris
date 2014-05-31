@@ -434,12 +434,12 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
 }
 
 // "Find a 'name' or a 'nickname' for the author and recipient of this packet"
-pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet) {
+pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet, bool cachedOnly) {
     string authorName, recipientName;
 
     vector<string_pair> authors = packet.GetAuthors();
     BOOST_FOREACH(string_pair author, authors) {
-        authorName = GetName(author);
+        authorName = GetName(author, cachedOnly);
         if (authorName != "") {
             break;
         }
@@ -447,7 +447,7 @@ pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet) 
 
     vector<string_pair> recipients = packet.GetRecipients();
     BOOST_FOREACH(string_pair recipient, recipients) {
-        recipientName = GetName(recipient);
+        recipientName = GetName(recipient, cachedOnly);
         if (recipientName != "") {
             break;
         }
@@ -456,9 +456,9 @@ pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet) 
     return make_pair(authorName, recipientName);
 }
 
-string CIdentifiDB::GetName(string_pair id) {
+string CIdentifiDB::GetName(string_pair id, bool cachedOnly) {
     string name = GetCachedName(id);
-    if (name.empty()) {
+    if (!cachedOnly && name.empty()) {
         vector<string> nameTypes;
         nameTypes.push_back("name");
         nameTypes.push_back("nickname");
@@ -617,7 +617,7 @@ void CIdentifiDB::UpdateCachedName(string_pair startID, string name) {
 
 CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     string strData = (char*)sqlite3_column_text(statement, 1);
-    CIdentifiPacket packet(strData);
+    CIdentifiPacket packet(strData, true);
     if(sqlite3_column_int(statement, 7) == 1)
         packet.SetPublished();
     packet.SetPriority(sqlite3_column_int(statement, 8));
@@ -1268,13 +1268,13 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    int startID = SaveIdentifier(start.second);
-    string_pair current = end;
+    int endID = SaveIdentifier(end.second);
+    string_pair current = start;
     string nextStep = current.second;
 
     sql.str("");
     sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
-    sql << "LEFT JOIN Predicates AS startpred ON startpred.Value = @startpred ";
+    sql << "INNER JOIN Predicates AS startpred ON startpred.Value = @startpred ";
     sql << "INNER JOIN Predicates AS endpred ON endpred.Value = @endpred ";
     sql << "WHERE tp.StartPredicateID = startpred.ID ";
     sql << "AND tp.StartID = @startid ";
@@ -1285,10 +1285,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
 
     while (true) {
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, current.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 3, startID);
-            sqlite3_bind_int(statement, 4, SaveIdentifier(nextStep));
+            sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, end.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 3, SaveIdentifier(current.second));
+            sqlite3_bind_int(statement, 4, endID);
 
             int result = sqlite3_step(statement);
             if(result == SQLITE_ROW)

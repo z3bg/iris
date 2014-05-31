@@ -17,10 +17,10 @@ Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = 
     BOOST_FOREACH(CIdentifiPacket packet, packets) {
         Object packetJSON = packet.GetJSON().get_obj();
         if (findNames) {            
-            pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet);
+            pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet, true);
 
             CSignature signature = packet.GetSignature();
-            string signerName = pidentifidb->GetName(make_pair("keyID", signature.GetSignerKeyID()));
+            string signerName = pidentifidb->GetCachedName(make_pair("keyID", signature.GetSignerKeyID()));
 
             packetJSON.push_back(Pair("authorName", linkedNames.first));
             packetJSON.push_back(Pair("recipientName", linkedNames.second));
@@ -89,7 +89,7 @@ Value getpacketsbyauthor(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given author identifier.");
 
     vector<CIdentifiPacket> packets;
-    int limit = 0, offset = 0;
+    int limit = 20, offset = 0;
     if (params.size() >= 3)
         limit = params[2].get_int();
     if (params.size() == 4)
@@ -107,7 +107,7 @@ Value getpacketsbyrecipient(const Array& params, bool fHelp)
             "Returns a list of packets associated with the given recipient identifier.");
 
     vector<CIdentifiPacket> packets;
-    int limit = 0, offset = 0;
+    int limit = 20, offset = 0;
     if (params.size() >= 3)
         limit = params[2].get_int();
     if (params.size() == 4)
@@ -164,7 +164,7 @@ Value getpath(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
-            "getpath <id1predicate> <id1> <id2predicate> <id2> <search_depth=3>\n"
+            "getpath <id1_type> <id1> <id2_type> <id2> <search_depth=3>\n"
             "Returns an array of packets that connect id1 and id2 with given predicates and optional max search depth.");
 
     Array packetsJSON;
@@ -179,17 +179,13 @@ Value getpath(const Array& params, bool fHelp)
 
 Value getsavedpath(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 4 || params.size() > 5)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
-            "getsavedpath <id1predicate> <id1> <id2predicate> <id2> <search_depth=3>\n"
+            "getsavedpath <id1_type> <id1> <id2_type> <id2>\n"
             "Returns an array of packets that connect id1 and id2 with given predicates and optional max search depth.");
 
     Array packetsJSON;
-    vector<CIdentifiPacket> packets;
-    if (params.size() == 4)
-        packets = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
-    else
-        packets = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), boost::lexical_cast<int>(params[4].get_str()));
+    vector<CIdentifiPacket> packets = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
     for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
         packetsJSON.push_back(it->GetJSON());
     }

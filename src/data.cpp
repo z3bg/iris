@@ -59,7 +59,7 @@ void CIdentifiPacket::UpdateSignatures() {
     strData = write_string(Value(newData), false);
 }
 
-void CIdentifiPacket::SetData(string strData) {
+void CIdentifiPacket::SetData(string strData, bool skipVerify) {
     Value json;
     Object data, signedData, sigObj;
     Array authorsArray, recipientsArray;
@@ -127,7 +127,7 @@ void CIdentifiPacket::SetData(string strData) {
         string pubKey = find_value(sigObj, "pubKey").get_str();
         string strSignature = find_value(sigObj, "signature").get_str();
         sig = CSignature(pubKey, strSignature);
-        if (!sig.IsValid(strSignedData))
+        if (!skipVerify && !sig.IsValid(strSignedData))
             throw runtime_error("Invalid signature");
     }
     signature = sig;
