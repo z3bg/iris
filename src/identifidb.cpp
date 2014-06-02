@@ -1531,8 +1531,8 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         }
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
             if (identifier != matchedByIdentifier) {
-                if (savePath)
-                    SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
+                //if (savePath)
+                //    SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
 
                 if (path.empty()
                         && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
@@ -1542,6 +1542,8 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
 
                     CIdentifiPacket previousPacket = currentPacket;
                     while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
+                        if (savePath)
+                            SaveTrustStep(make_pair("", EncodeBase58(previousPacket.GetHash())), end, EncodeBase58(currentPacket.GetHash()));
                         previousPacket = previousPackets.at(previousPacket.GetHash());
                         path.insert(path.begin(), previousPacket);
                     }
