@@ -262,14 +262,14 @@ void CIdentifiDB::Initialize() {
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
-    // SearchForPathForMyKeys(); // Disabled for now, takes too much time
+    SearchForPathForMyKeys();
 }
 
 void CIdentifiDB::SearchForPathForMyKeys() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDs();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
         // Generate and save trust maps for our keys
-        SearchForPath(make_pair("keyID", keyID), make_pair("",""), true, 2);
+        SearchForPath(make_pair("keyID", keyID), make_pair("",""), true, 3);
     } 
 }
 
@@ -1350,7 +1350,7 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
         // Find the packet's author identifier with the shortest trust path to our keys
         BOOST_FOREACH (string_pair author, savedPacketAuthors) {
             BOOST_FOREACH (string myKeyID, myPubKeyIDs) {
-                vector<CIdentifiPacket> path = GetSavedPath(make_pair("keyID", myKeyID), author);
+                vector<CIdentifiPacket> path = GetPath(make_pair("keyID", myKeyID), author, true);
                 if ((shortestPath.empty() && !path.empty())
                     || (!path.empty() && path.size() < shortestPath.size())) {
                     shortestPath = path;
@@ -1374,7 +1374,8 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     }
 }
 
-void CIdentifiDB::SaveTrustStep(string_pair start, pair<string,string> end, string nextStep) {
+void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextStep) {
+    cout << "SaveTrustStep " << start.second << ", " << end.second << ", " << nextStep << "\n";
     if (start == end) return;
 
     sqlite3_stmt *statement;
@@ -1519,7 +1520,6 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
             currentDistanceFromStart = packetDistanceFromStart[currentPacket.GetHash()];
 
         if (currentDistanceFromStart > searchDepth) {
-            path.clear();
             return path;
         }
 
@@ -1531,8 +1531,14 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         }
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
             if (identifier != matchedByIdentifier) {
-                //if (savePath)
-                //    SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
+                if (savePath) {
+                    if (previousPackets.find(currentPacket.GetHash()) != previousPackets.end()) {
+                        CIdentifiPacket previousPacket = previousPackets.at(currentPacket.GetHash());
+                        SaveTrustStep(make_pair("", EncodeBase58(previousPacket.GetHash())), identifier, EncodeBase58(currentPacket.GetHash()));
+                    } else {
+                        SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
+                    }
+                }
 
                 if (path.empty()
                         && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
@@ -1547,8 +1553,13 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
                         previousPacket = previousPackets.at(previousPacket.GetHash());
                         path.insert(path.begin(), previousPacket);
                     }
-                    if (!generateTrustMap)
+
+                    if (savePath)
+                        SaveTrustStep(start, end, EncodeBase58(previousPacket.GetHash()));
+
+                    if (!generateTrustMap) {
                         return path;
+                    }
                 }
 
                 vector<CIdentifiPacket> allPackets;

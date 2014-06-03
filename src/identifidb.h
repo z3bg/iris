@@ -53,7 +53,7 @@ public:
     vector<CIdentifiPacket> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5);
     vector<CIdentifiPacket> SearchForPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 3);
     vector<CIdentifiPacket> GetPath(string_pair start, string_pair end = make_pair("", ""), bool savePath = true, int searchDepth = 3);
-    void SaveTrustStep(string_pair start, pair<string,string> end, string nextStep);
+    void SaveTrustStep(string_pair start, string_pair end, string nextStep);
     void SavePacketTrustPaths(CIdentifiPacket &packet);
     IDOverview GetIDOverview(string_pair id);
     string GetName(string_pair id, bool cachedOnly = false);
