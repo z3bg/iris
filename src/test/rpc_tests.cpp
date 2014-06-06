@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 11);
+    BOOST_CHECK_EQUAL(r.get_int(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com positive 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email bob@example.com email carl@example.com positive 1"));
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 7);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 15);
+    BOOST_CHECK_EQUAL(r.get_int(), 12);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor email alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_str(), "6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP");
     BOOST_CHECK_NO_THROW(CallRPC("publish 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 19);
+    BOOST_CHECK_EQUAL(r.get_int(), 16);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketbyhash 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK(!r.get_array().empty());
@@ -198,16 +198,14 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK(r.get_str().empty());
     BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     BOOST_CHECK(!r.get_str().empty());
-    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
-    BOOST_CHECK(!r.get_str().empty());
-
+    
     BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath p1 nobody1 p2 nobody2"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
     BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath email james@example.com keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email james@example.com keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath p1 nobody1 p2 nobody2"));
@@ -222,11 +220,8 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email james@example.com url http://example.com/david account user@bitcoin-otc.com"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com account user@bitcoin-otc.com 5"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 5);
-
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email carl@example.com 1"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email david@example.com 2"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com account user@bitcoin-otc.com 5"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 5);
 
     // Trust path should be one-way
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email david@example.com email emil@example.com pos 1"));

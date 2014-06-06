@@ -101,6 +101,7 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('keyID', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('bitcoin_address', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('identifi_packet', 1)");
     }
 }
 
@@ -1287,7 +1288,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, end.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 3, SaveIdentifier(current.second));
+            sqlite3_bind_int(statement, 3, SaveIdentifier(nextStep));
             sqlite3_bind_int(statement, 4, endID);
 
             int result = sqlite3_step(statement);
@@ -1297,7 +1298,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
                 if (nextStep == current.second) break;
                 path.push_back(GetPacketByHash(nextStep));
 
-                current.first = "";
+                current.first = "identifi_packet";
                 current.second = nextStep;
             } else {
                 //path.clear();
@@ -1326,48 +1327,17 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     string savedPacketHash = EncodeBase58(packet.GetHash());
 
     // Check if packet is authored by our key
-    bool isMyPacket = false;
+    // bool isMyPacket = false;
     BOOST_FOREACH (string_pair author, savedPacketAuthors) {
         if (author.first == "keyID") {
             BOOST_FOREACH (string myKeyID, myPubKeyIDs) {
                 if (myKeyID == author.second) {
-                    // Save trust step from our key to this packet
-                    SaveTrustStep(make_pair("keyID", myKeyID), make_pair("",savedPacketHash), savedPacketHash);
-                    
                     // Save trust steps from our key to packet's identifiers via the packet
                     BOOST_FOREACH (string_pair id, savedPacketIdentifiers) {
                         SaveTrustStep(make_pair("keyID", myKeyID), id, savedPacketHash);
                     }
-                    isMyPacket = true;
+                    // isMyPacket = true;
                     break;
-                }
-            }
-        }
-    }
-
-    if (!isMyPacket) {
-        vector<CIdentifiPacket> shortestPath;
-        // Find the packet's author identifier with the shortest trust path to our keys
-        BOOST_FOREACH (string_pair author, savedPacketAuthors) {
-            BOOST_FOREACH (string myKeyID, myPubKeyIDs) {
-                vector<CIdentifiPacket> path = GetPath(make_pair("keyID", myKeyID), author, true);
-                if ((shortestPath.empty() && !path.empty())
-                    || (!path.empty() && path.size() < shortestPath.size())) {
-                    shortestPath = path;
-                }
-                if (shortestPath.size() == 1) break;
-            }
-            if (shortestPath.size() == 1) break;
-        }
-
-        // If such a path is found, link this packet and its identifiers to it
-        if (!shortestPath.empty()) {
-            vector<string_pair> firstPacketAuthors = shortestPath.front().GetAuthors();
-            string lastPacket = EncodeBase58(shortestPath.back().GetHash());
-            BOOST_FOREACH (string_pair startID, firstPacketAuthors) {
-                SaveTrustStep(startID, make_pair("", savedPacketHash), lastPacket);
-                BOOST_FOREACH (string_pair endID, savedPacketIdentifiers) {
-                    SaveTrustStep(startID, endID, savedPacketHash);
                 }
             }
         }
@@ -1375,7 +1345,6 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
 }
 
 void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextStep) {
-    cout << "SaveTrustStep " << start.second << ", " << end.second << ", " << nextStep << "\n";
     if (start == end) return;
 
     sqlite3_stmt *statement;
@@ -1531,14 +1500,15 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         }
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
             if (identifier != matchedByIdentifier) {
+                /*
                 if (savePath) {
                     if (previousPackets.find(currentPacket.GetHash()) != previousPackets.end()) {
                         CIdentifiPacket previousPacket = previousPackets.at(currentPacket.GetHash());
-                        SaveTrustStep(make_pair("", EncodeBase58(previousPacket.GetHash())), identifier, EncodeBase58(currentPacket.GetHash()));
+                        SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPacket.GetHash())), identifier, EncodeBase58(currentPacket.GetHash()));
                     } else {
                         SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
                     }
-                }
+                }*/
 
                 if (path.empty()
                         && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
@@ -1549,7 +1519,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
                     CIdentifiPacket previousPacket = currentPacket;
                     while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
                         if (savePath)
-                            SaveTrustStep(make_pair("", EncodeBase58(previousPacket.GetHash())), end, EncodeBase58(currentPacket.GetHash()));
+                            SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPackets.at(previousPacket.GetHash()).GetHash())), end, EncodeBase58(previousPacket.GetHash()));
                         previousPacket = previousPackets.at(previousPacket.GetHash());
                         path.insert(path.begin(), previousPacket);
                     }
@@ -1557,9 +1527,9 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
                     if (savePath)
                         SaveTrustStep(start, end, EncodeBase58(previousPacket.GetHash()));
 
-                    if (!generateTrustMap) {
+                    //if (!generateTrustMap) {
                         return path;
-                    }
+                    //}
                 }
 
                 vector<CIdentifiPacket> allPackets;
