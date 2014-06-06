@@ -1449,7 +1449,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
     if (endPackets.empty())
         return path; // Return if the end ID is not involved in any packets
 
-    bool generateTrustMap;
+    bool generateTrustMap = false;
     if (savePath && (end.first == "" && end.second == ""))
         generateTrustMap = true;
 
@@ -1500,36 +1500,29 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         }
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
             if (identifier != matchedByIdentifier) {
-                /*
-                if (savePath) {
-                    if (previousPackets.find(currentPacket.GetHash()) != previousPackets.end()) {
-                        CIdentifiPacket previousPacket = previousPackets.at(currentPacket.GetHash());
-                        SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPacket.GetHash())), identifier, EncodeBase58(currentPacket.GetHash()));
-                    } else {
-                        SaveTrustStep(start, identifier, EncodeBase58(currentPacket.GetHash()));
-                    }
-                }*/
-
-                if (path.empty()
+                bool pathFound = path.empty()
                         && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
-                        && identifier.second == end.second) {
-                    // Path found: backtrack it from end to start and return it
-                    path.push_back(currentPacket);
+                        && identifier.second == end.second;
+
+                if (pathFound || savePath) {
+                    if (pathFound)
+                        path.push_back(currentPacket);
 
                     CIdentifiPacket previousPacket = currentPacket;
                     while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
                         if (savePath)
-                            SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPackets.at(previousPacket.GetHash()).GetHash())), end, EncodeBase58(previousPacket.GetHash()));
+                            SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPackets.at(previousPacket.GetHash()).GetHash())), identifier, EncodeBase58(previousPacket.GetHash()));
                         previousPacket = previousPackets.at(previousPacket.GetHash());
-                        path.insert(path.begin(), previousPacket);
+                        if (pathFound)
+                            path.insert(path.begin(), previousPacket);
                     }
 
                     if (savePath)
-                        SaveTrustStep(start, end, EncodeBase58(previousPacket.GetHash()));
+                        SaveTrustStep(start, identifier, EncodeBase58(previousPacket.GetHash()));
 
-                    //if (!generateTrustMap) {
+                    if (pathFound && !generateTrustMap) {
                         return path;
-                    //}
+                    }
                 }
 
                 vector<CIdentifiPacket> allPackets;
