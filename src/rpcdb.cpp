@@ -139,23 +139,29 @@ Value getpacketsafter(const Array& params, bool fHelp)
 
 Value getlatestpackets(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 2 )
+    if (fHelp || params.size() > 4 )
         throw runtime_error(
-            "getlatestpackets <limit=20> <offset=0>\n"
+            "getlatestpackets <limit=20> <offset=0> <viewpoint_id_type> <viewpoint_id_value>\n"
             "Get a list of packets after the given timestamp, limited to the given number of entries.");
 
     int nLimit, nOffset;
+    string viewpointIdType, viewpointIdValue;
     if (params.size() > 0)
         nLimit = boost::lexical_cast<int>(params[0].get_str());
     else
         nLimit = 20;
 
-    if (params.size() == 2)
+    if (params.size() > 1)
         nOffset = boost::lexical_cast<int>(params[1].get_str());
     else
         nOffset = 0;
 
-    vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(nLimit, nOffset);
+    if (params.size() > 3) {
+        viewpointIdType = params[2].get_str();
+        viewpointIdValue = params[3].get_str();
+    }
+
+    vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(nLimit, nOffset, true, make_pair(viewpointIdType, viewpointIdValue));
     return packetVectorToJSONArray(packets);
 
 }

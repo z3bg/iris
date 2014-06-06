@@ -1611,15 +1611,34 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     sql.str("");
-    sql << "SELECT * FROM Packets ";
+    sql << "SELECT p.* FROM Packets AS p ";
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID) ";
+    }
     if (!showUnpublished)
         sql << "WHERE Published = 1 ";
     sql << "ORDER BY Created DESC LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int(statement, 1, limit);
-        sqlite3_bind_int(statement, 2, offset);
+        if (useViewpoint) {
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 3, limit);
+            sqlite3_bind_int(statement, 4, offset);
+        } else {
+            sqlite3_bind_int(statement, 1, limit);
+            sqlite3_bind_int(statement, 2, offset);
+        }
 
         int result = 0;
         while(true)

@@ -112,6 +112,9 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_NO_THROW(r=CallRPC("getlatestpackets"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 8);
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("getlatestpackets 20 0 keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 8);
+
     BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 8);
     BOOST_CHECK_NO_THROW(r=CallRPC("deletepacket 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), 7);
