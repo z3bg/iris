@@ -231,6 +231,7 @@ void CIdentifiDB::Initialize() {
     sql << "EndID               INTEGER         NOT NULL,";
     sql << "EndPredicateID      INTEGER         NOT NULL,";
     sql << "NextStep            NVARCHAR(45)    NOT NULL,";
+    sql << "Distance            INTEGER         NOT NULL,";
     sql << "PRIMARY KEY(StartID, StartPredicateID, EndID, EndPredicateID, NextStep),";
     sql << "FOREIGN KEY(StartID)            REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(StartPredicateID)   REFERENCES Predicates(ID),";
@@ -1334,9 +1335,9 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
                 if (myKeyID == author.second) {
                     // Save trust steps from our key to packet's identifiers via the packet
                     BOOST_FOREACH (string_pair id, savedPacketIdentifiers) {
-                        SaveTrustStep(make_pair("keyID", myKeyID), id, savedPacketHash);
+                        SaveTrustStep(make_pair("keyID", myKeyID), id, savedPacketHash, 1);
                     }
-                    // isMyPacket = true;
+                    SaveTrustStep(make_pair("keyID", myKeyID), make_pair("identifi_packet", savedPacketHash), savedPacketHash, 1);
                     break;
                 }
             }
@@ -1344,7 +1345,7 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     }
 }
 
-void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextStep) {
+void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextStep, int distance) {
     if (start == end) return;
 
     sqlite3_stmt *statement;
@@ -1377,8 +1378,8 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO TrustPaths ";
-    sql << "(StartPredicateID, StartID, EndPredicateID, EndID, NextStep) ";
-    sql << "VALUES (@startpredID, @startID, @endpredID, @endID, @nextstep)";
+    sql << "(StartPredicateID, StartID, EndPredicateID, EndID, NextStep, Distance) ";
+    sql << "VALUES (@startpredID, @startID, @endpredID, @endID, @nextstep, @distance)";
 
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1387,6 +1388,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
             sqlite3_bind_int(statement, 3, endPredicateID);
             sqlite3_bind_int(statement, 4, endID);
             sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 6, distance);
             sqliteReturnCode = sqlite3_step(statement);
         }
     )
@@ -1509,16 +1511,20 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
                         path.push_back(currentPacket);
 
                     CIdentifiPacket previousPacket = currentPacket;
+                    int depth = 0;
                     while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
-                        if (savePath)
-                            SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPackets.at(previousPacket.GetHash()).GetHash())), identifier, EncodeBase58(previousPacket.GetHash()));
+                        if (savePath) 
+                            SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPackets.at(previousPacket.GetHash()).GetHash())), identifier, EncodeBase58(previousPacket.GetHash()), currentDistanceFromStart - depth);
                         previousPacket = previousPackets.at(previousPacket.GetHash());
                         if (pathFound)
                             path.insert(path.begin(), previousPacket);
+                        depth++;
                     }
 
-                    if (savePath)
-                        SaveTrustStep(start, identifier, EncodeBase58(previousPacket.GetHash()));
+                    if (savePath) {
+                        SaveTrustStep(start, identifier, EncodeBase58(previousPacket.GetHash()), currentDistanceFromStart);
+                        SaveTrustStep(start, make_pair("identifi_packet", EncodeBase58(currentPacket.GetHash())), EncodeBase58(currentPacket.GetHash()), 1);
+                    }
 
                     if (pathFound && !generateTrustMap) {
                         return path;
