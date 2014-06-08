@@ -385,6 +385,23 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
     sql.str("");
 
     sql << "SELECT * FROM Packets AS p ";
+
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
+    }
+
     sql << "INNER JOIN PacketIdentifiers AS LinkAuthor ";
     sql << "ON (LinkAuthor.PacketHash = p.Hash AND LinkAuthor.IsRecipient = 0) ";
     sql << "INNER JOIN PacketIdentifiers AS LinkedID1 ";
@@ -409,14 +426,25 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
 
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, id1.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, id1.second.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 3, id2.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 4, id2.second.c_str(), -1, SQLITE_TRANSIENT);
+        int n = 0;
+        if (useViewpoint) {
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n = 3;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        }
+
+        sqlite3_bind_text(statement, 1+n, id1.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2+n, id1.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3+n, id2.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4+n, id2.second.c_str(), -1, SQLITE_TRANSIENT);
 
         if (limit) {
-            sqlite3_bind_int(statement, 5, limit);
-            sqlite3_bind_int(statement, 6, offset);            
+            sqlite3_bind_int(statement, 5+n, limit);
+            sqlite3_bind_int(statement, 6+n, offset);            
         }
 
         int result = 0;
