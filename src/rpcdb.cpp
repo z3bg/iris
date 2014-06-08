@@ -83,36 +83,59 @@ Value gettruststep(const Array& params, bool fHelp)
 
 Value getpacketsbyauthor(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 4)
+    if (fHelp || params.size() < 2 || params.size() > 7)
         throw runtime_error(
-            "getpacketsbyauthor <id_type> <id_value> <limit=20> <offset=0> <\n"
+            "getpacketsbyauthor <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
             "Returns a list of packets associated with the given author identifier.");
 
     vector<CIdentifiPacket> packets;
-    int limit = 20, offset = 0;
-    if (params.size() >= 3)
-        limit = params[2].get_int();
-    if (params.size() == 4)
-        offset = params[3].get_int();
-    packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
+    int limit = 20, offset = 0, maxDistance = 0;
+    string viewpointIdType, viewpointIdValue;
+
+    if (params.size() > 2)
+        limit = boost::lexical_cast<int>(params[2].get_str());
+    if (params.size() > 3)
+        offset = boost::lexical_cast<int>(params[3].get_str());
+
+    if (params.size() > 4) {
+        viewpointIdType = params[4].get_str();
+        viewpointIdValue = params[5].get_str();
+    }
+
+    if (params.size() > 6)
+        maxDistance = boost::lexical_cast<int>(params[6].get_str());
+
+    packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance);
 
     return packetVectorToJSONArray(packets);
 }
 
 Value getpacketsbyrecipient(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 4 )
+    if (fHelp || params.size() < 2 || params.size() > 7 )
         throw runtime_error(
-            "getpacketsbyrecipient <id_type> <id_value> <limit=20> <offset=0>\n"
+            "getpacketsbyrecipient <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
             "Returns a list of packets associated with the given recipient identifier.");
 
     vector<CIdentifiPacket> packets;
-    int limit = 20, offset = 0;
-    if (params.size() >= 3)
-        limit = params[2].get_int();
-    if (params.size() == 4)
-        offset = params[3].get_int();
-    packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false);
+    int limit = 20, offset = 0, maxDistance = 0;
+    string viewpointIdType, viewpointIdValue;
+
+    if (params.size() > 2)
+        limit = boost::lexical_cast<int>(params[2].get_str());
+    if (params.size() > 3)
+        offset = boost::lexical_cast<int>(params[3].get_str());
+
+    if (params.size() > 4) {
+        viewpointIdType = params[4].get_str();
+        viewpointIdValue = params[5].get_str();
+    }
+
+    if (params.size() > 6) {
+        maxDistance = boost::lexical_cast<int>(params[6].get_str());
+    }
+
+    packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance);
 
     return packetVectorToJSONArray(packets);
 
@@ -120,48 +143,60 @@ Value getpacketsbyrecipient(const Array& params, bool fHelp)
 
 Value getpacketsafter(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2 )
+    if (fHelp || params.size() < 1 || params.size() > 6 )
         throw runtime_error(
-            "getpacketsafter <timestamp> <limit=20>\n"
+            "getpacketsafter <timestamp> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
             "Get a list of packets after the given timestamp, limited to the given number of entries.");
 
     time_t timestamp = boost::lexical_cast<int>(params[0].get_str());
-    int nLimit;
-    if (params.size() == 2)
-        nLimit = boost::lexical_cast<int>(params[1].get_str());
-    else
-        nLimit = 20;
+    int limit = 20, offset = 0, maxDistance = 0;
+    string viewpointIdType, viewpointIdValue;
 
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(timestamp, nLimit);
+    if (params.size() > 1)
+        limit = boost::lexical_cast<int>(params[1].get_str());
+    
+    if (params.size() > 2)
+        offset = boost::lexical_cast<int>(params[2].get_str());
+
+    if (params.size() > 3) {
+        viewpointIdType = params[3].get_str();
+        viewpointIdValue = params[4].get_str();
+    }
+
+    if (params.size() > 5) {
+        maxDistance = boost::lexical_cast<int>(params[5].get_str());
+    }
+
+    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(timestamp, limit, offset, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance);
     return packetVectorToJSONArray(packets);
 
 }
 
 Value getlatestpackets(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() > 4 )
+    if (fHelp || params.size() > 5)
         throw runtime_error(
-            "getlatestpackets <limit=20> <offset=0> <viewpoint_id_type> <viewpoint_id_value>\n"
+            "getlatestpackets <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
             "Get a list of packets after the given timestamp, limited to the given number of entries.");
 
-    int nLimit, nOffset;
+    int limit = 20, offset = 0, maxDistance = 0;
     string viewpointIdType, viewpointIdValue;
     if (params.size() > 0)
-        nLimit = boost::lexical_cast<int>(params[0].get_str());
-    else
-        nLimit = 20;
+        limit = boost::lexical_cast<int>(params[0].get_str());
 
     if (params.size() > 1)
-        nOffset = boost::lexical_cast<int>(params[1].get_str());
-    else
-        nOffset = 0;
+        offset = boost::lexical_cast<int>(params[1].get_str());
 
     if (params.size() > 3) {
         viewpointIdType = params[2].get_str();
         viewpointIdValue = params[3].get_str();
     }
 
-    vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(nLimit, nOffset, true, make_pair(viewpointIdType, viewpointIdValue));
+    if (params.size() > 4) {
+        maxDistance = boost::lexical_cast<int>(params[4].get_str());
+    }
+
+    vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(limit, offset, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance);
     return packetVectorToJSONArray(packets);
 
 }
@@ -232,12 +267,24 @@ Value search(const Array& params, bool fHelp)
 
 Value overview(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() > 5 || params.size() < 2)
         throw runtime_error(
-            "overview <id_type> <id_value>\n"
+            "overview <id_type> <id_value> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
             "Gives an overview of an identifier.");
 
-    IDOverview overview = pidentifidb->GetIDOverview(make_pair(params[0].get_str(), params[1].get_str()));
+    int maxDistance = 0;
+    string viewpointIdType, viewpointIdValue;
+
+    if (params.size() > 2) {
+        viewpointIdType = params[2].get_str();
+        viewpointIdValue = params[3].get_str();
+    }
+
+    if (params.size() > 4) {
+        maxDistance = boost::lexical_cast<int>(params[4].get_str());
+    }
+
+    IDOverview overview = pidentifidb->GetIDOverview(make_pair(params[0].get_str(), params[1].get_str()), make_pair(viewpointIdType, viewpointIdValue), maxDistance);
     Object overviewJSON;
     overviewJSON.push_back(Pair("authoredPositive", overview.authoredPositive));
     overviewJSON.push_back(Pair("authoredNeutral", overview.authoredNeutral));
@@ -355,13 +402,30 @@ Value refuteconnection(const Array& params, bool fHelp) {
 }
 
 Value getconnections(const Array& params, bool fHelp) {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 2 || params.size() > 7)
     throw runtime_error(
-        "getconnections <id_type> <id_value>\n"
+        "getconnections <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
         "Get identifiers linked to the given identifier");
 
+    int limit = 20, offset = 0, maxDistance = 0;
+    string viewpointIdType, viewpointIdValue;
+    if (params.size() > 2)
+        limit = boost::lexical_cast<int>(params[2].get_str());
+
+    if (params.size() > 3)
+        offset = boost::lexical_cast<int>(params[3].get_str());
+
+    if (params.size() > 4) {
+        viewpointIdType = params[4].get_str();
+        viewpointIdValue = params[5].get_str();
+    }
+
+    if (params.size() > 6) {
+        maxDistance = boost::lexical_cast<int>(params[6].get_str());
+    }
+
     vector<string> searchTypes;
-    vector<LinkedID> results = pidentifidb->GetLinkedIdentifiers(make_pair(params[0].get_str(), params[1].get_str()), searchTypes);
+    vector<LinkedID> results = pidentifidb->GetLinkedIdentifiers(make_pair(params[0].get_str(), params[1].get_str()), searchTypes, limit, offset, make_pair(viewpointIdType, viewpointIdValue), maxDistance);
     Array resultsJSON;
     BOOST_FOREACH(LinkedID result, results) {
         Object id;
@@ -375,12 +439,29 @@ Value getconnections(const Array& params, bool fHelp) {
 }
 
 Value getconnectingpackets(const Array& params, bool fHelp) {
-    if (fHelp || params.size() != 4)
+    if (fHelp || params.size() < 4 || params.size() > 9)
     throw runtime_error(
-        "getconnectingpackets <id1_type> <id1_value> <id2_type> <id2_value>\n"
+        "getconnectingpackets <id1_type> <id1_value> <id2_type> <id2_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>)\n"
         "Get packets that link id1 and id2");
 
-    vector<CIdentifiPacket> results = pidentifidb->GetConnectingPackets(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
+    int limit = 20, offset = 0, maxDistance = 0;
+    string viewpointIdType, viewpointIdValue;
+    if (params.size() > 4)
+        limit = boost::lexical_cast<int>(params[4].get_str());
+
+    if (params.size() > 5)
+        offset = boost::lexical_cast<int>(params[5].get_str());
+
+    if (params.size() > 6) {
+        viewpointIdType = params[6].get_str();
+        viewpointIdValue = params[7].get_str();
+    }
+
+    if (params.size() > 8) {
+        maxDistance = boost::lexical_cast<int>(params[8].get_str());
+    }
+
+    vector<CIdentifiPacket> results = pidentifidb->GetConnectingPackets(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), limit, offset, true, make_pair(viewpointIdType,viewpointIdValue), maxDistance);
     return packetVectorToJSONArray(results);
 }
 

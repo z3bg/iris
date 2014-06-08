@@ -1623,7 +1623,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
         sql << "(tp.StartID = viewpointID.ID AND ";
         sql << "tp.StartPredicateID = viewpointPred.ID AND ";
         sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID) ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
     }
     if (!showUnpublished)
         sql << "WHERE Published = 1 ";
@@ -1633,8 +1636,14 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
         if (useViewpoint) {
             sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 3, limit);
-            sqlite3_bind_int(statement, 4, offset);
+            if (maxDistance > 0) {
+                sqlite3_bind_int(statement, 3, maxDistance);
+                sqlite3_bind_int(statement, 4, limit);
+                sqlite3_bind_int(statement, 5, offset);
+            } else {
+                sqlite3_bind_int(statement, 3, limit);
+                sqlite3_bind_int(statement, 4, offset);
+            }
         } else {
             sqlite3_bind_int(statement, 1, limit);
             sqlite3_bind_int(statement, 2, offset);
