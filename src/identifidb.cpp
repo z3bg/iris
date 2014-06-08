@@ -514,6 +514,23 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "SUM(CASE WHEN PacketType.Value = 'refute_connection' AND LinkedPacketID.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Packets AS p ";
 
+    // TODO: always show self-linked identifiers?
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
+    }
+
     sql << "INNER JOIN PacketIdentifiers AS SearchedPacketID ON p.Hash = SearchedPacketID.PacketHash ";
     sql << "INNER JOIN PacketIdentifiers AS LinkedPacketID ";
     sql << "ON (LinkedPacketID.PacketHash = SearchedPacketID.PacketHash ";
@@ -555,12 +572,23 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     string mostConfirmedName;
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+        int n = 0;
+        if (useViewpoint) {
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n = 3;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        }
+
+        sqlite3_bind_text(statement, 1+n, startID.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2+n, startID.second.c_str(), -1, SQLITE_TRANSIENT);
 
         if (!searchedPredicates.empty()) {
             for (unsigned int i = 0; i < searchedPredicates.size(); i++) {
-                sqlite3_bind_text(statement, i + 3, searchedPredicates.at(i).c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, i + 3 + n, searchedPredicates.at(i).c_str(), -1, SQLITE_TRANSIENT);
             }
         }
 
