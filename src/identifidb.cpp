@@ -1350,6 +1350,11 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiPacket &packet, vector<string> trust
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair end, int searchDepth) {
+    vector<CIdentifiPacket> path;
+
+    if (start == end || (end.first == "" && end.second == ""))
+        return path;
+
     sqlite3_stmt *statement;
     ostringstream sql;
 
@@ -1365,8 +1370,6 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
     sql << "AND tp.StartID = @startid ";
     sql << "AND tp.EndPredicateID = endpred.ID ";
     sql << "AND tp.EndID = @endid ";
-
-    vector<CIdentifiPacket> path;
 
     while (true) {
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1530,13 +1533,15 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
     if (start == end)
         return path;
 
-    vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1);
-    if (endPackets.empty())
-        return path; // Return if the end ID is not involved in any packets
-
     bool generateTrustMap = false;
     if (savePath && (end.first == "" && end.second == ""))
         generateTrustMap = true;
+
+    if (!generateTrustMap) {
+        vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1);
+        if (endPackets.empty())
+            return path; // Return if the end ID is not involved in any packets
+    }
 
     deque<SearchQueuePacket> searchQueue;
     map<uint256, CIdentifiPacket> previousPackets;
