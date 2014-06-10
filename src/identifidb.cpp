@@ -317,7 +317,7 @@ vector<string_pair> CIdentifiDB::GetRecipientsByPacketHash(string packetHash) {
     return GetAuthorsOrRecipientsByPacketHash(packetHash, true);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -377,7 +377,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, string_pair id2, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, string_pair id2, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     vector<CIdentifiPacket> results;
     sqlite3_stmt *statement;
 
@@ -682,7 +682,7 @@ CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
     return packet;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool byRecipient, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool byRecipient, string_pair viewpoint, int maxDistance, string packetType) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -772,11 +772,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, false, viewpoint, maxDistance);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true, viewpoint, maxDistance);
 }
 
@@ -1558,24 +1558,22 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         bool matchedByAuthor = searchQueue.front().matchedByAuthor;
         string_pair matchedByIdentifier = searchQueue.front().matchedByIdentifier;
         searchQueue.pop_front();
-        if (find(visitedPackets.begin(), visitedPackets.end(), currentPacket.GetHash()) != visitedPackets.end()) {
+        if (find(visitedPackets.begin(), visitedPackets.end(), currentPacket.GetHash()) != visitedPackets.end())
             continue;
-        }
+
         visitedPackets.push_back(currentPacket.GetHash());
 
         if (currentPacket.GetRating() <= (currentPacket.GetMaxRating() + currentPacket.GetMinRating()) / 2)
             continue;
 
-        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs())) {
+        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs()))
             continue;
-        }
 
         if (packetDistanceFromStart.find(currentPacket.GetHash()) != packetDistanceFromStart.end())
             currentDistanceFromStart = packetDistanceFromStart[currentPacket.GetHash()];
 
-        if (currentDistanceFromStart > searchDepth) {
+        if (currentDistanceFromStart > searchDepth)
             return path;
-        }
 
         vector<string_pair> authors;
         vector<string_pair> allIdentifiers = currentPacket.GetRecipients();
@@ -1606,12 +1604,11 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
 
                     if (savePath) {
                         SaveTrustStep(start, identifier, EncodeBase58(previousPacket.GetHash()), currentDistanceFromStart);
-                        SaveTrustStep(start, make_pair("identifi_packet", EncodeBase58(currentPacket.GetHash())), EncodeBase58(currentPacket.GetHash()), 1);
+                        SaveTrustStep(start, make_pair("identifi_packet", EncodeBase58(currentPacket.GetHash())), EncodeBase58(currentPacket.GetHash()), currentDistanceFromStart);
                     }
 
-                    if (pathFound && !generateTrustMap) {
+                    if (pathFound && !generateTrustMap)
                         return path;
-                    }
                 }
 
                 vector<CIdentifiPacket> allPackets;
@@ -1690,7 +1687,7 @@ int CIdentifiDB::GetPacketCount() {
     return lexical_cast<int>(result[0][0]);
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -1754,7 +1751,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
 }
 
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
@@ -1819,7 +1816,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     CIdentifiPacket packet = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
@@ -1863,7 +1860,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     return packets;
 }
 
-vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance) {
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, int limit, int offset, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
     CIdentifiPacket packet = GetPacketByHash(packetHash);
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
