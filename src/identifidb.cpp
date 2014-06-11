@@ -264,7 +264,7 @@ void CIdentifiDB::Initialize() {
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
-    SearchForPathForMyKeys();
+    // SearchForPathForMyKeys(); // Disabled, takes a lot of time
 }
 
 void CIdentifiDB::SearchForPathForMyKeys() {
@@ -1460,7 +1460,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
     int exists = sqlite3_column_int(statement, 0);
     sqlite3_finalize(statement);
 
-    if (exists) return;
+    if (exists) return; // TODO: fix?
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO TrustPaths ";
@@ -1699,6 +1699,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
     sql.str("");
     sql << "SELECT p.* FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
     if (useViewpoint) {
         sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
         sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
@@ -1715,24 +1718,31 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
     }
     if (!showUnpublished)
         sql << "WHERE Published = 1 ";
+
+    if (filterPacketType)
+        sql << " AND packetType = @packetType ";
+
     sql << "ORDER BY Created DESC LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        int n = 0;
         if (useViewpoint) {
+            n += 2;
             sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
             if (maxDistance > 0) {
+                n++;
                 sqlite3_bind_int(statement, 3, maxDistance);
-                sqlite3_bind_int(statement, 4, limit);
-                sqlite3_bind_int(statement, 5, offset);
-            } else {
-                sqlite3_bind_int(statement, 3, limit);
-                sqlite3_bind_int(statement, 4, offset);
             }
-        } else {
-            sqlite3_bind_int(statement, 1, limit);
-            sqlite3_bind_int(statement, 2, offset);
         }
+        
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 1+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
+        }
+
+        sqlite3_bind_int(statement, 1+n, limit);
+        sqlite3_bind_int(statement, 2+n, offset);
 
         int result = 0;
         while(true)
