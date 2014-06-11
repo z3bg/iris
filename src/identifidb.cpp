@@ -323,10 +323,34 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Packets AS p ";
+
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
+    }
+
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
     sql << "INNER JOIN Predicates AS pred ON pi.PredicateID = pred.ID ";
     sql << "WHERE ";
+
+    if (filterPacketType)
+        sql << "packetType.Value = @packetType AND ";
+
     if (!identifier.first.empty())
         sql << "pred.Value = @predValue AND ";
     else if (trustPathablePredicatesOnly)
@@ -339,18 +363,34 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
         sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        int n = 0;
+        if (useViewpoint) {
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n = 3;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        }
+
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 1+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
+        }
+
         if (!identifier.first.empty()) {
-            sqlite3_bind_text(statement, 1, identifier.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 1+n, identifier.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2+n, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
             if (limit) {
-                sqlite3_bind_int(statement, 3, limit);
-                sqlite3_bind_int(statement, 4, offset);            
+                sqlite3_bind_int(statement, 3+n, limit);
+                sqlite3_bind_int(statement, 4+n, offset);            
             }
         } else {
-            sqlite3_bind_text(statement, 1, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 1+n, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
             if (limit) {
-                sqlite3_bind_int(statement, 2, limit);
-                sqlite3_bind_int(statement, 3, offset);            
+                sqlite3_bind_int(statement, 2+n, limit);
+                sqlite3_bind_int(statement, 3+n, offset);            
             }
         }
 
@@ -387,6 +427,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
     sql << "SELECT * FROM Packets AS p ";
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
     if (useViewpoint) {
         sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
         sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
@@ -416,6 +459,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
     sql << "WHERE ID1type.Value = @id1type AND ID1value.Value = @id1value ";
     sql << "AND ID2type.Value = @id2type AND ID2value.Value = @id2value ";
 
+    if (filterPacketType)
+        sql << "AND packetType.Value = @packetType ";
+
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
 
@@ -441,6 +487,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
         sqlite3_bind_text(statement, 2+n, id1.second.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 3+n, id2.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 4+n, id2.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 5+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
+        }
 
         if (limit) {
             sqlite3_bind_int(statement, 5+n, limit);
@@ -690,6 +741,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     sql << "SELECT * FROM Packets AS p ";
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
     if (useViewpoint) {
         sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
         sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
@@ -719,6 +773,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue ";
+    if (filterPacketType)
+        sql << " AND packetType.Value = @packetType ";
     sql << "ORDER BY p.Created DESC ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -733,6 +789,10 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
                 n = 3;
                 sqlite3_bind_int(statement, 3, maxDistance);
             }
+        }
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 1+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
         }
         if (!author.first.empty()) {
             sqlite3_bind_text(statement, 1+n, author.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1720,7 +1780,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
         sql << "WHERE Published = 1 ";
 
     if (filterPacketType)
-        sql << " AND packetType = @packetType ";
+        sql << " AND packetType.Value = @packetType ";
 
     sql << "ORDER BY Created DESC LIMIT @limit OFFSET @offset";
 
@@ -1771,8 +1831,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS p WHERE Created >= @timestamp ";
+    sql << "SELECT * FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
     if (useViewpoint) {
         sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
         sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
@@ -1787,28 +1850,35 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
             sql << "AND tp.Distance <= @maxDistance";
         sql << ") ";
     }
+    sql << "WHERE Created >= @timestamp ";
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
+    if (filterPacketType)
+        sql << " AND packetType.Value = @packetType ";
     sql << "ORDER BY p.Created ASC LIMIT @limit OFFSET @offset";
 
 
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int64(statement, 1, timestamp);
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        int n = 0;
         if (useViewpoint) {
-            sqlite3_bind_text(statement, 2, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 3, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
             if (maxDistance > 0) {
-                sqlite3_bind_int(statement, 4, maxDistance);
-                sqlite3_bind_int(statement, 5, limit);
-                sqlite3_bind_int(statement, 6, offset);
-            } else {
-                sqlite3_bind_int(statement, 4, limit);
-                sqlite3_bind_int(statement, 5, offset);
+                sqlite3_bind_int(statement, 3, maxDistance);
+                n = 3;
             }
-        } else {
-            sqlite3_bind_int(statement, 2, limit);
-            sqlite3_bind_int(statement, 3, offset);
         }
+
+        sqlite3_bind_int64(statement, 1+n, timestamp);
+
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 2+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
+        }
+
+        sqlite3_bind_int(statement, 2+n, limit);
+        sqlite3_bind_int(statement, 3+n, offset);
 
         int result = 0;
         while(true)
@@ -1837,7 +1907,28 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets WHERE ";
+    sql << "SELECT * FROM Packets AS p ";
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
+    }
+    sql << "WHERE ";
+    if (filterPacketType)
+        sql << "packetType.Value = @packetType AND ";
     sql << "((Created = @timestamp AND Hash > @packethash) OR ";
     sql << "(Created > @timestamp)) ";
     if (!showUnpublished)
@@ -1847,11 +1938,26 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
         sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int64(statement, 1, packet.GetTimestamp());
-        sqlite3_bind_text(statement, 2, packetHash.c_str(), -1, SQLITE_TRANSIENT);
+        int n = 0;
+        if (useViewpoint) {
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n = 3;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        }
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 1+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
+        }
+
+        sqlite3_bind_int64(statement, 1+n, packet.GetTimestamp());
+        sqlite3_bind_text(statement, 2+n, packetHash.c_str(), -1, SQLITE_TRANSIENT);
         if (limit) {
-            sqlite3_bind_int(statement, 3, limit);
-            sqlite3_bind_int(statement, 4, offset);            
+            sqlite3_bind_int(statement, 3+n, limit);
+            sqlite3_bind_int(statement, 4+n, offset);            
         }
 
         int result = 0;
@@ -1881,18 +1987,58 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets WHERE ";
-    sql << "((Created = @timestamp AND Hash < @packethash) OR ";
+    sql << "SELECT * FROM Packets AS p ";
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
+    }
+    sql << "WHERE ";
+    if (filterPacketType)
+        sql << "packetType.Value = @packetType AND ";
+    sql << "((Created = @timestamp AND Hash > @packethash) OR ";
     sql << "(Created < @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
-    sql << "ORDER BY Created DESC, Hash LIMIT @limit OFFSET @offset";
+    sql << "ORDER BY Created ASC, Hash ";
+    if (limit)
+        sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, packetHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(statement, 2, packet.GetTimestamp());
-        sqlite3_bind_int(statement, 3, limit);
-        sqlite3_bind_int(statement, 4, offset);
+        int n = 0;
+        if (useViewpoint) {
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n = 3;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        }
+        if (filterPacketType) {
+            sqlite3_bind_text(statement, 1+n, packetType.c_str(), -1, SQLITE_TRANSIENT);
+            n++;
+        }
+
+        sqlite3_bind_int64(statement, 1+n, packet.GetTimestamp());
+        sqlite3_bind_text(statement, 2+n, packetHash.c_str(), -1, SQLITE_TRANSIENT);
+        if (limit) {
+            sqlite3_bind_int(statement, 3+n, limit);
+            sqlite3_bind_int(statement, 4+n, offset);            
+        }
 
         int result = 0;
         while(true)
