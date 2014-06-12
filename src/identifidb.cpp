@@ -39,6 +39,8 @@ CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
     if (sqlite3_open(filename.string().c_str(), &db) == SQLITE_OK) {
         Initialize();
         SetMaxSize(sqliteMaxSize);
+        GetDefaultKeyFromDB();
+        GetMyPubKeyIDsFromDB();
     }
 }
 
@@ -127,7 +129,6 @@ void CIdentifiDB::CheckDefaultTrustList() {
         int n = 0;
         BOOST_FOREACH(const char* key, devKeys) {
             n++;
-            CKey defaultKey = GetDefaultKey();
             CIdentifiAddress address(defaultKey.GetPubKey().GetID());
 
             Array author, author1, recipient, recipient1, recipient2;
@@ -326,22 +327,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
@@ -1201,8 +1187,6 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
 
     sqlite3_finalize(statement);
 
-    SavePacketTrustPaths(packet);
-
     return packetHash;
 }
 
@@ -1225,8 +1209,10 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
     CIdentifiAddress address(pubKey.GetID());
     int keyIdentifierID = SaveIdentifier(address.ToString());
 
-    if (setDefault)
+    if (setDefault) {
         query("UPDATE Keys SET IsDefault = 0");
+        defaultKey = key;
+    }
 
     sqlite3_stmt *statement;
     string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, KeyIdentifierID, PrivateKey, IsDefault) VALUES (@pubkeyid, @keyIdentifierID, @privatekey, @isdefault);";
@@ -1239,7 +1225,8 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }   
-    sqlite3_finalize(statement); 
+    sqlite3_finalize(statement);
+    GetMyPubKeyIDsFromDB();
     return true;
 }
 
@@ -1274,7 +1261,7 @@ void CIdentifiDB::SetDefaultKey(string privKey) {
     ImportPrivKey(privKey, true);
 }
 
-CKey CIdentifiDB::GetDefaultKey() {
+CKey CIdentifiDB::GetDefaultKeyFromDB() {
     string pubKey, privKey;
 
     sqlite3_stmt *statement;
@@ -1298,10 +1285,13 @@ CKey CIdentifiDB::GetDefaultKey() {
     bool compressed = false;
     CSecret secret = s.GetSecret(compressed);
 
-    CKey key;
-    key.SetSecret(secret, false);
+    defaultKey.SetSecret(secret, false);
 
-    return key;
+    return defaultKey;
+}
+
+CKey CIdentifiDB::GetDefaultKey() {
+    return defaultKey;
 }
 
 vector<string> CIdentifiDB::GetMyPubKeys() {
@@ -1324,9 +1314,7 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
     return myPubKeys;
 }
 
-vector<string> CIdentifiDB::GetMyPubKeyIDs() {
-    vector<string> myPubKeys;
-
+vector<string> CIdentifiDB::GetMyPubKeyIDsFromDB() {
     string pubKey, privKey;
 
     ostringstream sql;
@@ -1338,10 +1326,14 @@ vector<string> CIdentifiDB::GetMyPubKeyIDs() {
     vector<vector<string> > result = query(sql.str().c_str());
 
     BOOST_FOREACH (vector<string> vStr, result) {
-        myPubKeys.push_back(vStr.front());
+        myPubKeyIDs.push_back(vStr.front());
     }
 
-    return myPubKeys;
+    return myPubKeyIDs;
+}
+
+vector<string> CIdentifiDB::GetMyPubKeyIDs() {
+    return myPubKeyIDs;
 }
 
 vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
@@ -1457,40 +1449,6 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
     return path;
 }
 
-void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
-    vector<string> myPubKeyIDs = GetMyPubKeyIDs();
-    CKey defaultKey = GetDefaultKey();
-    vector<unsigned char> vchPubKey = defaultKey.GetPubKey().Raw();
-    string strPubKey = EncodeBase58(vchPubKey);
-
-    if (!HasTrustedSigner(packet, myPubKeyIDs))
-        return;
-
-    vector<string_pair> savedPacketAuthors = packet.GetAuthors();
-    vector<string_pair> savedPacketRecipients = packet.GetRecipients();
-    vector<string_pair> savedPacketIdentifiers;
-    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketRecipients.begin(), savedPacketRecipients.end());
-    savedPacketIdentifiers.insert(savedPacketIdentifiers.begin(), savedPacketAuthors.begin(), savedPacketAuthors.end());
-    string savedPacketHash = EncodeBase58(packet.GetHash());
-
-    // Check if packet is authored by our key
-    // bool isMyPacket = false;
-    BOOST_FOREACH (string_pair author, savedPacketAuthors) {
-        if (author.first == "keyID") {
-            BOOST_FOREACH (string myKeyID, myPubKeyIDs) {
-                if (myKeyID == author.second) {
-                    // Save trust steps from our key to packet's identifiers via the packet
-                    BOOST_FOREACH (string_pair id, savedPacketIdentifiers) {
-                        SaveTrustStep(make_pair("keyID", myKeyID), id, savedPacketHash, 1);
-                    }
-                    SaveTrustStep(make_pair("keyID", myKeyID), make_pair("identifi_packet", savedPacketHash), savedPacketHash, 1);
-                    break;
-                }
-            }
-        }
-    }
-}
-
 void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextStep, int distance) {
     if (start == end) return;
 
@@ -1598,7 +1556,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         generateTrustMap = true;
 
     if (!generateTrustMap) {
-        vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1);
+        vector<CIdentifiPacket> endPackets = GetPacketsByIdentifier(end, 1, 0, true);
         if (endPackets.empty())
             return path; // Return if the end ID is not involved in any packets
     }
@@ -1760,22 +1718,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
     sql << "SELECT p.* FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
+
     if (!showUnpublished)
         sql << "WHERE Published = 1 ";
 
@@ -1834,22 +1778,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     sql << "SELECT * FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
+
     sql << "WHERE Created >= @timestamp ";
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
@@ -1910,22 +1840,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     sql << "SELECT * FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
+
     sql << "WHERE ";
     if (filterPacketType)
         sql << "packetType.Value = @packetType AND ";
@@ -1990,22 +1906,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
     sql << "SELECT * FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
+
     sql << "WHERE ";
     if (filterPacketType)
         sql << "packetType.Value = @packetType AND ";
@@ -2094,21 +1996,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "FROM Packets AS p ";
 
     // TODO: use viewpoint only for received packet counts
-    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, "");
 
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
@@ -2119,6 +2007,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
+        bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
         if (useViewpoint) {
             n = 2;
             sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -2158,4 +2047,25 @@ CKey CIdentifiDB::GetNewKey() {
     string strPrivateKey = CIdentifiSecret(secret, compressed).ToString();
     ImportPrivKey(strPrivateKey);
     return newKey;
+}
+
+void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string packetType) {
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    bool filterPacketType = !packetType.empty();
+    if (filterPacketType)
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+    if (useViewpoint) {
+        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
+        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
+        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
+        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "(tp.StartID = viewpointID.ID AND ";
+        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
+        sql << "tp.EndID = packetID.ID AND ";
+        sql << "tp.EndPredicateID = packetPred.ID ";
+        if (maxDistance > 0)
+            sql << "AND tp.Distance <= @maxDistance";
+        sql << ") ";
+    }
 }

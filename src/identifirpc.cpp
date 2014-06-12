@@ -193,40 +193,40 @@ Value stop(const Array& params, bool fHelp)
 
 
 static const CRPCCommand vRPCCommands[] =
-{ //  name                          actor (function)            okSafeMode threadSafe
-  //  ------------------------      -------------------------   ---------- ----------
-    { "help",                       &help,                      true,      true },
-    { "stop",                       &stop,                      true,      true },
-    { "getpacketcount",             &getpacketcount,            true,      false },
-    { "getpath",                    &getpath,                   true,      false },
-    { "getsavedpath",               &getsavedpath,              true,      false },
-    { "gettruststep",               &gettruststep,              true,      false },
-    { "getidentifiercount",         &getidentifiercount,        true,      false },
-    { "getpacketbyhash",            &getpacketbyhash,           true,      false },
-    { "getpacketsbyauthor",         &getpacketsbyauthor,        true,      false },
-    { "getpacketsbyrecipient",      &getpacketsbyrecipient,     true,      false },
-    { "getpacketsafter",            &getpacketsafter,           true,      false },
-    { "getlatestpackets",           &getlatestpackets,          true,      false },
-    { "savepacket",                 &savepacket,                true,      false },
-    { "search",                     &search,                    true,      false },
-    { "overview",                   &overview,                  true,      false },
-    { "saveconnection",             &saveconnection,            true,      false },
-    { "refuteconnection",           &refuteconnection,          true,      false },
-    { "getconnections",             &getconnections,            true,      false },
-    { "getconnectingpackets",       &getconnectingpackets,      true,      false },    
-    { "savepacketfromdata",         &savepacketfromdata,        true,      false },
-    { "getname",                    &getname,                   true,      false },
-    { "deletepacket",               &deletepacket,              true,      false },
-    { "listmykeys",                 &listmykeys,                true,      false },
-    { "importprivkey",              &importprivkey,             true,      false },
-    { "getnewkey",                  &getnewkey,                 true,      false },
-    { "setdefaultkey",              &setdefaultkey,             true,      false },
-    { "addsignature",               &addsignature,              true,      false },
-    { "publish",                    &publish,                   true,      false },
-    { "getconnectioncount",         &getconnectioncount,        true,      false },
-    { "getpeerinfo",                &getpeerinfo,               true,      false },
-    { "addnode",                    &addnode,                   true,      true },
-    { "getaddednodeinfo",           &getaddednodeinfo,          true,      true },
+{ //  name                          actor (function)            okSafeMode
+  //  ------------------------      -------------------------   ----------
+    { "help",                       &help,                      true },
+    { "stop",                       &stop,                      true },
+    { "getpacketcount",             &getpacketcount,            true },
+    { "getpath",                    &getpath,                   true },
+    { "getsavedpath",               &getsavedpath,              true },
+    { "gettruststep",               &gettruststep,              true },
+    { "getidentifiercount",         &getidentifiercount,        true },
+    { "getpacketbyhash",            &getpacketbyhash,           true },
+    { "getpacketsbyauthor",         &getpacketsbyauthor,        true },
+    { "getpacketsbyrecipient",      &getpacketsbyrecipient,     true },
+    { "getpacketsafter",            &getpacketsafter,           true },
+    { "getlatestpackets",           &getlatestpackets,          true },
+    { "savepacket",                 &savepacket,                true },
+    { "search",                     &search,                    true },
+    { "overview",                   &overview,                  true },
+    { "saveconnection",             &saveconnection,            true },
+    { "refuteconnection",           &refuteconnection,          true },
+    { "getconnections",             &getconnections,            true },
+    { "getconnectingpackets",       &getconnectingpackets,      true },    
+    { "savepacketfromdata",         &savepacketfromdata,        true },
+    { "getname",                    &getname,                   true },
+    { "deletepacket",               &deletepacket,              true },
+    { "listmykeys",                 &listmykeys,                true },
+    { "importprivkey",              &importprivkey,             true },
+    { "getnewkey",                  &getnewkey,                 true },
+    { "setdefaultkey",              &setdefaultkey,             true },
+    { "addsignature",               &addsignature,              true },
+    { "publish",                    &publish,                   true },
+    { "getconnectioncount",         &getconnectioncount,        true },
+    { "getpeerinfo",                &getpeerinfo,               true },
+    { "addnode",                    &addnode,                   true },
+    { "getaddednodeinfo",           &getaddednodeinfo,          true },
 };
 
 CRPCTable::CRPCTable()
@@ -989,12 +989,7 @@ json_spirit::Value CRPCTable::execute(const std::string &strMethod, const json_s
         // Execute
         Value result;
         {
-            if (pcmd->threadSafe)
-                result = pcmd->actor(params, false);
-            else {
-                LOCK2(cs_main, pwalletMain->cs_wallet);
-                result = pcmd->actor(params, false);
-            }
+            result = pcmd->actor(params, false);
         }
         return result;
     }

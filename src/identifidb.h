@@ -37,8 +37,10 @@ public:
     string SavePacket(CIdentifiPacket &packet);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
+    CKey GetDefaultKeyFromDB();
     vector<IdentifiKey> GetMyKeys();
     vector<string> GetMyPubKeyIDs();
+    vector<string> GetMyPubKeyIDsFromDB();
     vector<string> GetMyPubKeys();
     string GetSavedKeyID(string pubKey);
     bool ImportPrivKey(string privKey, bool setDefault=false);
@@ -54,12 +56,13 @@ public:
     void DropPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
     void SaveTrustStep(string_pair start, string_pair end, string nextStep, int distance);
-    void SavePacketTrustPaths(CIdentifiPacket &packet);
     IDOverview GetIDOverview(string_pair id, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string GetName(string_pair id, bool cachedOnly = false);
     string GetCachedName(string_pair id);
 private:
     sqlite3 *db;
+    CKey defaultKey;
+    vector<string> myPubKeyIDs;
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);
     vector<string_pair > GetRecipientsByPacketHash(string packetHash);
@@ -79,6 +82,7 @@ private:
     void SearchForPathForMyKeys();
     bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs);
     void UpdateCachedName(string_pair startID, string name);
+    void AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string packetType);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H
