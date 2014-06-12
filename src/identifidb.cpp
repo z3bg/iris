@@ -728,22 +728,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
@@ -1627,7 +1612,6 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
 
                     if (savePath) {
                         SaveTrustStep(start, identifier, EncodeBase58(previousPacket.GetHash()), currentDistanceFromStart);
-                        SaveTrustStep(start, make_pair("identifi_packet", EncodeBase58(currentPacket.GetHash())), EncodeBase58(currentPacket.GetHash()), currentDistanceFromStart);
                     }
 
                     if (pathFound && !generateTrustMap)
@@ -2055,15 +2039,14 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
     if (filterPacketType)
         sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
     if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
+        sql << "INNER JOIN PacketIdentifiers AS author ON (author.PacketHash = p.Hash AND author.IsRecipient = 0) ";
         sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
         sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
         sql << "INNER JOIN TrustPaths AS tp ON ";
         sql << "(tp.StartID = viewpointID.ID AND ";
         sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
+        sql << "tp.EndID = author.IdentifierID AND ";
+        sql << "tp.EndPredicateID = author.PredicateID ";
         if (maxDistance > 0)
             sql << "AND tp.Distance <= @maxDistance";
         sql << ") ";
