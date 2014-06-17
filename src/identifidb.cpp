@@ -7,7 +7,7 @@
 #include <deque>
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
-#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string.hpp>
 #include <map>
 #include <cmath>
 
@@ -1980,7 +1980,8 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "FROM Packets AS p ";
 
     // TODO: use viewpoint only for received packet counts
-    AddPacketFilterSQL(sql, viewpoint, maxDistance, "");
+    string packetType = "";
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
@@ -2033,11 +2034,22 @@ CKey CIdentifiDB::GetNewKey() {
     return newKey;
 }
 
-void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string packetType) {
+void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &packetType) {
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
+    if (filterPacketType) {
         sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+        vector<string> strs;
+        split(strs, packetType, is_any_of("/"));
+        if (strs.size() > 1 && strs.front() == "review") {
+            string oper = ">";
+            if (strs.back() == "neutral") oper = "==";
+            if (strs.back() == "negative") oper = "<";
+            sql << "INNER JOIN Packets AS p2 ON (p.Hash = p2.Hash AND "; // Some better way to do this?
+            sql << "p.Rating " << oper << " (p.MaxRating + p.MinRating) / 2) ";
+            packetType = "review";
+        }
+    }
     if (useViewpoint) {
         sql << "INNER JOIN PacketIdentifiers AS author ON (author.PacketHash = p.Hash AND author.IsRecipient = 0) ";
         sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";

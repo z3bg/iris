@@ -82,7 +82,7 @@ private:
     void SearchForPathForMyKeys();
     bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs);
     void UpdateCachedName(string_pair startID, string name);
-    void AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string packetType);
+    void AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &packetType);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H
