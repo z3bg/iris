@@ -581,20 +581,8 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     // TODO: always show self-linked identifiers?
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    string packetType;
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "INNER JOIN PacketIdentifiers AS SearchedPacketID ON p.Hash = SearchedPacketID.PacketHash ";
     sql << "INNER JOIN PacketIdentifiers AS LinkedPacketID ";
@@ -733,6 +721,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID WHERE ";
+    if (filterPacketType)
+        sql << "packetType.Value = @packetType AND ";
     if (byRecipient)
         sql << "pi.IsRecipient = 1 AND ";
     else 
@@ -744,8 +734,6 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue ";
-    if (filterPacketType)
-        sql << " AND packetType.Value = @packetType ";
     sql << "ORDER BY p.Created DESC ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -804,11 +792,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthor(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
-    return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, false, viewpoint, maxDistance);
+    return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, false, viewpoint, maxDistance, packetType);
 }
 
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType) {
-    return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true, viewpoint, maxDistance);
+    return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true, viewpoint, maxDistance, packetType);
 }
 
 vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly) {
@@ -2046,7 +2034,7 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
             if (strs.back() == "neutral") oper = "==";
             if (strs.back() == "negative") oper = "<";
             sql << "INNER JOIN Packets AS p2 ON (p.Hash = p2.Hash AND "; // Some better way to do this?
-            sql << "p.Rating " << oper << " (p.MaxRating + p.MinRating) / 2) ";
+            sql << "p2.Rating " << oper << " (p2.MaxRating + p2.MinRating) / 2) ";
             packetType = "review";
         }
     }
