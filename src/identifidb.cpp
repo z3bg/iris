@@ -414,22 +414,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
-    if (filterPacketType)
-        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
-    if (useViewpoint) {
-        sql << "INNER JOIN Identifiers AS packetID ON packetID.Value = p.Hash ";
-        sql << "INNER JOIN Predicates AS packetPred ON packetPred.Value = 'identifi_packet' ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = packetID.ID AND ";
-        sql << "tp.EndPredicateID = packetPred.ID ";
-        if (maxDistance > 0)
-            sql << "AND tp.Distance <= @maxDistance";
-        sql << ") ";
-    }
+    AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "INNER JOIN PacketIdentifiers AS LinkAuthor ";
     sql << "ON (LinkAuthor.PacketHash = p.Hash AND LinkAuthor.IsRecipient = 0) ";
@@ -442,11 +427,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
     sql << "INNER JOIN Predicates AS ID2type ON ID2type.ID = LinkedID2.PredicateID ";
     sql << "INNER JOIN Identifiers AS ID1value ON ID1value.ID = LinkedID1.IdentifierID ";
     sql << "INNER JOIN Identifiers AS ID2value ON ID2value.ID = LinkedID2.IdentifierID ";
-    sql << "WHERE ID1type.Value = @id1type AND ID1value.Value = @id1value ";
-    sql << "AND ID2type.Value = @id2type AND ID2value.Value = @id2value ";
+    sql << "WHERE ID1type.Value = @id1type AND ID1value.Value = @id1value AND ";
+    sql << "ID2type.Value = @id2type AND ID2value.Value = @id2value ";
 
-    if (filterPacketType)
-        sql << "AND packetType.Value = @packetType ";
+    if (filterPacketType) {
+        if (packetType[0] == '!') {
+            sql << "AND packetType.Value != @packetType ";
+        } else {
+            sql << "AND packetType.Value = @packetType ";
+        }
+    }
 
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
@@ -721,11 +711,16 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     sql << "INNER JOIN PacketIdentifiers AS pi ON pi.PacketHash = p.Hash ";
     sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID WHERE ";
-    if (filterPacketType)
-        sql << "packetType.Value = @packetType AND ";
+    if (filterPacketType) {
+        if (packetType[0] == '!') {
+            sql << "packetType.Value != @packetType AND ";
+        } else {
+            sql << "packetType.Value = @packetType AND ";
+        }
+    }
     if (byRecipient)
         sql << "pi.IsRecipient = 1 AND ";
-    else 
+    else
         sql << "pi.IsRecipient = 0 AND ";
     if (!author.first.empty())
         sql << "pred.Value = @predValue AND ";
@@ -1692,11 +1687,18 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
     bool filterPacketType = !packetType.empty();
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
-    if (!showUnpublished)
-        sql << "WHERE Published = 1 ";
+    sql << "WHERE 1 ";
 
-    if (filterPacketType)
-        sql << " AND packetType.Value = @packetType ";
+    if (!showUnpublished)
+        sql << "AND Published = 1 ";
+
+    if (filterPacketType) {
+        if (packetType[0] == '!') {
+            sql << "AND packetType.Value != @packetType ";
+        } else {
+            sql << "AND packetType.Value = @packetType ";
+        }
+    }
 
     sql << "ORDER BY Created DESC LIMIT @limit OFFSET @offset";
 
@@ -1755,8 +1757,14 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     sql << "WHERE Created >= @timestamp ";
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
-    if (filterPacketType)
-        sql << " AND packetType.Value = @packetType ";
+
+    if (filterPacketType) {
+        if (packetType[0] == '!') {
+            sql << "AND packetType.Value != @packetType ";
+        } else {
+            sql << "AND packetType.Value = @packetType ";
+        }
+    }
     sql << "ORDER BY p.Created ASC LIMIT @limit OFFSET @offset";
 
 
@@ -1815,8 +1823,13 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "WHERE ";
-    if (filterPacketType)
-        sql << "packetType.Value = @packetType AND ";
+    if (filterPacketType) {
+        if (packetType[0] == '!') {
+            sql << "packetType.Value != @packetType AND ";
+        } else {
+            sql << "packetType.Value = @packetType AND ";
+        }
+    }
     sql << "((Created = @timestamp AND Hash > @packethash) OR ";
     sql << "(Created > @timestamp)) ";
     if (!showUnpublished)
@@ -1881,8 +1894,13 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
     sql << "WHERE ";
-    if (filterPacketType)
-        sql << "packetType.Value = @packetType AND ";
+    if (filterPacketType) {
+        if (packetType[0] == '!') {
+            sql << "packetType.Value != @packetType AND ";
+        } else {
+            sql << "packetType.Value = @packetType AND ";
+        }
+    }
     sql << "((Created = @timestamp AND Hash > @packethash) OR ";
     sql << "(Created < @timestamp)) ";
     if (!showUnpublished)
@@ -2030,9 +2048,9 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
         vector<string> strs;
         split(strs, packetType, is_any_of("/"));
         if (strs.size() > 1 && strs.front() == "review") {
-            string oper = ">";
-            if (strs.back() == "neutral") oper = "==";
-            if (strs.back() == "negative") oper = "<";
+            char oper = '>';
+            if (strs.back() == "neutral") oper = '=';
+            if (strs.back() == "negative") oper = '<';
             sql << "INNER JOIN Packets AS p2 ON (p.Hash = p2.Hash AND "; // Some better way to do this?
             sql << "p2.Rating " << oper << " (p2.MaxRating + p2.MinRating) / 2) ";
             packetType = "review";

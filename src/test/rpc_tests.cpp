@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 11);
+    BOOST_CHECK_EQUAL(r.get_int(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com positive 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email bob@example.com email carl@example.com positive 1"));
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_int(), 7);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 15);
+    BOOST_CHECK_EQUAL(r.get_int(), 12);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor email alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
     BOOST_CHECK_EQUAL(r.get_str(), "6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP");
     BOOST_CHECK_NO_THROW(CallRPC("publish 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 19);
+    BOOST_CHECK_EQUAL(r.get_int(), 16);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketbyhash 6Q1AGhGctnjPoZn4Pen5G7ZRNfJ8WfCwsaffzze6xmRP"));
     BOOST_CHECK(!r.get_array().empty());
