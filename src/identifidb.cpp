@@ -2067,6 +2067,8 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
         sql << "tp.EndPredicateID = author.PredicateID ";
         if (maxDistance > 0)
             sql << "AND tp.Distance <= @maxDistance";
+        else
+            sql << "AND tp.Distance > 0"; // Makes the query not last several minutes, for some reason
         sql << ") ";
     }
 }
