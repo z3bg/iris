@@ -71,13 +71,12 @@ vector<vector<string> > CIdentifiDB::query(const char* query)
                 break;
             }
         }
-        
-        sqlite3_finalize(statement);
     }
-     
+    
+    sqlite3_finalize(statement);
     string error = sqlite3_errmsg(db);
     if (error != "not an error") cout << query << " " << error << endl;
-     
+
     return results; 
 }
 
@@ -303,10 +302,9 @@ vector<string_pair> CIdentifiDB::GetAuthorsOrRecipientsByPacketHash(string packe
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
 
+    sqlite3_finalize(statement);
     return authors;
 }
 
@@ -393,13 +391,12 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
             {
                 break;  
             }
-        }
-        
-        sqlite3_finalize(statement);
+        }        
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
+    sqlite3_finalize(statement);
     return packets;
 }
 
@@ -483,10 +480,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
             else
                 break;
         }
-        
-        sqlite3_finalize(statement);
     }
 
+    sqlite3_finalize(statement);
     return results;
 }
 
@@ -552,6 +548,7 @@ string CIdentifiDB::GetCachedName(string_pair id) {
         }
     }
 
+    sqlite3_finalize(statement);
     return name;
 }
 
@@ -659,13 +656,12 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
 
     if (!mostConfirmedName.empty())
         UpdateCachedName(startID, mostConfirmedName);
 
+    sqlite3_finalize(statement);
     return results;
 }
 
@@ -777,12 +773,11 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
     }
     
+    sqlite3_finalize(statement);
     return packets;
 }
 
@@ -846,10 +841,9 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
     
+    sqlite3_finalize(statement);
     return results;
 }
 
@@ -1412,8 +1406,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetSavedPath(string_pair start, string_pair
                 break;
             }
         }
-        sqlite3_finalize(statement);
     }
+
+    sqlite3_finalize(statement);
     return path;
 }
 
@@ -1736,10 +1731,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
     
+    sqlite3_finalize(statement);
     return packets;
 }
 
@@ -1804,10 +1798,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
     
+    sqlite3_finalize(statement);
     return packets;
 }
 
@@ -1875,10 +1868,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
     
+    sqlite3_finalize(statement);
     return packets;
 }
 
@@ -1946,10 +1938,9 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
                 break;  
             }
         }
-        
-        sqlite3_finalize(statement);
     }
     
+    sqlite3_finalize(statement);
     return packets;
 }
 
