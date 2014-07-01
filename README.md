@@ -134,7 +134,7 @@ Suggested data format for Identifi packets:
 
 SignedData may optionally contain additional fields.
 
-Packets and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be refered to with magnet URIs.
+Packets and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be referred to with magnet URIs.
 
 Packets are digitally signed by the entity that verifies that the message originated from the claimed sender. For example, this could be a website where the sender logged in with a Facebook account, or a crawler that read the sender's message from Twitter.
 
