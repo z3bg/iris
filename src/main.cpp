@@ -1265,7 +1265,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         if (pto->fStartSync) {
             pto->fStartSync = false;
 
-            // pto->PushGetPackets(pto->nLastPacketTime); // leaks memory
+            pto->PushGetPackets(pto->nLastPacketTime);
         }
 
         // Address refresh broadcast
