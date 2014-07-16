@@ -144,18 +144,17 @@ TODO
 ----
 
 * Save signedData to DB separately from signatures, to avoid duplicates (from crawlers of the same site for instance)
-* Prevent packet "malleability" with canonical JSON (needs alphabetic sorting of elements)
 * Refine pathfinding algorithm, take into account the amount of positive and negative ratings
 * Add support for up / downvoting of packets and marking identifier connections expired or incorrect
 * Recalculate packet priorities when new packets are saved
 * Allocate disk space based on the author's trust
-* Improve network functions, add sanity checks and invalid packet spam protection
-* Remove unnecessary Bitcoin code (libdb most notably)
-* Improve efficiency, measured by packet save time tests
+* Remove unnecessary Bitcoin code 
 * Merge build tools from Bitcoin master branch
 
 Future considerations
 ---------------------
+
+Browser plugin implementation
 
 Query packets from peers by trust viewpoint? "Send me the trust tree from [ID] with packets after [timestamp] as leaves." Would help counter spam and irrelevant content.
 
