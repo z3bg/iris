@@ -1342,7 +1342,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                     }
                 }
             }
-            vInventoryToSend.clear();
+            pto->vInventoryToSend.clear();
         }
         if (!vInv.empty())
             pto->PushMessage("inv", vInv);
