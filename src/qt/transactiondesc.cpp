@@ -3,8 +3,6 @@
 #include "guiutil.h"
 #include "identifiunits.h"
 #include "main.h"
-#include "wallet.h"
-#include "db.h"
 #include "ui_interface.h"
 #include "base58.h"
 

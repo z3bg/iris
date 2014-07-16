@@ -3,7 +3,6 @@
 #include <boost/foreach.hpp>
 
 #include "main.h"
-#include "wallet.h"
 #include "util.h"
 
 using namespace std;

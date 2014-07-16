@@ -23,10 +23,6 @@
 #include "data.h"
 
 class CNode;
-class CBlockIndex;
-extern int nBestHeight;
-
-
 
 inline unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
 inline unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
@@ -201,7 +197,6 @@ protected:
 
 public:
     uint256 hashContinue;
-    CBlockIndex* pindexLastGetBlocksBegin;
     time_t nLastPacketTime;
     int nStartingHeight;
     bool fStartSync;
@@ -243,7 +238,6 @@ public:
         nSendSize = 0;
         nSendOffset = 0;
         hashContinue = 0;
-        pindexLastGetBlocksBegin = 0;
         nLastPacketTime = 0;
         nStartingHeight = -1;
         fStartSync = true;
@@ -623,11 +617,6 @@ public:
     void copyStats(CNodeStats &stats);
 };
 
-
-
-class CTransaction;
-void RelayTransaction(const CTransaction& tx, const uint256& hash);
-void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataStream& ss);
 void RelayPacket(CIdentifiPacket& rel);
 void RelayPacket(CIdentifiPacket& rel, const CDataStream& ss);
 

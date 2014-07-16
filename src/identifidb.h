@@ -12,6 +12,7 @@
 #include "base58.h"
 #include "main.h"
 #include "data.h"
+#include "addrman.h"
 
 using namespace std;
 
@@ -59,6 +60,11 @@ public:
     IDOverview GetIDOverview(string_pair id, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string GetName(string_pair id, bool cachedOnly = false);
     string GetCachedName(string_pair id);
+    
+    // Integrated from CAddrDB
+    bool Write(const CAddrMan& addr);
+    bool Read(CAddrMan& addr);
+    boost::filesystem::path pathAddr;
 private:
     sqlite3 *db;
     CKey defaultKey;

@@ -11,7 +11,6 @@
 #include <boost/signals2/last_value.hpp>
 
 class CBasicKeyStore;
-class CWallet;
 class uint256;
 
 /** General change type (added, updated, removed). */
