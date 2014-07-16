@@ -9,7 +9,6 @@
 #include <boost/foreach.hpp>
 
 #include "main.h"
-#include "wallet.h"
 #include "net.h"
 #include "util.h"
 
@@ -80,19 +79,6 @@ BOOST_AUTO_TEST_CASE(DoS_bantime)
 
     SetMockTime(nStartTime+60*60*24+1);
     BOOST_CHECK(!CNode::IsBanned(addr));
-}
-
-static bool CheckNBits(unsigned int nbits1, int64 time1, unsigned int nbits2, int64 time2)\
-{
-    if (time1 > time2)
-        return CheckNBits(nbits2, time2, nbits1, time1);
-    int64 deltaTime = time2-time1;
-
-    CBigNum required;
-    required.SetCompact(ComputeMinWork(nbits1, deltaTime));
-    CBigNum have;
-    have.SetCompact(nbits2);
-    return (have <= required);
 }
 
 

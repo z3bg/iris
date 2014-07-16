@@ -39,7 +39,6 @@ LIBS += \
    -l boost_program_options$(BOOST_LIB_SUFFIX) \
    -l boost_thread$(BOOST_LIB_SUFFIX) \
    -l boost_regex$(BOOST_LIB_SUFFIX) \
-   -l db_cxx$(BDB_LIB_SUFFIX) \
    -l sqlite3 \
    -l crypto \
    -l ssl
@@ -119,7 +118,6 @@ OBJS= \
     obj/addrman.o \
     obj/crypter.o \
     obj/key.o \
-    obj/db.o \
     obj/init.o \
     obj/keystore.o \
     obj/main.o \
@@ -133,8 +131,6 @@ OBJS= \
     obj/script.o \
     obj/sync.o \
     obj/util.o \
-    obj/wallet.o \
-    obj/walletdb.o \
     obj/hash.o \
     obj/noui.o \
 

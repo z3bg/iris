@@ -5,10 +5,6 @@
 #ifndef IDENTIFI_INIT_H
 #define IDENTIFI_INIT_H
 
-#include "wallet.h"
-
-extern CWallet* pwalletMain;
-
 void StartShutdown();
 bool ShutdownRequested();
 void Shutdown();

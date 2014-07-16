@@ -3,7 +3,6 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "walletdb.h"
 #include "identifirpc.h"
 #include "identifidb.h"
 #include "net.h"
@@ -25,7 +24,6 @@
 using namespace std;
 using namespace boost;
 
-CWallet* pwalletMain;
 CClientUIInterface uiInterface;
 
 // Used to pass flags to the Bind() function
@@ -83,18 +81,13 @@ void Shutdown()
     if (!lockShutdown) return;
 
     RenameThread("identifi-shutoff");
-    nTransactionsUpdated++;
     StopRPCThreads();
-    bitdb.Flush(false);
     StopNode();
     {
         LOCK(cs_main);
         delete pidentifidb; pidentifidb = NULL;
     }
-    bitdb.Flush(true);
     boost::filesystem::remove(GetPidFile());
-    UnregisterWallet(pwalletMain);
-    delete pwalletMain;
 }
 
 //
@@ -248,12 +241,6 @@ bool static InitError(const std::string &str)
     return false;
 }
 
-bool static InitWarning(const std::string &str)
-{
-    uiInterface.ThreadSafeMessageBox(str, "", CClientUIInterface::MSG_WARNING);
-    return true;
-}
-
 bool static Bind(const CService &addr, unsigned int flags) {
     if (!(flags & BF_EXPLICIT) && IsLimited(addr))
         return false;
@@ -367,48 +354,6 @@ struct CImportingNow
 void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
     RenameThread("identifi-loadblk");
-
-    // -reindex
-    if (fReindex) {
-        CImportingNow imp;
-        int nFile = 0;
-        while (true) {
-            CDiskBlockPos pos(nFile, 0);
-            FILE *file = OpenBlockFile(pos, true);
-            if (!file)
-                break;
-            printf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos);
-            nFile++;
-        }
-        fReindex = false;
-        printf("Reindexing finished\n");
-        // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
-        InitBlockIndex();
-    }
-
-    // hardcoded $DATADIR/bootstrap.dat
-    filesystem::path pathBootstrap = GetDataDir() / "bootstrap.dat";
-    if (filesystem::exists(pathBootstrap)) {
-        FILE *file = fopen(pathBootstrap.string().c_str(), "rb");
-        if (file) {
-            CImportingNow imp;
-            filesystem::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
-            printf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file);
-            RenameOver(pathBootstrap, pathBootstrapOld);
-        }
-    }
-
-    // -loadblock=
-    BOOST_FOREACH(boost::filesystem::path &path, vImportFiles) {
-        FILE *file = fopen(path.string().c_str(), "rb");
-        if (file) {
-            CImportingNow imp;
-            printf("Importing %s...\n", path.string().c_str());
-            LoadExternalBlockFile(file);
-        }
-    }
 }
 
 /** Initialize identifi.
@@ -490,24 +435,10 @@ bool AppInit2(boost::thread_group& threadGroup)
         SoftSetBoolArg("-discover", false);
     }
 
-    if (GetBoolArg("-salvagewallet")) {
-        // Rewrite just private keys: rescan to find transactions
-        SoftSetBoolArg("-rescan", true);
-    }
-
     // ********************************************************* Step 3: parameter-to-internal-flags
 
     fDebug = GetBoolArg("-debug");
     fBenchmark = GetBoolArg("-benchmark");
-
-    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = GetArg("-par", 0);
-    if (nScriptCheckThreads == 0)
-        nScriptCheckThreads = boost::thread::hardware_concurrency();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
     // -debug implies fDebug*
     if (fDebug)
@@ -533,21 +464,6 @@ bool AppInit2(boost::thread_group& threadGroup)
         int nNewTimeout = GetArg("-timeout", 5000);
         if (nNewTimeout > 0 && nNewTimeout < 600000)
             nConnectTimeout = nNewTimeout;
-    }
-
-    // Continue to put "/P2SH/" in the coinbase to monitor
-    // BIP16 support.
-    // This can be removed eventually...
-    const char* pszP2SH = "/P2SH/";
-    COINBASE_FLAGS << std::vector<unsigned char>(pszP2SH, pszP2SH+strlen(pszP2SH));
-
-
-    if (mapArgs.count("-paytxfee"))
-    {
-        if (!ParseMoney(mapArgs["-paytxfee"], nTransactionFee))
-            return InitError(strprintf(_("Invalid amount for -paytxfee=<amount>: '%s'"), mapArgs["-paytxfee"].c_str()));
-        if (nTransactionFee > 0.25 * COIN)
-            InitWarning(_("Warning: -paytxfee is set very high! This is the transaction fee you will pay if you send a transaction."));
     }
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
@@ -576,45 +492,8 @@ bool AppInit2(boost::thread_group& threadGroup)
     if (fDaemon)
         fprintf(stdout, "Identifi server starting\n");
 
-    if (nScriptCheckThreads) {
-        printf("Using %u threads for script verification\n", nScriptCheckThreads);
-        for (int i=0; i<nScriptCheckThreads-1; i++)
-            threadGroup.create_thread(&ThreadScriptCheck);
-    }
-
     int64 nStart;
 
-    // ********************************************************* Step 5: verify wallet database integrity
-
-    uiInterface.InitMessage(_("Verifying wallet..."));
-
-    if (!bitdb.Open(GetDataDir()))
-    {
-        string msg = strprintf(_("Error initializing wallet database environment %s!"), strDataDir.c_str());
-        return InitError(msg);
-    }
-
-    if (GetBoolArg("-salvagewallet"))
-    {
-        // Recover readable keypairs:
-        if (!CWalletDB::Recover(bitdb, "wallet.dat", true))
-            return false;
-    }
-
-    if (filesystem::exists(GetDataDir() / "wallet.dat"))
-    {
-        CDBEnv::VerifyResult r = bitdb.Verify("wallet.dat", CWalletDB::Recover);
-        if (r == CDBEnv::RECOVER_OK)
-        {
-            string msg = strprintf(_("Warning: wallet.dat corrupt, data salvaged!"
-                                     " Original wallet.dat saved as wallet.{timestamp}.bak in %s; if"
-                                     " your balance or transactions are incorrect you should"
-                                     " restore from a backup."), strDataDir.c_str());
-            InitWarning(msg);
-        }
-        if (r == CDBEnv::RECOVER_FAIL)
-            return InitError(_("wallet.dat corrupt, salvage failed"));
-    }
 
     // ********************************************************* Step 6: network initialization
 
@@ -718,42 +597,6 @@ bool AppInit2(boost::thread_group& threadGroup)
 
     fReindex = GetBoolArg("-reindex");
 
-    // Todo: Check if needed, because in step 5 we do the same
-    if (!bitdb.Open(GetDataDir()))
-    {
-        string msg = strprintf(_("Error initializing database environment %s!"
-                                 " To recover, BACKUP THAT DIRECTORY, then remove"
-                                 " everything from it except for wallet.dat."), strDataDir.c_str());
-        return InitError(msg);
-    }
-
-    // Upgrading to 0.8; hard-link the old blknnnn.dat files into /blocks/
-    filesystem::path blocksDir = GetDataDir() / "blocks";
-    if (!filesystem::exists(blocksDir))
-    {
-        filesystem::create_directories(blocksDir);
-        bool linked = false;
-        for (unsigned int i = 1; i < 10000; i++) {
-            filesystem::path source = GetDataDir() / strprintf("blk%04u.dat", i);
-            if (!filesystem::exists(source)) break;
-            filesystem::path dest = blocksDir / strprintf("blk%05u.dat", i-1);
-            try {
-                filesystem::create_hard_link(source, dest);
-                printf("Hardlinked %s -> %s\n", source.string().c_str(), dest.string().c_str());
-                linked = true;
-            } catch (filesystem::filesystem_error & e) {
-                // Note: hardlink creation failing is not a disaster, it just means
-                // blocks will get re-downloaded from peers.
-                printf("Error hardlinking blk%04u.dat : %s\n", i, e.what());
-                break;
-            }
-        }
-        if (linked)
-        {
-            fReindex = true;
-        }
-    }
-
     // cache size calculations
     size_t nTotalCache = GetArg("-dbcache", 25) << 20;
     if (nTotalCache < (1 << 22))
@@ -764,70 +607,11 @@ bool AppInit2(boost::thread_group& threadGroup)
     nTotalCache -= nBlockTreeDBCache;
     size_t nCoinDBCache = nTotalCache / 2; // use half of the remaining cache for coindb cache
     nTotalCache -= nCoinDBCache;
-    nCoinCacheSize = nTotalCache / 300; // coins in memory require around 300 bytes
 
     // SQLite size in megabytes
     int sqliteMaxSize = GetArg("-dbmaxsize", 1000);
 
-    bool fLoaded = false;
-    while (!fLoaded) {
-        bool fReset = fReindex;
-        std::string strLoadError;
-
-        uiInterface.InitMessage(_("Loading block index..."));
-
-        nStart = GetTimeMillis();
-        do {
-            try {
-                UnloadBlockIndex();
-                delete pidentifidb;
-
-                pidentifidb = new CIdentifiDB(sqliteMaxSize);
-
-                if (!LoadBlockIndex()) {
-                    strLoadError = _("Error loading block database");
-                    break;
-                }
-
-                // Initialize the block index (no-op if non-empty database was already loaded)
-                if (!InitBlockIndex()) {
-                    strLoadError = _("Error initializing block database");
-                    break;
-                }
-
-                uiInterface.InitMessage(_("Verifying blocks..."));
-                if (!VerifyDB()) {
-                    strLoadError = _("Corrupted block database detected");
-                    break;
-                }
-            } catch(std::exception &e) {
-                strLoadError = _("Error opening identifi database");
-                break;
-            }
-
-            fLoaded = true;
-        } while(false);
-
-        if (!fLoaded) {
-            // first suggest a reindex
-            if (!fReset) {
-                bool fRet = uiInterface.ThreadSafeMessageBox(
-                    strLoadError + ".\n" + _("Do you want to rebuild the block database now?"),
-                    "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
-                if (fRet) {
-                    fReindex = true;
-                    fRequestShutdown = false;
-                } else {
-                    return false;
-                }
-            } else {
-                return InitError(strLoadError);
-            }
-        }
-    }
-
-    if (mapArgs.count("-txindex") && fTxIndex != GetBoolArg("-txindex", false))
-        return InitError(_("You need to rebuild the databases using -reindex to change -txindex"));
+    pidentifidb = new CIdentifiDB(sqliteMaxSize);
 
     // as LoadBlockIndex can take several minutes, it's possible the user
     // requested to kill identifi-qt during the last operation. If so, exit.
@@ -837,128 +621,6 @@ bool AppInit2(boost::thread_group& threadGroup)
         printf("Shutdown requested. Exiting.\n");
         return false;
     }
-    printf(" block index %15"PRI64d"ms\n", GetTimeMillis() - nStart);
-
-    if (mapArgs.count("-printblock"))
-    {
-        string strMatch = mapArgs["-printblock"];
-        int nFound = 0;
-        for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin(); mi != mapBlockIndex.end(); ++mi)
-        {
-            uint256 hash = (*mi).first;
-            if (strncmp(hash.ToString().c_str(), strMatch.c_str(), strMatch.size()) == 0)
-            {
-                CBlockIndex* pindex = (*mi).second;
-                CBlock block;
-                block.ReadFromDisk(pindex);
-                block.BuildMerkleTree();
-                block.print();
-                printf("\n");
-                nFound++;
-            }
-        }
-        if (nFound == 0)
-            printf("No blocks matching %s were found\n", strMatch.c_str());
-        return false;
-    }
-
-    // ********************************************************* Step 8: load wallet
-
-    uiInterface.InitMessage(_("Loading wallet..."));
-
-    nStart = GetTimeMillis();
-    bool fFirstRun = true;
-    pwalletMain = new CWallet("wallet.dat");
-    DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRun);
-    if (nLoadWalletRet != DB_LOAD_OK)
-    {
-        if (nLoadWalletRet == DB_CORRUPT)
-            strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
-        else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
-        {
-            string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
-                         " or address book entries might be missing or incorrect."));
-            InitWarning(msg);
-        }
-        else if (nLoadWalletRet == DB_TOO_NEW)
-            strErrors << _("Error loading wallet.dat: Wallet requires newer version of Identifi") << "\n";
-        else if (nLoadWalletRet == DB_NEED_REWRITE)
-        {
-            strErrors << _("Wallet needed to be rewritten: restart Identifi to complete") << "\n";
-            printf("%s", strErrors.str().c_str());
-            return InitError(strErrors.str());
-        }
-        else
-            strErrors << _("Error loading wallet.dat") << "\n";
-    }
-
-    if (GetBoolArg("-upgradewallet", fFirstRun))
-    {
-        int nMaxVersion = GetArg("-upgradewallet", 0);
-        if (nMaxVersion == 0) // the -upgradewallet without argument case
-        {
-            printf("Performing wallet upgrade to %i\n", FEATURE_LATEST);
-            nMaxVersion = CLIENT_VERSION;
-            pwalletMain->SetMinVersion(FEATURE_LATEST); // permanently upgrade the wallet immediately
-        }
-        else
-            printf("Allowing wallet upgrade up to %i\n", nMaxVersion);
-        if (nMaxVersion < pwalletMain->GetVersion())
-            strErrors << _("Cannot downgrade wallet") << "\n";
-        pwalletMain->SetMaxVersion(nMaxVersion);
-    }
-
-    if (fFirstRun)
-    {
-        // Create new keyUser and set as default key
-        RandAddSeedPerfmon();
-
-        CPubKey newDefaultKey;
-        if (!pwalletMain->GetKeyFromPool(newDefaultKey, false))
-            strErrors << _("Cannot initialize keypool") << "\n";
-        pwalletMain->SetDefaultKey(newDefaultKey);
-        if (!pwalletMain->SetAddressBookName(pwalletMain->vchDefaultKey.GetID(), ""))
-            strErrors << _("Cannot write default address") << "\n";
-    }
-
-    printf("%s", strErrors.str().c_str());
-    printf(" wallet      %15"PRI64d"ms\n", GetTimeMillis() - nStart);
-
-    RegisterWallet(pwalletMain);
-
-    CBlockIndex *pindexRescan = pindexBest;
-    if (GetBoolArg("-rescan"))
-        pindexRescan = pindexGenesisBlock;
-    else
-    {
-        CWalletDB walletdb("wallet.dat");
-        CBlockLocator locator;
-        if (walletdb.ReadBestBlock(locator))
-            pindexRescan = locator.GetBlockIndex();
-    }
-    if (pindexBest && pindexBest != pindexRescan)
-    {
-        uiInterface.InitMessage(_("Rescanning..."));
-        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
-        nStart = GetTimeMillis();
-        pwalletMain->ScanForWalletTransactions(pindexRescan, true);
-        printf(" rescan      %15"PRI64d"ms\n", GetTimeMillis() - nStart);
-    }
-
-    // ********************************************************* Step 9: import blocks
-
-    // scan for better chains in the block chain database, that are not yet connected in the active best chain
-    CValidationState state;
-    if (!ConnectBestBlock(state))
-        strErrors << "Failed to connect best block";
-
-    std::vector<boost::filesystem::path> vImportFiles;
-    if (mapArgs.count("-loadblock"))
-    {
-        BOOST_FOREACH(string strFile, mapMultiArgs["-loadblock"])
-            vImportFiles.push_back(strFile);
-    }
-    threadGroup.create_thread(boost::bind(&ThreadImport, vImportFiles));
 
     // ********************************************************* Step 10: load peers
 
@@ -967,8 +629,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     nStart = GetTimeMillis();
 
     {
-        CAddrDB adb;
-        if (!adb.Read(addrman))
+        if (!pidentifidb->Read(addrman))
             printf("Invalid or missing peers.dat; recreating\n");
     }
 
@@ -977,17 +638,10 @@ bool AppInit2(boost::thread_group& threadGroup)
 
     // ********************************************************* Step 11: start node
 
-    if (!CheckDiskSpace())
-        return false;
+    //if (!CheckDiskSpace())
+    //    return false;
 
     RandAddSeedPerfmon();
-
-    //// debug print
-    printf("mapBlockIndex.size() = %"PRIszu"\n",   mapBlockIndex.size());
-    printf("nBestHeight = %d\n",                   nBestHeight);
-    printf("setKeyPool.size() = %"PRIszu"\n",      pwalletMain->setKeyPool.size());
-    printf("mapWallet.size() = %"PRIszu"\n",       pwalletMain->mapWallet.size());
-    printf("mapAddressBook.size() = %"PRIszu"\n",  pwalletMain->mapAddressBook.size());
 
     StartNode(threadGroup);
 
@@ -1000,12 +654,6 @@ bool AppInit2(boost::thread_group& threadGroup)
 
     if (!strErrors.str().empty())
         return InitError(strErrors.str());
-
-     // Add wallet transactions that aren't already in a block to mapTransactions
-    pwalletMain->ReacceptWalletTransactions();
-
-    // Run a thread to flush wallet periodically
-    threadGroup.create_thread(boost::bind(&ThreadFlushWalletDB, boost::ref(pwalletMain->strWalletFile)));
 
     return !fRequestShutdown;
 }

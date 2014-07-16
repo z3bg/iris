@@ -3,8 +3,8 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "db.h"
 #include "net.h"
+#include "main.h"
 #include "init.h"
 #include "addrman.h"
 #include "ui_interface.h"
@@ -536,9 +536,8 @@ void CNode::PushVersion()
     CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
     CAddress addrMe = GetLocalAddress(&addr);
     RAND_bytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
-    printf("send version message: version %d, blocks=%d, us=%s, them=%s, peer=%s\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString().c_str(), addrYou.ToString().c_str(), addr.ToString().c_str());
     PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
-                nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), nBestHeight);
+                nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), -1);
 }
 
 
@@ -1232,8 +1231,7 @@ void DumpAddresses()
 {
     int64 nStart = GetTimeMillis();
 
-    CAddrDB adb;
-    adb.Write(addrman);
+    pidentifidb->Write(addrman);
 
     printf("Flushed %d addresses to peers.dat  %"PRI64d"ms\n",
            addrman.size(), GetTimeMillis() - nStart);
@@ -1777,7 +1775,6 @@ bool StopNode()
 {
     printf("StopNode()\n");
     MapPort(false);
-    nTransactionsUpdated++;
     if (semOutbound)
         for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
             semOutbound->post();
@@ -1829,16 +1826,6 @@ instance_of_cnetcleanup;
 
 
 
-
-void RelayTransaction(const CTransaction& tx, const uint256& hash)
-{
-
-}
-
-void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataStream& ss)
-{
-
-}
 
 void RelayPacket(CIdentifiPacket& packet)
 {
