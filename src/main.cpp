@@ -797,11 +797,11 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             vInv.reserve(pto->vInventoryToSend.size());
             BOOST_FOREACH(const CInv& inv, pto->vInventoryToSend)
             {
-                if (pto->setInventoryKnown.count(inv))
+                if (inv.hash != 0 && pto->setInventoryKnown.count(inv))
                     continue;
 
                 // returns true if wasn't already contained in the set
-                if (pto->setInventoryKnown.insert(inv).second)
+                if (inv.hash == 0 || pto->setInventoryKnown.insert(inv).second)
                 {
                     vInv.push_back(inv);
                     if (vInv.size() >= 1000)
