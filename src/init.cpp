@@ -263,7 +263,7 @@ std::string HelpMessage()
         "  -datadir=<dir>         " + _("Specify data directory") + "\n" +
         "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n" +
         "  -dbmaxsize=<n>         " + _("Set database maximum size in megabytes (default: 1000)") + "\n" +
-        "  -saveuntrustedpackets=<n> " + _("Save packets that are not connected to your WoT (default: 0)") + "\n" +
+        "  -saveuntrustedpackets=<n> " + _("Save packets that are not connected to your WoT (default: 1)") + "\n" +
         "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n" +
         "  -proxy=<ip:port>       " + _("Connect through socks proxy") + "\n" +
         "  -socks=<n>             " + _("Select the version of socks proxy to use (4-5, default: 5)") + "\n" +

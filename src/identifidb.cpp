@@ -1097,7 +1097,7 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
 
 string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     int priority = GetPriority(packet);
-    if (priority == 0 && !GetArg("-saveuntrustedpackets", false)) return "";
+    if (priority == 0 && !GetArg("-saveuntrustedpackets", true)) return "";
 
     sqlite3_stmt *statement;
     ostringstream sql;
