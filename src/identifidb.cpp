@@ -324,7 +324,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
@@ -410,7 +410,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT * FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
@@ -701,7 +701,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
 
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
@@ -1680,7 +1680,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT p.* FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
@@ -1746,7 +1746,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
@@ -1813,7 +1813,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
@@ -1883,7 +1883,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT * FROM Packets AS p ";
+    sql << "SELECT DISTINCT p.* FROM Packets AS p ";
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterPacketType = !packetType.empty();
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
@@ -2062,7 +2062,7 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
         if (maxDistance > 0)
             sql << "AND tp.Distance <= @maxDistance";
         else
-            sql << "AND tp.Distance > 0"; // Makes the query not last several minutes, for some reason
+            sql << "AND tp.Distance >= 0"; // Makes the query not last several minutes, for some reason
         sql << ") ";
     }
 }
