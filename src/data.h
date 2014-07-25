@@ -40,7 +40,7 @@ struct IDOverview {
     int authoredPositive;
     int authoredNeutral;
     int authoredNegative;
-    long int firstSeen;
+    int64_t firstSeen;
 };
 
 class CSignature {
