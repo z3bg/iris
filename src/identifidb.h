@@ -36,6 +36,7 @@ public:
     vector<CIdentifiPacket> GetPath(string_pair start, string_pair end = make_pair("",""), bool savePath = true, int searchDepth = 3);
     vector<string_pair> SearchForID(string_pair query, int limit = 50, int offset = 0, bool trustPathablePredicatesOnly = false);
     string SavePacket(CIdentifiPacket &packet);
+    void SavePacketTrustPaths(CIdentifiPacket &packet);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
     CKey GetDefaultKeyFromDB();

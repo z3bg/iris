@@ -228,6 +228,11 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email james@example.com keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com positive 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email bob@example.com email carl@example.com positive 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email carl@example.com email david@example.com positive 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email david@example.com email bob@example.com positive 1"));
+
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath p1 nobody1 p2 nobody2"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email bob@example.com"));

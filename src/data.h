@@ -81,6 +81,7 @@ public:
     int GetRating() const;
     int GetMinRating() const;
     int GetMaxRating() const;
+    bool IsPositive() const;
     string GetComment() const;
     string GetType() const;
     string GetData() const;

@@ -1151,8 +1151,21 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     )
 
     sqlite3_finalize(statement);
+    SavePacketTrustPaths(packet);
 
     return packetHash;
+}
+
+
+void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
+    if (!packet.IsPositive()) return;
+    vector<string_pair> authors = packet.GetAuthors();
+    vector<string_pair> recipients = packet.GetRecipients();
+    BOOST_FOREACH(string_pair author, authors) {
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            SaveTrustStep(author, recipient, EncodeBase58(packet.GetHash()), 1);
+        }
+    }
 }
 
 
@@ -1428,6 +1441,20 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
     int endPredicateID = SavePredicate(end.first);
     int startID = SaveIdentifier(start.second);
     int endID = SaveIdentifier(end.second);
+
+    sql.str("");
+    sql << "SELECT startPred.TrustPathable, endPred.TrustPathable FROM Predicates AS startPred ";
+    sql << "INNER JOIN Predicates AS endPred ON endPred.ID = @endID ";
+    sql << "WHERE startPred.ID = @startID";
+    sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0);
+    sqlite3_bind_int(statement, 1, endPredicateID);
+    sqlite3_bind_int(statement, 2, startPredicateID);
+    sqlite3_step(statement);
+    int startTrustPathable = sqlite3_column_int(statement, 0);
+    int endTrustPathable = sqlite3_column_int(statement, 1);
+    sqlite3_finalize(statement);
+
+    if (!startTrustPathable || !endTrustPathable) return; 
 
     sql.str("");
     sql << "SELECT COUNT(1) FROM TrustPaths WHERE ";

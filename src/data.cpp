@@ -220,6 +220,10 @@ int CIdentifiPacket::GetMaxRating() const {
     return maxRating;
 }
 
+bool CIdentifiPacket::IsPositive() const {
+    return (rating > (maxRating + minRating) / 2);
+}
+
 string CIdentifiPacket::GetComment() const {
     return comment;
 }
