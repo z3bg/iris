@@ -106,6 +106,9 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('bitcoin_address', 1)");
         query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('identifi_packet', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('twitter', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('facebook', 1)");
+        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('google_oauth2', 1)");
     }
 }
 
