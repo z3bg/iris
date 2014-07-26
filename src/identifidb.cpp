@@ -348,6 +348,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifi
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue ";
+    AddPacketFilterSQLWhere(sql, viewpoint);
+    
     sql << "ORDER BY p.Created ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -432,6 +434,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetConnectingPackets(string_pair id1, strin
     sql << "INNER JOIN Identifiers AS ID2value ON ID2value.ID = LinkedID2.IdentifierID ";
     sql << "WHERE ID1type.Value = @id1type AND ID1value.Value = @id1value AND ";
     sql << "ID2type.Value = @id2type AND ID2value.Value = @id2value ";
+    AddPacketFilterSQLWhere(sql, viewpoint);
 
     if (filterPacketType) {
         if (packetType[0] == '!') {
@@ -605,6 +608,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         vector<string> questionMarks(searchedPredicates.size(), "?");
         sql << "AND IdType IN (" << algorithm::join(questionMarks, ", ") << ") ";
     }
+    AddPacketFilterSQLWhere(sql, viewpoint);
 
     sql << "GROUP BY IdType, IdValue ";
     sql << "ORDER BY Confirmations DESC ";
@@ -731,6 +735,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByAuthorOrRecipient(string_pair a
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     sql << "id.Value = @idValue ";
+    AddPacketFilterSQLWhere(sql, viewpoint);
     sql << "ORDER BY p.Created DESC ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -1728,6 +1733,8 @@ vector<CIdentifiPacket> CIdentifiDB::GetLatestPackets(int limit, int offset, boo
         }
     }
 
+    AddPacketFilterSQLWhere(sql, viewpoint);
+
     sql << "ORDER BY Created DESC LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1792,6 +1799,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterTimestamp(time_t timestamp, 
             sql << "AND packetType.Value = @packetType ";
         }
     }
+    AddPacketFilterSQLWhere(sql, viewpoint);
     sql << "ORDER BY p.Created ASC LIMIT @limit OFFSET @offset";
 
 
@@ -1860,6 +1868,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsAfterPacket(string packetHash, in
     sql << "(Created > @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
+    AddPacketFilterSQLWhere(sql, viewpoint);
     sql << "ORDER BY Created ASC, Hash ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -1930,6 +1939,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBeforePacket(string packetHash, i
     sql << "(Created < @timestamp)) ";
     if (!showUnpublished)
         sql << "AND Published = 1 ";
+    AddPacketFilterSQLWhere(sql, viewpoint);
     sql << "ORDER BY Created ASC, Hash ";
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -2019,6 +2029,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
     sql << "WHERE packetType.Value = 'review' ";
     sql << "AND pred.Value = @type AND id.Value = @value ";
+    AddPacketFilterSQLWhere(sql, viewpoint);
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
@@ -2084,7 +2095,7 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
         sql << "INNER JOIN PacketIdentifiers AS author ON (author.PacketHash = p.Hash AND author.IsRecipient = 0) ";
         sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
         sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
-        sql << "INNER JOIN TrustPaths AS tp ON ";
+        sql << "LEFT JOIN TrustPaths AS tp ON ";
         sql << "(tp.StartID = viewpointID.ID AND ";
         sql << "tp.StartPredicateID = viewpointPred.ID AND ";
         sql << "tp.EndID = author.IdentifierID AND ";
@@ -2095,6 +2106,12 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
             sql << "AND tp.Distance >= 0"; // Makes the query not last several minutes, for some reason
         sql << ") ";
     }
+}
+
+void CIdentifiDB::AddPacketFilterSQLWhere(ostringstream &sql, string_pair viewpoint) {
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    if (useViewpoint)
+        sql << "AND (tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) ";
 }
 
 bool CIdentifiDB::Write(const CAddrMan& addr)
