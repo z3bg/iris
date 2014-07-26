@@ -13,6 +13,8 @@ using namespace json_spirit;
 
 BOOST_AUTO_TEST_SUITE(rpc_tests)
 
+int dbNumber = 0;
+
 static Value CallRPC(string args)
 {
     vector<string> vArgs;
@@ -30,6 +32,12 @@ static Value CallRPC(string args)
     {
         throw runtime_error(find_value(objError, "message").get_str());
     }
+}
+
+void resetDB() {
+    delete pidentifidb;
+    pidentifidb = new CIdentifiDB(100, GetDataDir() / to_string(dbNumber));
+    dbNumber++;
 }
 
 BOOST_AUTO_TEST_CASE(save_and_read_packets)
@@ -123,6 +131,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_packets)
 }
 
 BOOST_AUTO_TEST_CASE(connections) {
+    resetDB();
     Value r;
     Object data;
     BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email bob@example.com email alice@example.com name Alice"));
@@ -143,7 +152,7 @@ BOOST_AUTO_TEST_CASE(connections) {
 
     BOOST_CHECK_NO_THROW(r=CallRPC("overview email alice@example.com"));
     data=r.get_obj();
-    BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 2);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "authoredNeutral").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 1);
@@ -177,6 +186,7 @@ BOOST_AUTO_TEST_CASE(keys_and_signatures) {
 }
 
 BOOST_AUTO_TEST_CASE(trust_paths) {
+    resetDB();
     Value r;
     Object firstPacket;
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email abc@example.com email def@example.com negative -1"));
@@ -187,6 +197,7 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
 
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("setdefaultkey 5K1T7u3NA55ypnDDBHB61MZ2hFxCoNbBeZj5dhQttPJFKo85MfR"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr trusted 5 true"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1392476848,\"author\":[[\"keyID\",\"1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr\"]],\"recipient\":[[\"email\",\"james@example.com\"]],\"type\":\"review\",\"comment\":\"trusted\",\"rating\":1,\"maxRating\":10,\"minRating\":-10},\"signature\":{\"pubKey\":\"RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU\",\"signature\":\"381yXZQ5LQ2YiuPqtgUAuP3TUMCQQQR7g3gZMS5KHjChRoJoaQFZpuVZXXb6u7dW1rG5cH8AmwxXerjJdHLskgp2HJG24FqE\"}}"));
     BOOST_CHECK_EQUAL(r.get_str(), "9EqUAJXnCnWSWiTaMGUG4j2tTMnvY77qDuhrUdcS6sy3");
@@ -251,6 +262,7 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
 
 BOOST_AUTO_TEST_CASE(link_confs_and_refutes)
 {
+    resetDB();
     Value r;
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1234567,\"author\":[[\"email\",\"alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],\"recipient\":[[\"email\",\"bob@example.com\"],[\"nickname\",\"BobTheBuilder\"]],\"type\":\"confirm_connection\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}}"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1234568,\"author\":[[\"email\",\"alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],\"recipient\":[[\"email\",\"bob@example.com\"],[\"nickname\",\"BobTheBuilder\"]],\"type\":\"confirm_connection\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}}"));
@@ -274,6 +286,7 @@ BOOST_AUTO_TEST_CASE(link_confs_and_refutes)
 
 BOOST_AUTO_TEST_CASE(canonical_json)
 {
+    resetDB();
     Value r;
     // No whitespace
     BOOST_CHECK_THROW(r=CallRPC("savepacketfromdata {\"signedData\": {\"timestamp\":1234567,\"author\":[[\"email\",\"alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],\"recipient\":[[\"email\",\"bob@example.com\"],[\"nickname\",\"BobTheBuilder\"]],\"type\":\"confirm_connection\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}}"), runtime_error);
@@ -283,8 +296,7 @@ BOOST_AUTO_TEST_CASE(canonical_json)
 
 BOOST_AUTO_TEST_CASE(savepacket_performance)
 {
-    delete pidentifidb;
-    pidentifidb = new CIdentifiDB(100);
+    resetDB();
     Value r;
     const char* rpcFormat = "savepacket mbox mailto:alice@example.com mbox mailto:bob@example.com %i 1";
     
