@@ -143,28 +143,48 @@ BOOST_AUTO_TEST_CASE(connections) {
     BOOST_CHECK_NO_THROW(r=CallRPC("search alice"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com pos 1"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com neut 0"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getconnections email alice@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+
+    BOOST_CHECK_NO_THROW(r=CallRPC("getconnections email alice@example.com 20 0 email alice@example.com 3"));
+}
+
+BOOST_AUTO_TEST_CASE(overview) {
+    resetDB();
+    Value r;
+    Object data;
+
+    // only the latest packet from the same author to the same recipient should be taken into account
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email carl@example.com pos 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email dean@example.com pos 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com neg -1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com neut 0"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email alice@example.com email bob@example.com pos 1"));
+
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email bob@example.com email alice@example.com pos 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email bob@example.com email alice@example.com neut 0"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email bob@example.com email alice@example.com neg -1"));
 
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email carl@example.com email alice@example.com pos 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email dean@example.com email alice@example.com neut 0"));
+
     BOOST_CHECK_NO_THROW(r=CallRPC("overview email alice@example.com"));
     data=r.get_obj();
-    BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 1);
-    BOOST_CHECK_EQUAL(find_value(data, "authoredNeutral").get_int(), 1);
-    BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 1);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 3);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNeutral").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 0);
     BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNeutral").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNegative").get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("overview email alice@example.com email alice@example.com 3"));
-
-    BOOST_CHECK_NO_THROW(r=CallRPC("getconnections email alice@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
-
-    BOOST_CHECK_NO_THROW(r=CallRPC("getconnections email alice@example.com 20 0 email alice@example.com 3"));
+    data=r.get_obj();
+    BOOST_CHECK_EQUAL(find_value(data, "authoredPositive").get_int(), 3);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNeutral").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "authoredNegative").get_int(), 0);
+    BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 1);
+    BOOST_CHECK_EQUAL(find_value(data, "receivedNeutral").get_int(), 1);
+    BOOST_CHECK_EQUAL(find_value(data, "receivedNegative").get_int(), 1);
 }
 
 BOOST_AUTO_TEST_CASE(keys_and_signatures) {
