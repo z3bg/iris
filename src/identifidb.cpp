@@ -1012,6 +1012,30 @@ void CIdentifiDB::SavePacketRecipient(string packetHash, int predicateID, int re
     SavePacketAuthorOrRecipient(packetHash, predicateID, recipientID, true);
 }
 
+int CIdentifiDB::GetTrustMapSize(string_pair id) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "SELECT COUNT(1) FROM TrustPaths AS tp ";
+    sql << "INNER JOIN Predicates AS pred ON tp.StartPredicateID = pred.ID ";
+    sql << "INNER JOIN Identifiers AS id ON tp.StartID = id.ID ";
+    sql << "WHERE pred.Value = @type AND id.Value = @value";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
+    }
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        int count = sqlite3_column_int(statement, 0);
+        sqlite3_finalize(statement);
+        return count;
+    } else {
+        sqlite3_finalize(statement);
+        throw runtime_error("GetPacketCountByAuthor failed");
+    }
+}
+
 int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
     sqlite3_stmt *statement;
 
@@ -1029,7 +1053,7 @@ int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
     }
 
     if (sqlite3_step(statement) == SQLITE_ROW) {
-        int count = sqlite3_column_int(statement, 1);
+        int count = sqlite3_column_int(statement, 0);
         sqlite3_finalize(statement);
         return count;
     } else {

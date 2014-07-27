@@ -300,7 +300,9 @@ Value overview(const Array& params, bool fHelp)
         maxDistance = boost::lexical_cast<int>(params[4].get_str());
     }
 
-    IDOverview overview = pidentifidb->GetIDOverview(make_pair(params[0].get_str(), params[1].get_str()), make_pair(viewpointIdType, viewpointIdValue), maxDistance);
+    string_pair id = make_pair(params[0].get_str(), params[1].get_str());
+    int trustMapSize = pidentifidb->GetTrustMapSize(id);
+    IDOverview overview = pidentifidb->GetIDOverview(id, make_pair(viewpointIdType, viewpointIdValue), maxDistance);
     Object overviewJSON;
     overviewJSON.push_back(Pair("authoredPositive", overview.authoredPositive));
     overviewJSON.push_back(Pair("authoredNeutral", overview.authoredNeutral));
@@ -309,8 +311,9 @@ Value overview(const Array& params, bool fHelp)
     overviewJSON.push_back(Pair("receivedNeutral", overview.receivedNeutral));
     overviewJSON.push_back(Pair("receivedNegative", overview.receivedNegative));
     overviewJSON.push_back(Pair("firstSeen", overview.firstSeen));
+    overviewJSON.push_back(Pair("trustMapSize", trustMapSize));
 
-    string name = pidentifidb->GetName(make_pair(params[0].get_str(), params[1].get_str()));
+    string name = pidentifidb->GetName(id);
     overviewJSON.push_back(Pair("name", name));
 
     return overviewJSON;

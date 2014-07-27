@@ -61,6 +61,7 @@ public:
     IDOverview GetIDOverview(string_pair id, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string GetName(string_pair id, bool cachedOnly = false);
     string GetCachedName(string_pair id);
+    int GetTrustMapSize(string_pair id);
     
     // Integrated from CAddrDB
     bool Write(const CAddrMan& addr);

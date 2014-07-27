@@ -176,6 +176,7 @@ BOOST_AUTO_TEST_CASE(overview) {
     BOOST_CHECK_EQUAL(find_value(data, "receivedPositive").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNeutral").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(data, "receivedNegative").get_int(), 1);
+    BOOST_CHECK_EQUAL(find_value(data, "trustMapSize").get_int(), 3);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("overview email alice@example.com email alice@example.com 3"));
     data=r.get_obj();
