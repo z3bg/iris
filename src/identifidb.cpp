@@ -2013,13 +2013,19 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    if (!useViewpoint) {
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
+    } else {
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 AND tp.StartID IS NOT NULL THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 AND tp.StartID IS NOT NULL THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 AND tp.StartID IS NOT NULL THEN 1 ELSE 0 END), ";
+    }
     sql << "MIN(p.Created) ";
     sql << "FROM Packets AS p ";
 
-    // TODO: use viewpoint only for received packet counts
     string packetType = "";
     AddPacketFilterSQL(sql, viewpoint, maxDistance, packetType);
 
@@ -2033,7 +2039,6 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
-        bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
         if (useViewpoint) {
             n = 2;
             sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -2059,7 +2064,6 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
         sqlite3_finalize(statement);
     } else {
         sqlite3_finalize(statement);
-        throw runtime_error("GetIDOverview failed");
     }
 
     return overview;
