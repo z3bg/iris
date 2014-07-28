@@ -8,6 +8,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <map>
 #include <cmath>
 
@@ -18,6 +19,7 @@
 #include "identifidb.h"
 #include "main.h"
 #include "data.h"
+#include "init.h"
 
 using namespace std;
 using namespace boost;
@@ -42,6 +44,8 @@ CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
         GetDefaultKeyFromDB();
         GetMyPubKeyIDsFromDB();
 
+        dbWorker = new thread(&CIdentifiDB::DBWorker, this);
+
         // from CAddrDB
         pathAddr = GetDataDir() / "peers.dat";
     }
@@ -49,6 +53,9 @@ CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
 
 CIdentifiDB::~CIdentifiDB() {
     sqlite3_close(db);
+
+    dbWorker->join();
+    delete dbWorker; dbWorker = NULL;
 }
 
 vector<vector<string> > CIdentifiDB::query(const char* query)
@@ -1527,8 +1534,12 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
 
 vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
     vector<CIdentifiPacket> path = GetSavedPath(start, end, searchDepth);
-    if (path.empty())
-        path = SearchForPath(start, end, savePath, searchDepth);
+    if (path.empty()) {
+        if (savePath && (end.first == "" && end.second == ""))
+            generateTrustMapQueue.push(start);
+        else
+            path = SearchForPath(start, end, savePath, searchDepth);
+    }
     return path;
 }
 
@@ -2140,6 +2151,18 @@ void CIdentifiDB::AddPacketFilterSQLWhere(ostringstream &sql, string_pair viewpo
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     if (useViewpoint)
         sql << "AND (tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) ";
+}
+
+void CIdentifiDB::DBWorker() {
+    while(!ShutdownRequested() && !this_thread::interruption_requested()) {
+        if (generateTrustMapQueue.empty())
+            this_thread::sleep(posix_time::milliseconds(1000));
+        else {
+            cout << "hiiuliuli\n";
+            SearchForPath(generateTrustMapQueue.front(), make_pair("",""), 3);
+            generateTrustMapQueue.pop();
+        }
+    }
 }
 
 bool CIdentifiDB::Write(const CAddrMan& addr)

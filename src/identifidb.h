@@ -8,6 +8,7 @@
 #include <boost/filesystem/path.hpp>
 #include <sqlite3.h>
 #include <vector>
+#include <queue>
 #include <string>
 #include "base58.h"
 #include "main.h"
@@ -70,12 +71,15 @@ public:
 private:
     sqlite3 *db;
     CKey defaultKey;
+    queue<string_pair> generateTrustMapQueue;
     vector<string> myPubKeyIDs;
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);
     vector<string_pair > GetRecipientsByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
     vector<CIdentifiPacket> GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
+    boost::thread* dbWorker;
+    void DBWorker();
     void SavePacketAuthorOrRecipient(string packetHash, int predicateID, int identifierID, bool isRecipient);
     void SavePacketAuthor(string packetHash, int predicateID, int authorID);
     void SavePacketRecipient(string packetHash, int predicateID, int authorID);
