@@ -277,14 +277,13 @@ void CIdentifiDB::Initialize() {
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
-    // SearchForPathForMyKeys(); // Disabled, takes a lot of time
+    SearchForPathForMyKeys();
 }
 
 void CIdentifiDB::SearchForPathForMyKeys() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDs();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
-        // Generate and save trust maps for our keys
-        SearchForPath(make_pair("keyID", keyID), make_pair("",""), true, 3);
+        generateTrustMapQueue.push(make_pair("keyID", keyID));
     } 
 }
 
@@ -1612,7 +1611,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
     }
     int currentDistanceFromStart = 1;
 
-    while (!searchQueue.empty()) {
+    while (!searchQueue.empty() && !ShutdownRequested()) {
         CIdentifiPacket currentPacket = searchQueue.front().packet;
         bool matchedByAuthor = searchQueue.front().matchedByAuthor;
         string_pair matchedByIdentifier = searchQueue.front().matchedByIdentifier;
@@ -2158,8 +2157,7 @@ void CIdentifiDB::DBWorker() {
         if (generateTrustMapQueue.empty())
             this_thread::sleep(posix_time::milliseconds(1000));
         else {
-            cout << "hiiuliuli\n";
-            SearchForPath(generateTrustMapQueue.front(), make_pair("",""), 3);
+            SearchForPath(generateTrustMapQueue.front(), make_pair("",""), true, 3);
             generateTrustMapQueue.pop();
         }
     }
