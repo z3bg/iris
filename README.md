@@ -158,7 +158,7 @@ Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) i
 
 Use external SQL DB instead of sqlite for better multi-application access to data?
 
-[ArangoDB](https://www.arangodb.org/) graph database?
+[ArangoDB](https://www.arangodb.org/) graph database? Could enable on-demand trust path finding and eliminate the need for caching them.
 
 Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point into the Identifi WoT for many people.
 
