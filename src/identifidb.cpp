@@ -42,7 +42,6 @@ CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
         Initialize();
         SetMaxSize(sqliteMaxSize);
         GetDefaultKeyFromDB();
-        GetMyPubKeyIDsFromDB();
 
         dbWorker = new thread(&CIdentifiDB::DBWorker, this);
 
@@ -281,10 +280,10 @@ void CIdentifiDB::Initialize() {
 }
 
 void CIdentifiDB::SearchForPathForMyKeys() {
-    vector<string> myPubKeyIDs = GetMyPubKeyIDs();
+    vector<string> myPubKeyIDs = GetMyPubKeyIDsFromDB();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
         generateTrustMapQueue.push(make_pair("keyID", keyID));
-    } 
+    }
 }
 
 vector<string_pair> CIdentifiDB::GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient) {
