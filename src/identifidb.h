@@ -63,6 +63,7 @@ public:
     string GetName(string_pair id, bool cachedOnly = false);
     string GetCachedName(string_pair id);
     int GetTrustMapSize(string_pair id);
+    bool GenerateTrustMap(string_pair id, int searchDepth = 2);
     
     // Integrated from CAddrDB
     bool Write(const CAddrMan& addr);
@@ -72,6 +73,7 @@ private:
     sqlite3 *db;
     CKey defaultKey;
     queue<string_pair> generateTrustMapQueue;
+    set<string_pair> generateTrustMapSet;
     vector<string> myPubKeyIDs;
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);

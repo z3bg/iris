@@ -227,6 +227,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getpeerinfo",                &getpeerinfo,               true },
     { "addnode",                    &addnode,                   true },
     { "getaddednodeinfo",           &getaddednodeinfo,          true },
+    { "generatetrustmap",           &generatetrustmap,          true },
 };
 
 CRPCTable::CRPCTable()

@@ -417,7 +417,19 @@ Value refuteconnection(const Array& params, bool fHelp) {
         "refuteconnection <author_id_type> <author_id_value> <disconnected_id1_type> <disconnected_id1_value> <disconnected_id2_type> <disconnected_id2_value> <publish=false>\n"
         "Save a connection between id1 and id2");
 
-    else return confirmOrRefuteConnection(params, fHelp, false);
+    return confirmOrRefuteConnection(params, fHelp, false);
+}  
+
+Value generatetrustmap(const Array& params, bool fHelp) {
+    if (fHelp || params.size() < 2 || params.size() > 3)
+    throw runtime_error(
+        "generatetrustmap <id_type> <id_value> <search_depth=2>\n"
+        "Add an identifier to trust map generation queue.");
+    
+    string_pair id = make_pair(params[0].get_str(), params[1].get_str());
+    int searchDepth = 2;
+    if (params.size() == 3) searchDepth = boost::lexical_cast<int>(params[2].get_str());
+    return pidentifidb->GenerateTrustMap(id, searchDepth);
 }
 
 Value getconnections(const Array& params, bool fHelp) {

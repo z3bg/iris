@@ -282,7 +282,7 @@ void CIdentifiDB::Initialize() {
 void CIdentifiDB::SearchForPathForMyKeys() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDsFromDB();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
-        generateTrustMapQueue.push(make_pair("keyID", keyID));
+        GenerateTrustMap(make_pair("keyID", keyID));
     }
 }
 
@@ -1041,6 +1041,14 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
     }
 }
 
+bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
+    if (generateTrustMapSet.find(id) == generateTrustMapSet.end()) {
+        generateTrustMapQueue.push(id);
+        generateTrustMapSet.insert(id);
+    }
+    return true;
+}
+
 int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
     sqlite3_stmt *statement;
 
@@ -1534,7 +1542,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPath(string_pair start, string_pair end,
     vector<CIdentifiPacket> path = GetSavedPath(start, end, searchDepth);
     if (path.empty()) {
         if (savePath && (end.first == "" && end.second == ""))
-            generateTrustMapQueue.push(start);
+            GenerateTrustMap(start);
         else
             path = SearchForPath(start, end, savePath, searchDepth);
     }
@@ -2156,7 +2164,8 @@ void CIdentifiDB::DBWorker() {
         if (generateTrustMapQueue.empty())
             this_thread::sleep(posix_time::milliseconds(1000));
         else {
-            SearchForPath(generateTrustMapQueue.front(), make_pair("",""), true, 3);
+            SearchForPath(generateTrustMapQueue.front(), make_pair("",""), true, 2);
+            generateTrustMapSet.erase(generateTrustMapQueue.front());
             generateTrustMapQueue.pop();
         }
     }
