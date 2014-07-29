@@ -228,6 +228,7 @@ static const CRPCCommand vRPCCommands[] =
     { "addnode",                    &addnode,                   true },
     { "getaddednodeinfo",           &getaddednodeinfo,          true },
     { "generatetrustmap",           &generatetrustmap,          true },
+    { "gettrustmapsize",            &gettrustmapsize,           true },
 };
 
 CRPCTable::CRPCTable()

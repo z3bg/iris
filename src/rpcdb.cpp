@@ -432,6 +432,17 @@ Value generatetrustmap(const Array& params, bool fHelp) {
     return pidentifidb->GenerateTrustMap(id, searchDepth);
 }
 
+
+Value gettrustmapsize(const Array& params, bool fHelp) {
+    if (fHelp || params.size() < 2)
+    throw runtime_error(
+        "gettrustmapsize <id_type> <id_value>\n"
+        "Get the size of the cached trustmap of an identifier.");
+    
+    string_pair id = make_pair(params[0].get_str(), params[1].get_str());
+    return pidentifidb->GetTrustMapSize(id);
+}
+
 Value getconnections(const Array& params, bool fHelp) {
     if (fHelp || params.size() < 2 || params.size() > 7)
     throw runtime_error(

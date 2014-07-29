@@ -162,5 +162,6 @@ extern json_spirit::Value setdefaultkey(const json_spirit::Array& params, bool f
 extern json_spirit::Value addsignature(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value publish(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value generatetrustmap(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value gettrustmapsize(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 
 #endif
