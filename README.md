@@ -158,6 +158,8 @@ Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) i
 
 Use external SQL DB instead of sqlite for better multi-application access to data?
 
+[ArangoDB](https://www.arangodb.org/) graph database?
+
 Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point into the Identifi WoT for many people.
 
 Serialize in BSON to improve efficiency and enable embedded binary (images etc)? It's also a canonical format unlike JSON by default.
