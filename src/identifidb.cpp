@@ -624,7 +624,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     }
 
     int mostConfirmations = 0;
-    string mostConfirmedName;
+    string_pair mostConfirmedName;
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
@@ -660,9 +660,9 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 id.confirmations = sqlite3_column_int(statement, 2);
                 id.refutations = sqlite3_column_int(statement, 3);
                 results.push_back(id);
-                if (type == "name" || type == "nickname") {
-                    if (id.confirmations >= mostConfirmations) {
-                        mostConfirmedName = value;
+                if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
+                    if (id.confirmations >= mostConfirmations || (type == "name" && mostConfirmedName.first == "nickname")) {
+                        mostConfirmedName = make_pair(type, value);
                     }
                 }
             }
@@ -673,8 +673,8 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         }
     }
 
-    if (!mostConfirmedName.empty())
-        UpdateCachedName(startID, mostConfirmedName);
+    if (!mostConfirmedName.second.empty())
+        UpdateCachedName(startID, mostConfirmedName.second);
 
     sqlite3_finalize(statement);
     return results;
