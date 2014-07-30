@@ -524,6 +524,7 @@ pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet, 
 }
 
 string CIdentifiDB::GetName(string_pair id, bool cachedOnly) {
+    if (id.first == "name" || id.first == "nickname") return id.second; 
     string name = GetCachedName(id);
     if (!cachedOnly && name.empty()) {
         vector<string> nameTypes;
@@ -660,9 +661,11 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 id.confirmations = sqlite3_column_int(statement, 2);
                 id.refutations = sqlite3_column_int(statement, 3);
                 results.push_back(id);
-                if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
-                    if (id.confirmations >= mostConfirmations || (type == "name" && mostConfirmedName.first == "nickname")) {
-                        mostConfirmedName = make_pair(type, value);
+                if (startID.first != "name" && startID.first != "nickname") { 
+                    if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
+                        if (id.confirmations >= mostConfirmations || (type == "name" && mostConfirmedName.first == "nickname")) {
+                            mostConfirmedName = make_pair(type, value);
+                        }
                     }
                 }
             }
