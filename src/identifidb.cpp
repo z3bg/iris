@@ -617,7 +617,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     AddPacketFilterSQLWhere(sql, viewpoint);
 
     sql << "GROUP BY IdType, IdValue ";
-    sql << "ORDER BY Confirmations DESC ";
+    sql << "ORDER BY Confirmations DESC, Refutations ASC ";
 
     if (limit > 0) {
         sql << "LIMIT " << limit;
