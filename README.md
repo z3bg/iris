@@ -11,7 +11,7 @@ Test deployment with identifi & identifi-rails: http://identi.fi (username & pas
 
 What
 ----
-- Distributed identity and reputation database
+- Address book with ratings
 - Web of trust
 - API for integration with various trust or identity dependent applications
 - Anyone can add identifiers and make statements about their relations to others
