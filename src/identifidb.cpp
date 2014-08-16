@@ -142,8 +142,8 @@ void CIdentifiDB::CheckDefaultTrustList() {
             n++;
             CIdentifiAddress address(defaultKey.GetPubKey().GetID());
 
-            Array author, author1, recipient, recipient1, recipient2;
-            Object signature;
+            mArray author, author1, recipient, recipient1, recipient2;
+            mObject signature;
             author1.push_back("keyID");
             author1.push_back(address.ToString());
             author.push_back(author1);
@@ -158,20 +158,20 @@ void CIdentifiDB::CheckDefaultTrustList() {
             
             time_t now = time(NULL);
 
-            json_spirit::Object data, signedData;
-            signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
-            signedData.push_back(Pair("author", author));
-            signedData.push_back(Pair("recipient", recipient));
-            signedData.push_back(Pair("type", "review"));
-            signedData.push_back(Pair("comment", "Identifi developers' key, trusted by default"));
-            signedData.push_back(Pair("rating", 1));
-            signedData.push_back(Pair("maxRating", 1));
-            signedData.push_back(Pair("minRating", -1));
+            mObject data, signedData;
+            signedData["timestamp"] = lexical_cast<int64_t>(now);
+            signedData["author"] = author;
+            signedData["recipient"] = recipient;
+            signedData["type"] = "review";
+            signedData["comment"] = "Identifi developers' key, trusted by default";
+            signedData["rating"] = 1;
+            signedData["maxRating"] = 1;
+            signedData["minRating"] = -1;
 
-            data.push_back(Pair("signedData", signedData));
-            data.push_back(Pair("signature", signature));
+            data["signedData"] = signedData;
+            data["signature"] = signature;
 
-            string strData = write_string(Value(data), false);
+            string strData = write_string(mValue(data), false);
             CIdentifiPacket packet(strData);
             packet.Sign(defaultKey);
             SavePacket(packet);
@@ -808,7 +808,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
     return GetPacketsByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true, viewpoint, maxDistance, packetType);
 }
 
-vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly) {
+vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly, string_pair viewpoint, int maxDistance) {
     vector<string_pair> results;
 
     sqlite3_stmt *statement;

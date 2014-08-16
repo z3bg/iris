@@ -3,6 +3,7 @@
 #include <boost/lexical_cast.hpp>
 #include "data.h"
 #include "base58.h"
+#include "json/json_spirit_value.h"
 
 using namespace std;
 using namespace boost;
@@ -43,41 +44,43 @@ string CIdentifiPacket::GetSignedData() const {
 }
 
 void CIdentifiPacket::UpdateSignatures() {
-    Value packet;
-    Object data, newData, signedData, signatureJSON;
+    mValue packet;
+    mObject data, newData, signedData, signatureJSON;
 
     read_string(strData, packet);
     data = packet.get_obj();
     signedData = find_value(data, "signedData").get_obj();
 
-    signatureJSON.push_back(Pair("pubKey", signature.GetSignerPubKey()));
-    signatureJSON.push_back(Pair("signature", signature.GetSignature()));
+    signatureJSON["pubKey"] = signature.GetSignerPubKey();
+    signatureJSON["signature"] = signature.GetSignature();
 
-    newData.push_back(Pair("signedData", signedData));
-    newData.push_back(Pair("signature", signatureJSON));
+    newData["signedData"] = signedData;
+    newData["signature"] = signatureJSON;
 
-    strData = write_string(Value(newData), false);
+    strData = write_string(mValue(newData), false);
 }
 
 void CIdentifiPacket::SetData(string strData, bool skipVerify) {
-    Value json;
-    Object data, signedData, sigObj;
-    Array authorsArray, recipientsArray;
+    mValue json;
+    mObject data, signedData, sigObj;
+    mArray authorsArray, recipientsArray;
     authors.clear();
     recipients.clear();
 
     read_string(strData, json);
-
-    // Enforce json_spirit non-pretty-print format
-    if (write_string(json, false) != strData)
-        throw runtime_error("Non-canonical json");
-
-    // TODO: a couple more canonicality checks, lexical ordering of fields etc
-
     data = json.get_obj();
+
+    if (!skipVerify) {
+        if (data.size() != 2)
+            throw runtime_error("Packets must contain only signature and signedData");
+
+        if (write_string(json, false) != strData)
+            throw runtime_error("Json must be in json_spirit non-pretty print format and keys alphabetically sorted");
+    }
+
     signedData = find_value(data, "signedData").get_obj();
     sigObj = find_value(data, "signature").get_obj();
-    string strSignedData = write_string(Value(signedData), false);
+    string strSignedData = write_string(mValue(signedData), false);
 
     timestamp = find_value(signedData, "timestamp").get_int();
     authorsArray = find_value(signedData, "author").get_array();
@@ -85,7 +88,7 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
     type = find_value(signedData, "type").get_str();
 
     bool hasRating = false;
-    Value val;
+    mValue val;
     val = find_value(signedData, "rating");
     if (val.type() != null_type)
         hasRating = true;
@@ -106,24 +109,25 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
     if (recipientsArray.empty())
         throw runtime_error("Packets must have at least 1 object");
 
-    for (Array::iterator it = authorsArray.begin(); it != authorsArray.end(); it++) {
-        Array subject = it->get_array();
+    for (mArray::iterator it = authorsArray.begin(); it != authorsArray.end(); it++) {
+        mArray subject = it->get_array();
         if (subject.size() != 2)
             throw runtime_error("Invalid packet subject length");
         authors.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
     }
 
-    for (Array::iterator it = recipientsArray.begin(); it != recipientsArray.end(); it++) {
-        Array object = it->get_array();
+    for (mArray::iterator it = recipientsArray.begin(); it != recipientsArray.end(); it++) {
+        mArray object = it->get_array();
         if (object.size() != 2)
             throw runtime_error("Invalid packet object length");
         recipients.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
     }
 
-
     CSignature sig;
 
     if (find_value(sigObj, "pubKey").type() != null_type && find_value(sigObj, "signature").type() != null_type) {
+        if (sigObj.size() != 2)
+            throw runtime_error("Signatures must contain only pubKey and signature");
         string pubKey = find_value(sigObj, "pubKey").get_str();
         string strSignature = find_value(sigObj, "signature").get_str();
         sig = CSignature(pubKey, strSignature);
@@ -276,3 +280,15 @@ Object CSignature::GetJSON() {
     json.push_back(Pair("signature",signature));
     return json;
 }
+
+const mValue& find_value( const mObject& obj, const std::string& name ) {
+    for(mObject::const_iterator i = obj.begin(); i != obj.end(); ++i ) {
+        if( i->first == name )
+        {
+            return i->second;
+        }
+    }
+   
+    return mValue::null;
+}
+

@@ -326,8 +326,8 @@ Value savepacket(const Array& params, bool fHelp)
             "savepacket <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
             "Save a packet");
 
-    Array author, author1, recipient, recipient1;
-    Object signature;
+    mArray author, author1, recipient, recipient1;
+    mObject signature;
     author1.push_back(params[0].get_str());
     author1.push_back(params[1].get_str());
     author.push_back(author1);
@@ -336,20 +336,20 @@ Value savepacket(const Array& params, bool fHelp)
     recipient.push_back(recipient1);
 
     time_t now = time(NULL);
-    Object data, signedData;
-    signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
-    signedData.push_back(Pair("author", author));
-    signedData.push_back(Pair("recipient", recipient));
-    signedData.push_back(Pair("type", "review"));
-    signedData.push_back(Pair("comment",params[4].get_str()));
-    signedData.push_back(Pair("rating",lexical_cast<int>(params[5].get_str())));
-    signedData.push_back(Pair("maxRating",10));
-    signedData.push_back(Pair("minRating",-10));
+    mObject data, signedData;
+    signedData["timestamp"] = lexical_cast<int64_t>(now);
+    signedData["author"] = author;
+    signedData["recipient"] = recipient;
+    signedData["type"] = "review";
+    signedData["comment"] = params[4].get_str();
+    signedData["rating"] = lexical_cast<int>(params[5].get_str());
+    signedData["maxRating"] = 10;
+    signedData["minRating"] = -10;
 
-    data.push_back(Pair("signedData", signedData));
-    data.push_back(Pair("signature", signature));
+    data["signedData"] = signedData;
+    data["signature"] = signature;
 
-    string strData = write_string(Value(data), false);
+    string strData = write_string(mValue(data), false);
     CIdentifiPacket packet(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     packet.Sign(defaultKey);
@@ -369,8 +369,8 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
             "saveconnection <author_id_type> <author_id_value> <connected_id1_type> <connected_id1_value> <connected_id2_type> <connected_id2_value> <publish=false>\n"
             "Save a connection between id1 and id2");
 
-    Array author, author1, recipient, connected1, connected2;
-    Object signature;
+    mArray author, author1, recipient, connected1, connected2;
+    mObject signature;
     author1.push_back(params[0].get_str());
     author1.push_back(params[1].get_str());
     author.push_back(author1);
@@ -382,19 +382,19 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
     recipient.push_back(connected2);
 
     time_t now = time(NULL);
-    Object data, signedData;
-    signedData.push_back(Pair("timestamp", lexical_cast<int64_t>(now)));
-    signedData.push_back(Pair("author", author));
-    signedData.push_back(Pair("recipient", recipient));
+    mObject data, signedData;
+    signedData["timestamp"] = lexical_cast<int64_t>(now);
+    signedData["author"] = author;
+    signedData["recipient"] = recipient;
     if (confirm)
-        signedData.push_back(Pair("type", "confirm_connection"));
+        signedData["type"] = "confirm_connection";
     else
-        signedData.push_back(Pair("type", "refute_connection"));
+        signedData["type"] = "refute_connection";
 
-    data.push_back(Pair("signedData", signedData));
-    data.push_back(Pair("signature", signature));
+    data["signedData"] = signedData;
+    data["signature"] = signature;
 
-    string strData = write_string(Value(data), false);
+    string strData = write_string(mValue(data), false);
     CIdentifiPacket packet(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     packet.Sign(defaultKey);
@@ -518,8 +518,13 @@ Value savepacketfromdata(const Array& params, bool fHelp)
             "savepacketfromdata <packet_json_data> <publish=false> <sign=true>\n"
             "Save a packet.");
 
+    // Canonicalize
+    mValue val;
+    read_string(params[0].get_str(), val);
+    string strData = write_string(val, false);
+
     CIdentifiPacket packet;
-    packet.SetData(params[0].get_str());
+    packet.SetData(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     bool publish = (params.size() >= 2 && params[1].get_str() == "true");
     if (publish || !(params.size() == 3 && params[2].get_str() == "false")) {

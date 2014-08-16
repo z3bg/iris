@@ -124,4 +124,6 @@ private:
     void UpdateSignatures();
 };
 
+const json_spirit::mValue& find_value( const json_spirit::mObject& obj, const std::string& name );
+
 #endif // IDENTIFI_DATA_H
