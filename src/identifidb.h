@@ -57,6 +57,7 @@ public:
     pair<string, string> GetPacketLinkedNames(CIdentifiPacket &packet, bool cachedOnly = false);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
+    void DeleteTrustPathsByPacket(string strPacketHash);
     time_t GetLatestPacketTimestamp();
     void SaveTrustStep(string_pair start, string_pair end, string nextStep, int distance);
     IDOverview GetIDOverview(string_pair id, string_pair viewpoint = make_pair("",""), int maxDistance = 0);

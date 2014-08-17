@@ -952,6 +952,63 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     }
 
     sqlite3_finalize(statement);
+    DeleteTrustPathsByPacket(strPacketHash);
+}
+
+void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
+    sqlite3_stmt *statement;
+    ostringstream sql, deleteTrustPathSql;
+
+    string_pair start = make_pair("identifi_packet", strPacketHash);
+    string_pair current = start;
+    string nextStep = current.second;
+
+    deleteTrustPathSql.str("");
+    deleteTrustPathSql << "DELETE FROM TrustPaths WHERE ";
+    deleteTrustPathSql << "StartID = ? AND StartPredicateID = ? AND ";
+    deleteTrustPathSql << "EndID = ? AND EndPredicateID = ? AND NextStep = ?";
+
+    sql.str("");
+    sql << "SELECT tp.StartID, tp.StartPredicateID, tp.EndID, tp.EndPredicateID, tp.NextStep FROM TrustPaths AS tp ";
+    sql << "INNER JOIN Predicates AS pred ON pred.Value = @pred ";
+    sql << "WHERE tp.StartPredicateID = pred.ID ";
+    sql << "AND tp.StartID = @startid ";
+
+    while (true) {
+        if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(statement, 2, SaveIdentifier(nextStep));
+
+            int result = sqlite3_step(statement);
+            if (result == SQLITE_ROW) {
+                int startID = sqlite3_column_int(statement, 0);
+                int startPredID = sqlite3_column_int(statement, 1);
+                int endID = sqlite3_column_int(statement, 2);
+                int endPredID = sqlite3_column_int(statement, 3);
+                nextStep = string((char*)sqlite3_column_text(statement, 4));
+
+                if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                    sqlite3_bind_int(statement, 1, startID);
+                    sqlite3_bind_int(statement, 2, startPredID);
+                    sqlite3_bind_int(statement, 3, endID);
+                    sqlite3_bind_int(statement, 4, endPredID);
+                    sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_step(statement);
+                }
+
+                if (nextStep == current.second) break;
+
+                current.first = "identifi_packet";
+                current.second = nextStep;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    sqlite3_finalize(statement);
 }
 
 // This is called to drop the least valuable data when DB is full
