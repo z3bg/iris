@@ -485,18 +485,25 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         vector<uint256> vEraseQueue;
         CDataStream vMsg(vRecv);
         CIdentifiPacket packet;
-        vRecv >> packet;
+        bool error;
+        try {
+            vRecv >> packet;
+        } catch (runtime_error &e) {
+            pfrom->Misbehaving(1);
+            error = true;
+        }
 
-        CInv inv(MSG_PACKET, packet.GetHash());
-        pfrom->AddInventoryKnown(inv);
-        RelayPacket(packet);
-        mapAlreadyAskedFor.erase(inv);
-        vWorkQueue.push_back(inv.hash);
-        vEraseQueue.push_back(inv.hash);
-
-        pidentifidb->SavePacket(packet);
-        pfrom->nLastPacketTime = packet.GetTimestamp();
-
+        if (!error) {
+            CInv inv(MSG_PACKET, packet.GetHash());
+            pfrom->AddInventoryKnown(inv);
+            RelayPacket(packet);
+            mapAlreadyAskedFor.erase(inv);
+            vWorkQueue.push_back(inv.hash);
+            vEraseQueue.push_back(inv.hash);
+    
+            pidentifidb->SavePacket(packet);
+            pfrom->nLastPacketTime = packet.GetTimestamp();
+        }
             /*
             CValidationState state;
             if (packet.AcceptToDB(state))
