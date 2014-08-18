@@ -284,11 +284,12 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email fred@example.com email bob@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 
+    // Untrusted signer's packets shouldn't create a trust path
     int i = CallRPC("getpacketcount").get_int();
-    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1,\"author\":[[\"mbox\",\"mailto:alice@example.com\"]],\"recipient\":[[\"mbox\",\"mailto:dick@example.com\"]],\"type\":\"review\",\"comment\":\"thanks\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}} false false"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signature\":{\"pubKey\":\"MjK1zpuvL1RpRwe7AUJ7yTyayunzitqKGXkZm7JtgzagZDzQbZodcRE58cABTkFEXg8koXhbcefSaRkTzRxbHvCY\",\"signature\":\"AN1rKvtcLMRvLxNLY4DrV7zFeVVLfYczXZH4ZY7MJDcUB8yk2qf2MtLbvb3TuyTycXU57ThW7PusciNL14Q4myry1Nqub6Eio\"},\"signedData\":{\"author\":[[\"mbox\",\"mailto:alice@example.com\"]],\"comment\":\"thanks\",\"maxRating\":100,\"minRating\":-100,\"rating\":100,\"recipient\":[[\"mbox\",\"mailto:dick@example.com\"]],\"timestamp\":1,\"type\":\"review\"}}"));
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:dick@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), i);
+    BOOST_CHECK_EQUAL(CallRPC("getpacketcount").get_int(), i + 1);
 }
 
 BOOST_AUTO_TEST_CASE(link_confs_and_refutes)

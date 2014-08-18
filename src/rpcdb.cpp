@@ -527,8 +527,10 @@ Value savepacketfromdata(const Array& params, bool fHelp)
     packet.SetData(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     bool publish = (params.size() >= 2 && params[1].get_str() == "true");
-    if (publish || !(params.size() == 3 && params[2].get_str() == "false")) {
-        packet.Sign(defaultKey);
+    if (packet.GetSignature().GetSignature().empty()) {
+        if (publish || !(params.size() == 3 && params[2].get_str() == "false")) {
+            packet.Sign(defaultKey);
+        }
     }
     if (publish) {
         packet.SetPublished();

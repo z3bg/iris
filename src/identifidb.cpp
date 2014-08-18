@@ -1264,6 +1264,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
 
 void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     if (!packet.IsPositive()) return;
+    if (!HasTrustedSigner(packet, GetMyPubKeyIDs())) return;
     vector<string_pair> authors = packet.GetAuthors();
     vector<string_pair> recipients = packet.GetRecipients();
     BOOST_FOREACH(string_pair author, authors) {
