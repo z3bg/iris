@@ -3,8 +3,6 @@ Identifi
 
 http://identifi.org
 
-http://slid.es/mmalmi/identifi
-
 IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Freenode
 
 Test deployment with identifi & identifi-rails: http://identi.fi (username & pass: identifi)
