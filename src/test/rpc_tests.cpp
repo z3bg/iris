@@ -215,9 +215,13 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
     BOOST_CHECK(r.get_array().empty());
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email abc@example.com email def@example.com positive 1"));
+    packetHash = r.get_str();
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep email abc@example.com email def@example.com"));
+    BOOST_CHECK_EQUAL(r.get_str(), packetHash);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     BOOST_CHECK_NO_THROW(r=CallRPC(string("deletepacket ") + packetHash));
+    BOOST_CHECK_EQUAL(CallRPC("gettruststep email abc@example.com email def@example.com").get_str().size(), 0);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 

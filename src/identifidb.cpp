@@ -920,6 +920,8 @@ int CIdentifiDB::SaveIdentifier(string identifier) {
 void CIdentifiDB::DropPacket(string strPacketHash) {
     sqlite3_stmt *statement;
     ostringstream sql;
+    
+    DeleteTrustPathsByPacket(strPacketHash);
 
     sql.str("");
     sql << "DELETE FROM PacketIdentifiers WHERE PacketHash = @hash;";
@@ -952,7 +954,6 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     }
 
     sqlite3_finalize(statement);
-    DeleteTrustPathsByPacket(strPacketHash);
 }
 
 void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
@@ -960,51 +961,105 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
     ostringstream sql, deleteTrustPathSql;
 
     string_pair start = make_pair("identifi_packet", strPacketHash);
-    string_pair current = start;
-    string nextStep = current.second;
+
+    sql.str("");
+    sql << "SELECT tp.EndID, tp.EndPredicateID FROM TrustPaths AS tp ";
+    sql << "INNER JOIN Predicates AS pred ON pred.ID = tp.StartPredicateID ";
+    sql << "INNER JOIN Identifiers AS id ON id.ID = tp.StartID ";
+    sql << "WHERE pred.Value = @pred AND id.Value = @id ";
+
+    vector<int_pair> endpoints; // endpoints for trustpaths that go through this packet
+    
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        while (true) {
+            sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
+            int result = sqlite3_step(statement);
+            if (result == SQLITE_ROW) {
+                int endId = sqlite3_column_int(statement, 0);
+                int endPred = sqlite3_column_int(statement, 1);
+                endpoints.push_back(make_pair(endPred, endId));
+            } else { 
+                break;
+            }
+        }
+    }
+
+    sql.str("");
+    sql << "SELECT PredicateID, IdentifierID FROM PacketIdentifiers WHERE PacketHash = ?";
+
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        while (true) {
+            sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+            int result = sqlite3_step(statement);
+            if (result == SQLITE_ROW) {
+                int endPred = sqlite3_column_int(statement, 0);
+                int endId = sqlite3_column_int(statement, 1);
+                endpoints.push_back(make_pair(endPred, endId));
+            } else { 
+                break;
+            }
+        }
+    }
+
+    sql.str("");
+    sql << "SELECT tp.StartID, tp.StartPredicateID, tp.NextStep FROM TrustPaths AS tp ";
+    sql << "INNER JOIN Predicates AS startPred ON startPred.ID = tp.StartPredicateID ";
+    sql << "INNER JOIN Identifiers AS startID ON startID.ID = tp.StartID ";
+    sql << "WHERE tp.EndPredicateID = @endpredid AND tp.EndID = @endid ";
+    sql << "AND startPred.Value = @pred AND startID.Value = @id ";
 
     deleteTrustPathSql.str("");
     deleteTrustPathSql << "DELETE FROM TrustPaths WHERE ";
     deleteTrustPathSql << "StartID = ? AND StartPredicateID = ? AND ";
     deleteTrustPathSql << "EndID = ? AND EndPredicateID = ? AND NextStep = ?";
 
-    sql.str("");
-    sql << "SELECT tp.StartID, tp.StartPredicateID, tp.EndID, tp.EndPredicateID, tp.NextStep FROM TrustPaths AS tp ";
-    sql << "INNER JOIN Predicates AS pred ON pred.Value = @pred ";
-    sql << "WHERE tp.StartPredicateID = pred.ID ";
-    sql << "AND tp.StartID = @startid ";
+    string_pair current = start;
+    string nextStep = current.second;
 
-    while (true) {
-        if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 2, SaveIdentifier(nextStep));
+    BOOST_FOREACH(int_pair endpoint, endpoints) {
+        while (true) {
+            if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_int(statement, 1, endpoint.first);
+                sqlite3_bind_int(statement, 2, endpoint.second);
+                sqlite3_bind_text(statement, 3, current.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 4, current.second.c_str(), -1, SQLITE_TRANSIENT);
 
-            int result = sqlite3_step(statement);
-            if (result == SQLITE_ROW) {
-                int startID = sqlite3_column_int(statement, 0);
-                int startPredID = sqlite3_column_int(statement, 1);
-                int endID = sqlite3_column_int(statement, 2);
-                int endPredID = sqlite3_column_int(statement, 3);
-                nextStep = string((char*)sqlite3_column_text(statement, 4));
+                int result = sqlite3_step(statement);
+                if (result == SQLITE_ROW) {
+                    int startID = sqlite3_column_int(statement, 0);
+                    int startPredID = sqlite3_column_int(statement, 1);
+                    nextStep = string((char*)sqlite3_column_text(statement, 2));
 
-                if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                    sqlite3_bind_int(statement, 1, startID);
-                    sqlite3_bind_int(statement, 2, startPredID);
-                    sqlite3_bind_int(statement, 3, endID);
-                    sqlite3_bind_int(statement, 4, endPredID);
-                    sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_step(statement);
+                    if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                        sqlite3_bind_int(statement, 1, startID);
+                        sqlite3_bind_int(statement, 2, startPredID);
+                        sqlite3_bind_int(statement, 3, endpoint.second);
+                        sqlite3_bind_int(statement, 4, endpoint.first);
+                        sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+                        sqlite3_step(statement);
+                    }
+
+                    if (nextStep == current.second) break;
+
+                    current.first = "identifi_packet";
+                    current.second = nextStep;
+                } else {
+                    break;
                 }
-
-                if (nextStep == current.second) break;
-
-                current.first = "identifi_packet";
-                current.second = nextStep;
-            } else {
-                break;
             }
-        } else {
-            break;
+        }
+    }
+
+    sql.str("");
+    sql << "DELETE FROM TrustPaths WHERE EndPredicateID = ? AND EndID = ? AND NextStep = ?";
+
+    BOOST_FOREACH(int_pair endpoint, endpoints) {
+        if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+            sqlite3_bind_int(statement, 1, endpoint.first);
+            sqlite3_bind_int(statement, 2, endpoint.second);
+            sqlite3_bind_text(statement, 3, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(statement);
         }
     }
 
@@ -1269,7 +1324,8 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     vector<string_pair> recipients = packet.GetRecipients();
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
-            SaveTrustStep(author, recipient, EncodeBase58(packet.GetHash()), 1);
+            string packetHash = EncodeBase58(packet.GetHash());
+            SaveTrustStep(author, recipient, packetHash, 1);
         }
     }
 }
@@ -1689,7 +1745,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
 
         visitedPackets.push_back(currentPacket.GetHash());
 
-        if (currentPacket.GetRating() <= (currentPacket.GetMaxRating() + currentPacket.GetMinRating()) / 2)
+        if (!currentPacket.IsPositive())
             continue;
 
         if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs()))
@@ -1717,19 +1773,23 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
                     if (pathFound)
                         path.push_back(currentPacket);
 
-                    CIdentifiPacket previousPacket = currentPacket;
+                    CIdentifiPacket packetIter = currentPacket;
                     int depth = 0;
-                    while (previousPackets.find(previousPacket.GetHash()) != previousPackets.end()) {
-                        if (savePath) 
-                            SaveTrustStep(make_pair("identifi_packet", EncodeBase58(previousPackets.at(previousPacket.GetHash()).GetHash())), identifier, EncodeBase58(previousPacket.GetHash()), currentDistanceFromStart - depth);
-                        previousPacket = previousPackets.at(previousPacket.GetHash());
+                    while (previousPackets.find(packetIter.GetHash()) != previousPackets.end()) {
+                        if (savePath) {
+                            string packetIterHash = EncodeBase58(packetIter.GetHash());
+                            string previousPacketHash = EncodeBase58(previousPackets.at(packetIter.GetHash()).GetHash());
+                            SaveTrustStep(make_pair("identifi_packet", previousPacketHash), identifier, packetIterHash, currentDistanceFromStart - depth);
+                        }
+                        packetIter = previousPackets.at(packetIter.GetHash());
                         if (pathFound)
-                            path.insert(path.begin(), previousPacket);
+                            path.insert(path.begin(), packetIter);
                         depth++;
                     }
 
                     if (savePath) {
-                        SaveTrustStep(start, identifier, EncodeBase58(previousPacket.GetHash()), currentDistanceFromStart);
+                        string packetHash = EncodeBase58(packetIter.GetHash());
+                        SaveTrustStep(start, identifier, packetHash, currentDistanceFromStart);
                     }
 
                     if (pathFound && !generateTrustMap)
