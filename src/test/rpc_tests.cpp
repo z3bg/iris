@@ -10,6 +10,7 @@
 
 using namespace std;
 using namespace json_spirit;
+extern bool shutdownRequested;
 
 BOOST_AUTO_TEST_SUITE(rpc_tests)
 
@@ -35,9 +36,11 @@ static Value CallRPC(string args)
 }
 
 void resetDB() {
+    shutdownRequested = true;
     delete pidentifidb;
     pidentifidb = new CIdentifiDB(100, GetDataDir() / to_string(dbNumber));
     dbNumber++;
+    shutdownRequested = false;
 }
 
 BOOST_AUTO_TEST_CASE(save_and_read_packets)
@@ -224,6 +227,23 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_EQUAL(CallRPC("gettruststep email abc@example.com email def@example.com").get_str().size(), 0);
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email abc@example.com email def@example.com positive 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email cba@example.com email def@example.com positive 1"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket email def@example.com email fed@example.com positive 1"));
+    packetHash = r.get_str();
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email fed@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email cba@example.com email fed@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
+    BOOST_CHECK_NO_THROW(r=CallRPC(string("deletepacket ") + packetHash));
+    BOOST_CHECK_EQUAL(CallRPC("gettruststep email abc@example.com email fed@example.com").get_str().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email fed@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_EQUAL(CallRPC("gettruststep email cba@example.com email fed@example.com").get_str().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email cba@example.com email fed@example.com"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+
 
     BOOST_CHECK_NO_THROW(r=CallRPC("setdefaultkey 5K1T7u3NA55ypnDDBHB61MZ2hFxCoNbBeZj5dhQttPJFKo85MfR"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr trusted 5 true"));

@@ -962,13 +962,14 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
 
     string_pair start = make_pair("identifi_packet", strPacketHash);
 
+    // find endpoints for trustpaths that go through this packet
     sql.str("");
     sql << "SELECT tp.EndID, tp.EndPredicateID FROM TrustPaths AS tp ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = tp.StartPredicateID ";
     sql << "INNER JOIN Identifiers AS id ON id.ID = tp.StartID ";
     sql << "WHERE pred.Value = @pred AND id.Value = @id ";
 
-    vector<int_pair> endpoints; // endpoints for trustpaths that go through this packet
+    vector<int_pair> endpoints;
     
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         while (true) {
@@ -985,9 +986,9 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
         }
     }
 
+    // identifiers in this packet can also be trustpath endpoints
     sql.str("");
     sql << "SELECT PredicateID, IdentifierID FROM PacketIdentifiers WHERE PacketHash = ?";
-
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         while (true) {
             sqlite3_bind_text(statement, 1, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
@@ -1002,6 +1003,7 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
         }
     }
 
+    // Iterate over trust steps and delete them
     sql.str("");
     sql << "SELECT tp.StartID, tp.StartPredicateID, tp.NextStep FROM TrustPaths AS tp ";
     sql << "INNER JOIN Predicates AS startPred ON startPred.ID = tp.StartPredicateID ";
@@ -1050,7 +1052,49 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
             }
         }
     }
+    
+    // Delete trustpath backwards
+    sql.str("");
+    sql << "SELECT startPred.ID, startID.ID, startPred.Value, startID.Value FROM TrustPaths AS tp ";
+    sql << "INNER JOIN Predicates AS startPred ON startPred.ID = tp.StartPredicateID ";
+    sql << "INNER JOIN Identifiers AS startID ON startID.ID = tp.StartID ";
+    sql << "WHERE tp.EndPredicateID = @endpredid AND tp.EndID = @endid AND tp.NextStep = @nextstep ";
 
+    current = start;
+    nextStep = strPacketHash;
+
+    BOOST_FOREACH(int_pair endpoint, endpoints) {
+        while (true) {
+            if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_int(statement, 1, endpoint.first);
+                sqlite3_bind_int(statement, 2, endpoint.second);
+                sqlite3_bind_text(statement, 3, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+
+                int result = sqlite3_step(statement);
+                if (result == SQLITE_ROW) {
+                    int startPredID = sqlite3_column_int(statement, 0);
+                    int startID = sqlite3_column_int(statement, 1);
+                    current.first = string((char*)sqlite3_column_text(statement, 2));
+                    current.second = string((char*)sqlite3_column_text(statement, 3));
+                    cout << current.first << ", " << current.second << "\n";
+
+                    if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                        sqlite3_bind_int(statement, 1, startID);
+                        sqlite3_bind_int(statement, 2, startPredID);
+                        sqlite3_bind_int(statement, 3, endpoint.second);
+                        sqlite3_bind_int(statement, 4, endpoint.first);
+                        sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+                        sqlite3_step(statement);
+                    }
+                    if (current.first == "identifi_packet") nextStep = current.second;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    // Delete trustpaths that only go through this packet (strPacketHash)
     sql.str("");
     sql << "DELETE FROM TrustPaths WHERE EndPredicateID = ? AND EndID = ? AND NextStep = ?";
 

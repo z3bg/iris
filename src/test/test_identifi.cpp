@@ -10,6 +10,7 @@ CClientUIInterface uiInterface;
 
 extern bool fPrintToConsole;
 extern void noui_connect();
+bool shutdownRequested;
 
 struct TestingSetup {
     boost::filesystem::path pathTemp;
@@ -45,5 +46,5 @@ void StartShutdown()
 
 bool ShutdownRequested()
 {
-  return true;
+  return shutdownRequested;
 }
