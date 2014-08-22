@@ -162,7 +162,7 @@ void CIdentifiDB::CheckDefaultTrustList() {
             signedData["timestamp"] = lexical_cast<int64_t>(now);
             signedData["author"] = author;
             signedData["recipient"] = recipient;
-            signedData["type"] = "review";
+            signedData["type"] = "rating";
             signedData["comment"] = "Identifi developers' key, trusted by default";
             signedData["rating"] = 1;
             signedData["maxRating"] = 1;
@@ -1076,7 +1076,6 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
                     int startID = sqlite3_column_int(statement, 1);
                     current.first = string((char*)sqlite3_column_text(statement, 2));
                     current.second = string((char*)sqlite3_column_text(statement, 3));
-                    cout << current.first << ", " << current.second << "\n";
 
                     if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                         sqlite3_bind_int(statement, 1, startID);
@@ -2239,7 +2238,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
     sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID ";
     sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
-    sql << "WHERE packetType.Value = 'review' ";
+    sql << "WHERE packetType.Value = 'rating' ";
     sql << "AND pred.Value = @type AND id.Value = @value ";
     AddPacketFilterSQLWhere(sql, viewpoint);
 
@@ -2292,13 +2291,13 @@ void CIdentifiDB::AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, 
         sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
         vector<string> strs;
         split(strs, packetType, is_any_of("/"));
-        if (strs.size() > 1 && strs.front() == "review") {
+        if (strs.size() > 1 && strs.front() == "rating") {
             char oper = '>';
             if (strs.back() == "neutral") oper = '=';
             if (strs.back() == "negative") oper = '<';
             sql << "INNER JOIN Packets AS p2 ON (p.Hash = p2.Hash AND "; // Some better way to do this?
             sql << "p2.Rating " << oper << " (p2.MaxRating + p2.MinRating) / 2) ";
-            packetType = "review";
+            packetType = "rating";
         }
     }
     if (useViewpoint) {

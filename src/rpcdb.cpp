@@ -340,7 +340,7 @@ Value savepacket(const Array& params, bool fHelp)
     signedData["timestamp"] = lexical_cast<int64_t>(now);
     signedData["author"] = author;
     signedData["recipient"] = recipient;
-    signedData["type"] = "review";
+    signedData["type"] = "rating";
     signedData["comment"] = params[4].get_str();
     signedData["rating"] = lexical_cast<int>(params[5].get_str());
     signedData["maxRating"] = 10;
