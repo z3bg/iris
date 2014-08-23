@@ -1053,7 +1053,7 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
         }
     }
     
-    // Delete trustpath backwards
+    // Delete trustpaths backwards
     sql.str("");
     sql << "SELECT startPred.ID, startID.ID, startPred.Value, startID.Value FROM TrustPaths AS tp ";
     sql << "INNER JOIN Predicates AS startPred ON startPred.ID = tp.StartPredicateID ";
@@ -1280,6 +1280,48 @@ int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
         return nPriority / MAX_PRIORITY;
 }
 
+void CIdentifiDB::DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "SELECT p.Hash FROM Packets AS p ";
+    sql << "INNER JOIN PacketIdentifiers AS author ON author.PacketHash = p.Hash AND author.IsRecipient = 0 ";
+    sql << "INNER JOIN PacketIdentifiers AS recipient ON recipient.PacketHash = p.Hash AND recipient.IsRecipient = 1 ";
+    sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
+    sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
+    sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
+    sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
+    sql << "INNER JOIN TrustPaths AS tp ON tp.NextStep = p.Hash ";
+    sql << "WHERE authorPred.Value = ? AND authorID.Value = ? AND recipientPred.Value = ? AND recipientID.Value = ?";
+
+    set<string> packetHashes;
+
+    BOOST_FOREACH(string_pair author, authors) {
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 2, author.second.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 4, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
+                int result;
+                do {
+                    result = sqlite3_step(statement);
+                    if(result == SQLITE_ROW)
+                    {
+                        string packetHash = string((char*)sqlite3_column_text(statement, 0));
+                        packetHashes.insert(packetHash);
+                    }
+                } while (result == SQLITE_ROW);
+            } else { cout << sqlite3_errmsg(db) << "\n"; }
+        }
+    }
+
+    BOOST_FOREACH(string packetHash, packetHashes) {
+        DeleteTrustPathsByPacket(packetHash);
+    }
+}
+
 string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     int priority = GetPriority(packet);
     if (priority == 0 && !GetArg("-saveuntrustedpackets", true)) return "";
@@ -1309,6 +1351,10 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
         int predicateID = SavePredicate(recipient.first);
         int recipientID = SaveIdentifier(recipient.second);
         SavePacketRecipient(packetHash, predicateID, recipientID);
+    }
+
+    if (!packet.IsPositive()) {
+        DeletePreviousTrustPaths(authors, recipients);
     }
 
     CSignature sig = packet.GetSignature();

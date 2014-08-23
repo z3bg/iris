@@ -99,6 +99,7 @@ private:
     void UpdateCachedName(string_pair startID, string name);
     void AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &packetType);
     void AddPacketFilterSQLWhere(ostringstream &sql, string_pair viewpoint); 
+    void DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients); 
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H
