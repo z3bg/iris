@@ -51,6 +51,7 @@ public:
     int GetPacketCount();
     int GetPacketCountByAuthor(string_pair author);
     int GetIdentifierCount();
+    void UpdateIsLatest(CIdentifiPacket &packet);
     string GetTrustStep(string_pair start, string_pair end);
     CIdentifiPacket GetPacketByHash(string hash);
     int GetPriority(CIdentifiPacket &packet);

@@ -217,6 +217,7 @@ void CIdentifiDB::Initialize() {
     sql << "Priority            INTEGER         DEFAULT 0 NOT NULL,";
     sql << "SignerPubKeyID      INTEGER         NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
+    sql << "IsLatest            BOOL            DEFAULT 0 NOT NULL,";
     sql << "FOREIGN KEY(SignerPubKeyID)     REFERENCES Identifiers(ID)";
     sql << ");";
     query(sql.str().c_str());
@@ -1313,13 +1314,15 @@ void CIdentifiDB::DeletePreviousTrustPaths(vector<string_pair> &authors, vector<
                         packetHashes.insert(packetHash);
                     }
                 } while (result == SQLITE_ROW);
-            } else { cout << sqlite3_errmsg(db) << "\n"; }
+            }
         }
     }
 
     BOOST_FOREACH(string packetHash, packetHashes) {
         DeleteTrustPathsByPacket(packetHash);
     }
+
+    sqlite3_finalize(statement);
 }
 
 string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
@@ -1390,9 +1393,74 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     )
 
     sqlite3_finalize(statement);
+    UpdateIsLatest(packet);
     SavePacketTrustPaths(packet);
 
     return packetHash;
+}
+
+void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("");
+    sql << "UPDATE Packets SET IsLatest = 0 ";
+    sql << "WHERE Hash IN (SELECT p.Hash FROM Packets AS p ";
+    sql << "INNER JOIN PacketIdentifiers AS author ON author.PacketHash = p.Hash AND author.IsRecipient = 0 ";
+    sql << "INNER JOIN PacketIdentifiers AS recipient ON recipient.PacketHash = p.Hash AND recipient.IsRecipient = 1 ";
+    sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
+    sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
+    sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
+    sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
+    sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+    sql << "WHERE packetType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
+    sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
+    sql << "AND p.IsLatest = 1 AND p.Created < @newPacketTimestamp) ";
+
+    vector<string_pair> authors = packet.GetAuthors();
+    vector<string_pair> recipients = packet.GetRecipients();
+    BOOST_FOREACH(string_pair author, authors) {
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, packet.GetType().c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 2, author.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, author.second.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 4, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 5, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int64(statement, 6, packet.GetTimestamp());
+                sqlite3_step(statement);
+            } else { cout << sqlite3_errmsg(db) << "\n"; }
+        }
+    }
+
+    // TODO: some better way than doing this twice?
+    sql.str("");
+    sql << "UPDATE Packets SET IsLatest = 1 ";
+    sql << "WHERE Hash IN (SELECT p.Hash FROM Packets AS p ";
+    sql << "INNER JOIN PacketIdentifiers AS author ON author.PacketHash = p.Hash AND author.IsRecipient = 0 ";
+    sql << "INNER JOIN PacketIdentifiers AS recipient ON recipient.PacketHash = p.Hash AND recipient.IsRecipient = 1 ";
+    sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
+    sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
+    sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
+    sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
+    sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+    sql << "WHERE packetType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
+    sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
+    sql << "ORDER BY p.Created DESC LIMIT 1)"; 
+
+    BOOST_FOREACH(string_pair author, authors) {
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                sqlite3_bind_text(statement, 1, packet.GetType().c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 2, author.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, author.second.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 4, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 5, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(statement);
+            } else { cout << sqlite3_errmsg(db) << "\n"; }
+        }
+    }
+    sqlite3_finalize(statement);
 }
 
 
