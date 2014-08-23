@@ -1061,48 +1061,38 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
     sql << "WHERE tp.EndPredicateID = @endpredid AND tp.EndID = @endid AND tp.NextStep = @nextstep ";
 
     current = start;
-    nextStep = strPacketHash;
 
     BOOST_FOREACH(int_pair endpoint, endpoints) {
-        while (true) {
-            if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_int(statement, 1, endpoint.first);
-                sqlite3_bind_int(statement, 2, endpoint.second);
-                sqlite3_bind_text(statement, 3, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+        deque<string> deleteQueue;
+        deleteQueue.push_front(strPacketHash);
+        while (!deleteQueue.empty()) {
+            nextStep = deleteQueue.front();
+            while (true) {
+                if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                    sqlite3_bind_int(statement, 1, endpoint.first);
+                    sqlite3_bind_int(statement, 2, endpoint.second);
+                    sqlite3_bind_text(statement, 3, nextStep.c_str(), -1, SQLITE_TRANSIENT);
 
-                int result = sqlite3_step(statement);
-                if (result == SQLITE_ROW) {
-                    int startPredID = sqlite3_column_int(statement, 0);
-                    int startID = sqlite3_column_int(statement, 1);
-                    current.first = string((char*)sqlite3_column_text(statement, 2));
-                    current.second = string((char*)sqlite3_column_text(statement, 3));
+                    int result = sqlite3_step(statement);
+                    if (result == SQLITE_ROW) {
+                        int startPredID = sqlite3_column_int(statement, 0);
+                        int startID = sqlite3_column_int(statement, 1);
+                        current.first = string((char*)sqlite3_column_text(statement, 2));
+                        current.second = string((char*)sqlite3_column_text(statement, 3));
 
-                    if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                        sqlite3_bind_int(statement, 1, startID);
-                        sqlite3_bind_int(statement, 2, startPredID);
-                        sqlite3_bind_int(statement, 3, endpoint.second);
-                        sqlite3_bind_int(statement, 4, endpoint.first);
-                        sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-                        sqlite3_step(statement);
-                    }
-                    if (current.first == "identifi_packet") nextStep = current.second;
-                } else {
-                    break;
-                }
+                        if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                            sqlite3_bind_int(statement, 1, startID);
+                            sqlite3_bind_int(statement, 2, startPredID);
+                            sqlite3_bind_int(statement, 3, endpoint.second);
+                            sqlite3_bind_int(statement, 4, endpoint.first);
+                            sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+                            sqlite3_step(statement);
+                        }
+                        if (current.first == "identifi_packet") deleteQueue.push_back(current.second);
+                    } else break;
+                } else break;
             }
-        }
-    }
-
-    // Delete trustpaths that only go through this packet (strPacketHash)
-    sql.str("");
-    sql << "DELETE FROM TrustPaths WHERE EndPredicateID = ? AND EndID = ? AND NextStep = ?";
-
-    BOOST_FOREACH(int_pair endpoint, endpoints) {
-        if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_int(statement, 1, endpoint.first);
-            sqlite3_bind_int(statement, 2, endpoint.second);
-            sqlite3_bind_text(statement, 3, strPacketHash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
+            deleteQueue.pop_front();
         }
     }
 
