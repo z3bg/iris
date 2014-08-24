@@ -27,9 +27,9 @@ public:
     vector<CIdentifiPacket> GetPacketsAfterTimestamp(time_t timestamp, int limit = 500, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
     vector<CIdentifiPacket> GetPacketsAfterPacket(string packetHash, int limit = 500, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
     vector<CIdentifiPacket> GetPacketsBeforePacket(string packetHash, int limit = 500, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
-    vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
-    vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
-    vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
+    vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
+    vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
+    vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
     vector<CIdentifiPacket> GetConnectingPackets(string_pair id1, string_pair id2, int limit = 0, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
     vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit = 0, int offset = 0, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     vector<CIdentifiPacket> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5);
@@ -81,7 +81,7 @@ private:
     vector<string_pair > GetAuthorsByPacketHash(string packetHash);
     vector<string_pair > GetRecipientsByPacketHash(string packetHash);
     CIdentifiPacket GetPacketFromStatement(sqlite3_stmt *statement);
-    vector<CIdentifiPacket> GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
+    vector<CIdentifiPacket> GetPacketsByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
     boost::thread* dbWorker;
     void DBWorker();
     void SavePacketAuthorOrRecipient(string packetHash, int predicateID, int identifierID, bool isRecipient);
