@@ -2335,9 +2335,12 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     } else {
-        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 AND tp.StartID IS NOT NULL THEN 1 ELSE 0 END), ";
-        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 AND tp.StartID IS NOT NULL THEN 1 ELSE 0 END), ";
-        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 AND tp.StartID IS NOT NULL THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 AND ";
+        sql << "(tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 AND ";
+        sql << "(tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) THEN 1 ELSE 0 END), ";
+        sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 AND  ";
+        sql << "(tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) THEN 1 ELSE 0 END), ";
     }
     sql << "MIN(p.Created) ";
     sql << "FROM Packets AS p ";
@@ -2350,6 +2353,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID ";
     sql << "INNER JOIN Predicates AS packetType ON p.PredicateID = packetType.ID ";
     sql << "WHERE packetType.Value = 'rating' ";
+    sql << "AND p.IsLatest = 1 ";
     sql << "AND pred.Value = @type AND id.Value = @value ";
     AddPacketFilterSQLWhere(sql, viewpoint);
 
