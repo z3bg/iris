@@ -74,7 +74,8 @@ public:
 private:
     sqlite3 *db;
     CKey defaultKey;
-    queue<string_pair> generateTrustMapQueue;
+    struct trustMapQueueItem { string_pair id; int searchDepth; };
+    queue<trustMapQueueItem> generateTrustMapQueue;
     set<string_pair> generateTrustMapSet;
     vector<string> myPubKeyIDs;
     vector<string_pair> GetAuthorsOrRecipientsByPacketHash(string packetHash, bool isRecipient);

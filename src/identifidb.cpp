@@ -1200,7 +1200,10 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
 
 bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     if (generateTrustMapSet.find(id) == generateTrustMapSet.end()) {
-        generateTrustMapQueue.push(id);
+        trustMapQueueItem i;
+        i.id = id;
+        i.searchDepth = searchDepth;
+        generateTrustMapQueue.push(i);
         generateTrustMapSet.insert(id);
     }
     return true;
@@ -2443,8 +2446,10 @@ void CIdentifiDB::DBWorker() {
         if (generateTrustMapQueue.empty())
             this_thread::sleep(posix_time::milliseconds(1000));
         else {
-            SearchForPath(generateTrustMapQueue.front(), make_pair("",""), true, 2);
-            generateTrustMapSet.erase(generateTrustMapQueue.front());
+            string_pair id = generateTrustMapQueue.front().id;
+            int searchDepth = generateTrustMapQueue.front().searchDepth;
+            SearchForPath(id, make_pair("",""), true, searchDepth);
+            generateTrustMapSet.erase(generateTrustMapQueue.front().id);
             generateTrustMapQueue.pop();
         }
     }
