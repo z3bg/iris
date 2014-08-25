@@ -485,7 +485,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         vector<uint256> vEraseQueue;
         CDataStream vMsg(vRecv);
         CIdentifiPacket packet;
-        bool error;
+        bool error = false;
         try {
             vRecv >> packet;
         } catch (runtime_error &e) {
@@ -500,7 +500,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             mapAlreadyAskedFor.erase(inv);
             vWorkQueue.push_back(inv.hash);
             vEraseQueue.push_back(inv.hash);
-    
+
             pidentifidb->SavePacket(packet);
             pfrom->nLastPacketTime = packet.GetTimestamp();
         }
