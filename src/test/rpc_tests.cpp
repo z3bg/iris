@@ -276,7 +276,11 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     firstPacket = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 0);
-
+    BOOST_CHECK_NO_THROW(r=CallRPC("savepacket keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr trusted 5 true"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    firstPacket = r.get_array().front().get_obj();
+    BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
 /*
     // TODO: fix
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signedData\":{\"timestamp\":1400788640,\"author\":[[\"keyID\",\"147cQZJ7Bd4ErnVYZahLfCaecJVkJVvqBP\"]],\"recipient\":[[\"keyID\",\"1Chdftd6Q9AbCih329udiYMNW46wpmS2nG\"]],\"type\":\"review\",\"comment\":\"test\",\"rating\":0,\"maxRating\":10,\"minRating\":-10},\"signature\":{\"pubKey\":\"PqxqDCkJ8h3Gj1ZqJp8qeWrrZGe5FuruJqj4YfBGj5BhUcSmphsuUWUc5eyoAwqP7N2WY7KAhpMtLuwCEiEbcEHV\",\"signature\":\"381yXZRZqUEtMPKFyzcTDJBsUgdMPvijTauLHK69jtZDVtAvGfKzeMfJjh5YdDKZcoLMHQQ7w3kL4JFipujc8EDE9kuJXoha\"}}"));

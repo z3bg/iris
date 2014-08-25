@@ -1081,8 +1081,6 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
 
     string_pair current = start;
     string nextStep = current.second;
-    
-    vector<string> ids = GetMyPubKeyIDs();
 
     BOOST_FOREACH(int_pair endpoint, endpoints) {
         while (true) {
@@ -1107,7 +1105,7 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
                         sqlite3_step(statement);
                     }
 
-                    bool startsFromOurKey = (current.first == "keyID" && find(ids.begin(), ids.end(), current.second) != ids.end());
+                    bool startsFromOurKey = (current.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), current.second) != myPubKeyIDs.end());
                     if (startsFromOurKey) {
                         string endPred = GetPredicateById(endpoint.first);
                         string endId = GetIdentifierById(endpoint.second);
@@ -1161,7 +1159,7 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
                             sqlite3_step(statement);
                         }
 
-                        bool startsFromOurKey = (current.first == "keyID" && find(ids.begin(), ids.end(), current.second) != ids.end());
+                        bool startsFromOurKey = (current.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), current.second) != myPubKeyIDs.end());
                         if (startsFromOurKey) {
                             string endPred = GetPredicateById(endpoint.first);
                             string endId = GetIdentifierById(endpoint.second);
@@ -1310,7 +1308,6 @@ int CIdentifiDB::GetPacketCountByAuthor(string_pair author) {
 // Arbitrary storage priority metric
 int CIdentifiDB::GetPriority(CIdentifiPacket &packet) {
     const int MAX_PRIORITY = 100;
-    vector<string> myPubKeyIDs = GetMyPubKeyIDs();
     string keyType = "keyID";
 
     int nShortestPathToSignature = 1000000;
@@ -1499,8 +1496,6 @@ void CIdentifiDB::UpdatePacketPriorities(string_pair authorOrSigner) {
         vector<CIdentifiPacket> packetsBySigner = GetPacketsBySigner(authorOrSigner);
         packetsToUpdate.insert(packetsToUpdate.begin(), packetsBySigner.begin(), packetsBySigner.end());
     }
-
-    cout << authorOrSigner.first << ":" << authorOrSigner.second << ", " << packetsToUpdate.size() << "\n";
 
     BOOST_FOREACH(CIdentifiPacket packet, packetsToUpdate) {
         SetPacketPriority(EncodeBase58(packet.GetHash()), GetPriority(packet));
@@ -1853,7 +1848,6 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
     ostringstream sql;
 
     string endHash = EncodeBase58(Hash(end.second.begin(), end.second.end()));
-    string_pair current = start;
 
     int startPredicateID = SavePredicate(start.first);
     int endPredicateID = SavePredicate(end.first);
@@ -1907,6 +1901,11 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
             sqliteReturnCode = sqlite3_step(statement);
         }
     )
+
+    bool startsFromOurKey = (start.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), start.second) != myPubKeyIDs.end());
+    if (startsFromOurKey) {
+        UpdatePacketPriorities(make_pair(end.first, end.second));
+    }
 
     sqlite3_finalize(statement);
 }
@@ -2004,7 +2003,7 @@ vector<CIdentifiPacket> CIdentifiDB::SearchForPath(string_pair start, string_pai
         if (!currentPacket.IsPositive())
             continue;
 
-        if (!HasTrustedSigner(currentPacket, GetMyPubKeyIDs()))
+        if (!HasTrustedSigner(currentPacket, myPubKeyIDs))
             continue;
 
         if (packetDistanceFromStart.find(currentPacket.GetHash()) != packetDistanceFromStart.end())
