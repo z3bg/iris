@@ -1412,7 +1412,7 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    string packetHash = EncodeBase58(packet.GetHash());
+    string packetHash = packet.GetHashStr();
 
     vector<string_pair> authors = packet.GetAuthors();
     BOOST_FOREACH (string_pair author, authors) {
@@ -1498,7 +1498,7 @@ void CIdentifiDB::UpdatePacketPriorities(string_pair authorOrSigner) {
     }
 
     BOOST_FOREACH(CIdentifiPacket packet, packetsToUpdate) {
-        SetPacketPriority(EncodeBase58(packet.GetHash()), GetPriority(packet));
+        SetPacketPriority(packet.GetHashStr(), GetPriority(packet));
     }
 }
 
@@ -1573,8 +1573,7 @@ void CIdentifiDB::SavePacketTrustPaths(CIdentifiPacket &packet) {
     vector<string_pair> recipients = packet.GetRecipients();
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
-            string packetHash = EncodeBase58(packet.GetHash());
-            SaveTrustStep(author, recipient, packetHash, 1);
+            SaveTrustStep(author, recipient, packet.GetHashStr(), 1);
         }
     }
 }

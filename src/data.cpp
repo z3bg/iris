@@ -192,7 +192,7 @@ Value CIdentifiPacket::GetJSON() {
     Object packetJSON;
 
     read_string(strData, data);
-    packetJSON.push_back(Pair("hash", EncodeBase58(GetHash())));
+    packetJSON.push_back(Pair("hash", GetHashStr()));
     packetJSON.push_back(Pair("data", data));
     packetJSON.push_back(Pair("published", published));
     packetJSON.push_back(Pair("priority", priority));
