@@ -28,6 +28,11 @@ uint256 CIdentifiPacket::GetHash() const {
     return GetSignedDataHash();
 }
 
+string CIdentifiPacket::GetHashStr() const {
+    uint256 hash = GetSignedDataHash();
+    return EncodeBase58(hash);
+}
+
 uint256 CIdentifiPacket::GetSignedDataHash() const {
     string signedData = GetSignedData();
     return Hash(signedData.begin(), signedData.end());

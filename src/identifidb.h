@@ -30,6 +30,7 @@ public:
     vector<CIdentifiPacket> GetPacketsByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
     vector<CIdentifiPacket> GetPacketsByAuthor(string_pair author, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
     vector<CIdentifiPacket> GetPacketsByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "", bool latestOnly = false);
+    vector<CIdentifiPacket> GetPacketsBySigner(string_pair keyID);
     vector<CIdentifiPacket> GetConnectingPackets(string_pair id1, string_pair id2, int limit = 0, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string packetType = "");
     vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit = 0, int offset = 0, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     vector<CIdentifiPacket> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5);
@@ -42,8 +43,8 @@ public:
     CKey GetDefaultKey();
     CKey GetDefaultKeyFromDB();
     vector<IdentifiKey> GetMyKeys();
-    vector<string> GetMyPubKeyIDs();
-    vector<string> GetMyPubKeyIDsFromDB();
+    vector<string>& GetMyPubKeyIDs();
+    vector<string>& GetMyPubKeyIDsFromDB();
     vector<string> GetMyPubKeys();
     string GetSavedKeyID(string pubKey);
     bool ImportPrivKey(string privKey, bool setDefault=false);
@@ -52,8 +53,10 @@ public:
     int GetPacketCountByAuthor(string_pair author);
     int GetIdentifierCount();
     void UpdateIsLatest(CIdentifiPacket &packet);
+    void UpdatePacketPriorities(string_pair authorOrSigner);
     string GetTrustStep(string_pair start, string_pair end);
     CIdentifiPacket GetPacketByHash(string hash);
+    void SetPacketPriority(string packetHash, int priority);
     int GetPriority(CIdentifiPacket &packet);
     pair<string, string> GetPacketLinkedNames(CIdentifiPacket &packet, bool cachedOnly = false);
     bool MakeFreeSpace(int nFreeBytesNeeded);
@@ -102,6 +105,8 @@ private:
     void AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &packetType);
     void AddPacketFilterSQLWhere(ostringstream &sql, string_pair viewpoint); 
     void DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients); 
+    string GetIdentifierById(int id);
+    string GetPredicateById(int id);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H

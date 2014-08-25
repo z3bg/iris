@@ -328,6 +328,27 @@ vector<string_pair> CIdentifiDB::GetRecipientsByPacketHash(string packetHash) {
     return GetAuthorsOrRecipientsByPacketHash(packetHash, true);
 }
 
+vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySigner(string_pair keyID) {
+    sqlite3_stmt *statement;
+    vector<CIdentifiPacket> packets;
+    ostringstream sql;
+    sql.str("");
+    sql << "SELECT * FROM Packets ";
+    sql << "INNER JOIN Keys ON Keys.PubKeyID = SignerPubKeyID ";
+    sql << "INNER JOIN Identifiers AS id ON id.ID = Keys.KeyIdentifierID ";
+    sql << "WHERE id.Value = ?";
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, keyID.second.c_str(), -1, SQLITE_TRANSIENT);
+        while (true) {
+            int result = sqlite3_step(statement);
+            if (result == SQLITE_ROW) {
+                packets.push_back(GetPacketFromStatement(statement));
+            } else break;
+        }
+    } else cout << sqlite3_errmsg(db) << "\n";
+    return packets;
+}
+
 vector<CIdentifiPacket> CIdentifiDB::GetPacketsByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string packetType, bool latestOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
@@ -964,6 +985,40 @@ void CIdentifiDB::DropPacket(string strPacketHash) {
     sqlite3_finalize(statement);
 }
 
+string CIdentifiDB::GetIdentifierById(int id) {
+    sqlite3_stmt *statement;
+    const char *sql = "SELECT Value FROM Identifiers WHERE ID = ?";
+    
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, id);
+        int result = sqlite3_step(statement);
+        if (result == SQLITE_ROW) {
+            string strId = (char*)sqlite3_column_text(statement, 0);
+            sqlite3_finalize(statement);
+            return strId;
+        }
+    }
+    sqlite3_finalize(statement);
+    throw runtime_error("Identifier not found");
+}
+
+string CIdentifiDB::GetPredicateById(int id) {
+    sqlite3_stmt *statement;
+    const char *sql = "SELECT Value FROM Predicates WHERE ID = ?";
+
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, id);
+        int result = sqlite3_step(statement);
+        if (result == SQLITE_ROW) {
+            string pred = (char*)sqlite3_column_text(statement, 0);
+            sqlite3_finalize(statement);
+            return pred;
+        }        
+    }
+    sqlite3_finalize(statement);
+    throw runtime_error("Predicate not found");
+}
+
 void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
     sqlite3_stmt *statement;
     ostringstream sql, deleteTrustPathSql;
@@ -1026,6 +1081,8 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
 
     string_pair current = start;
     string nextStep = current.second;
+    
+    vector<string> ids = GetMyPubKeyIDs();
 
     BOOST_FOREACH(int_pair endpoint, endpoints) {
         while (true) {
@@ -1048,6 +1105,13 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
                         sqlite3_bind_int(statement, 4, endpoint.first);
                         sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
                         sqlite3_step(statement);
+                    }
+
+                    bool startsFromOurKey = (current.first == "keyID" && find(ids.begin(), ids.end(), current.second) != ids.end());
+                    if (startsFromOurKey) {
+                        string endPred = GetPredicateById(endpoint.first);
+                        string endId = GetIdentifierById(endpoint.second);
+                        UpdatePacketPriorities(make_pair(endPred, endId));
                     }
 
                     if (nextStep == current.second) break;
@@ -1096,6 +1160,14 @@ void CIdentifiDB::DeleteTrustPathsByPacket(string strPacketHash) {
                             sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
                             sqlite3_step(statement);
                         }
+
+                        bool startsFromOurKey = (current.first == "keyID" && find(ids.begin(), ids.end(), current.second) != ids.end());
+                        if (startsFromOurKey) {
+                            string endPred = GetPredicateById(endpoint.first);
+                            string endId = GetIdentifierById(endpoint.second);
+                            UpdatePacketPriorities(make_pair(endPred, endId));
+                        }
+
                         if (current.first == "identifi_packet") deleteQueue.push_back(current.second);
                     } else break;
                 } else break;
@@ -1410,6 +1482,31 @@ string CIdentifiDB::SavePacket(CIdentifiPacket &packet) {
     return packetHash;
 }
 
+void CIdentifiDB::SetPacketPriority(string packetHash, int priority) {
+    sqlite3_stmt *statement;
+    const char *sql = "UPDATE Packets SET Priority = ? WHERE Hash = ?";
+    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_int(statement, 1, priority);
+        sqlite3_bind_text(statement, 2, packetHash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    } else cout << sqlite3_errmsg(db) << "\n";
+    sqlite3_finalize(statement);
+}
+
+void CIdentifiDB::UpdatePacketPriorities(string_pair authorOrSigner) {
+    vector<CIdentifiPacket> packetsToUpdate = GetPacketsByAuthor(authorOrSigner);
+    if (authorOrSigner.first == "keyID") {
+        vector<CIdentifiPacket> packetsBySigner = GetPacketsBySigner(authorOrSigner);
+        packetsToUpdate.insert(packetsToUpdate.begin(), packetsBySigner.begin(), packetsBySigner.end());
+    }
+
+    cout << authorOrSigner.first << ":" << authorOrSigner.second << ", " << packetsToUpdate.size() << "\n";
+
+    BOOST_FOREACH(CIdentifiPacket packet, packetsToUpdate) {
+        SetPacketPriority(EncodeBase58(packet.GetHash()), GetPriority(packet));
+    }
+}
+
 void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
     sqlite3_stmt *statement;
     ostringstream sql;
@@ -1611,8 +1708,9 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
     return myPubKeys;
 }
 
-vector<string> CIdentifiDB::GetMyPubKeyIDsFromDB() {
+vector<string>& CIdentifiDB::GetMyPubKeyIDsFromDB() {
     string pubKey, privKey;
+    vector<string> ids;
 
     ostringstream sql;
     sql.str("");
@@ -1623,13 +1721,14 @@ vector<string> CIdentifiDB::GetMyPubKeyIDsFromDB() {
     vector<vector<string> > result = query(sql.str().c_str());
 
     BOOST_FOREACH (vector<string> vStr, result) {
-        myPubKeyIDs.push_back(vStr.front());
+        ids.push_back(vStr.front());
     }
 
+    myPubKeyIDs = ids;
     return myPubKeyIDs;
 }
 
-vector<string> CIdentifiDB::GetMyPubKeyIDs() {
+vector<string>& CIdentifiDB::GetMyPubKeyIDs() {
     return myPubKeyIDs;
 }
 

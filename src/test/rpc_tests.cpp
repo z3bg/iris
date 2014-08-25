@@ -260,9 +260,9 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_NO_THROW(r=CallRPC("getpath email def@example.com email fed@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 
-
     BOOST_CHECK_NO_THROW(r=CallRPC("setdefaultkey 5K1T7u3NA55ypnDDBHB61MZ2hFxCoNbBeZj5dhQttPJFKo85MfR"));
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacket keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr trusted 5 true"));
+    packetHash = r.get_str();
     BOOST_CHECK_NO_THROW(r=CallRPC("savepacketfromdata {\"signature\":{\"pubKey\":\"RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU\",\"signature\":\"AN1rKvthPcmPwv2haGvpG2BgFNzDPNJ9FuvTN5AZT3NjKtdgrzrDP88pVSKPs4sJc4w1n5Fbig7SWnucvWsG57gy7U5ZSuTBg\"},\"signedData\":{\"author\":[[\"keyID\",\"1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr\"]],\"comment\":\"trusted\",\"maxRating\":10,\"minRating\":-10,\"rating\":1,\"recipient\":[[\"email\",\"james@example.com\"]],\"timestamp\":1392476848,\"type\":\"review\"}}"));
     BOOST_CHECK_EQUAL(r.get_str(), "HHAMaLsfAgFFWTzXaoug4JaZ6UPFkuemwTpodmq7pEhg");
     BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As"));
@@ -271,6 +271,11 @@ BOOST_AUTO_TEST_CASE(trust_paths) {
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     firstPacket = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 50);
+    CallRPC("deletepacket " + packetHash);
+    BOOST_CHECK_NO_THROW(r=CallRPC("getpacketsbyauthor keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
+    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    firstPacket = r.get_array().front().get_obj();
+    BOOST_CHECK_EQUAL(find_value(firstPacket, "priority").get_int(), 0);
 
 /*
     // TODO: fix

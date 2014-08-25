@@ -89,6 +89,7 @@ public:
     string GetSignedData() const;
     uint256 GetSignedDataHash() const;
     uint256 GetHash() const;
+    string GetHashStr() const;
     time_t GetTimestamp() const;
     vector<string_pair > GetAuthors() const;
     vector<string_pair > GetRecipients() const;
