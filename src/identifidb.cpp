@@ -274,6 +274,17 @@ void CIdentifiDB::Initialize() {
     sql << "FOREIGN KEY(CachedNameID)   REFERENCES Identifiers(ID))";
     query(sql.str().c_str());
 
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS CachedEmails (";
+    sql << "IdentifierID        INTEGER         NOT NULL,";
+    sql << "PredicateID         INTEGER         NOT NULL,";
+    sql << "CachedEmailID       INTEGER         NOT NULL,";
+    sql << "PRIMARY KEY(PredicateID, IdentifierID),";
+    sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
+    sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
+    sql << "FOREIGN KEY(CachedEmailID)   REFERENCES Identifiers(ID))";
+    query(sql.str().c_str());
+
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
@@ -548,6 +559,30 @@ pair<string, string> CIdentifiDB::GetPacketLinkedNames(CIdentifiPacket &packet, 
     return make_pair(authorName, recipientName);
 }
 
+pair<string, string> CIdentifiDB::GetPacketLinkedEmails(CIdentifiPacket &packet, bool authorOnly) {
+    string authorEmail, recipientEmail;
+
+    vector<string_pair> authors = packet.GetAuthors();
+    BOOST_FOREACH(string_pair author, authors) {
+        authorEmail = GetCachedEmail(author);
+        if (authorEmail != "") {
+            break;
+        }
+    }
+
+    if (!authorOnly) {
+        vector<string_pair> recipients = packet.GetRecipients();
+        BOOST_FOREACH(string_pair recipient, recipients) {
+            recipientEmail = GetCachedEmail(recipient);
+            if (recipientEmail != "") {
+                break;
+            }
+        }
+    }
+
+    return make_pair(authorEmail, recipientEmail);
+}
+
 string CIdentifiDB::GetName(string_pair id, bool cachedOnly) {
     if (id.first == "name" || id.first == "nickname") return id.second; 
     string name = GetCachedName(id);
@@ -565,17 +600,34 @@ string CIdentifiDB::GetName(string_pair id, bool cachedOnly) {
 }
 
 string CIdentifiDB::GetCachedName(string_pair id) {
-    string name = "";
+    return GetCachedValue("name", id);
+}
+
+string CIdentifiDB::GetCachedEmail(string_pair id) {
+    return GetCachedValue("email", id);
+}
+
+string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
+    string value = "";
 
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT nameID.Value FROM CachedNames AS cn ";
-    sql << "INNER JOIN Identifiers AS searchedID ON cn.IdentifierID = searchedID.ID ";
-    sql << "INNER JOIN Predicates AS searchedPred ON cn.PredicateID = searchedPred.ID ";
-    sql << "INNER JOIN Identifiers AS nameID ON cn.CachedNameID = nameID.ID ";
-    sql << "WHERE searchedPred.Value = @type AND searchedID.Value = @value";
+
+    if (valueType == "name") {
+        sql << "SELECT nameID.Value FROM CachedNames AS cn ";
+        sql << "INNER JOIN Identifiers AS searchedID ON cn.IdentifierID = searchedID.ID ";
+        sql << "INNER JOIN Predicates AS searchedPred ON cn.PredicateID = searchedPred.ID ";
+        sql << "INNER JOIN Identifiers AS nameID ON cn.CachedNameID = nameID.ID ";
+        sql << "WHERE searchedPred.Value = @type AND searchedID.Value = @value";
+    } else {
+        sql << "SELECT emailID.Value FROM CachedEmails AS ce ";
+        sql << "INNER JOIN Identifiers AS searchedID ON ce.IdentifierID = searchedID.ID ";
+        sql << "INNER JOIN Predicates AS searchedPred ON ce.PredicateID = searchedPred.ID ";
+        sql << "INNER JOIN Identifiers AS emailID ON ce.CachedEmailID = emailID.ID ";
+        sql << "WHERE searchedPred.Value = @type AND searchedID.Value = @value";
+    }
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -584,12 +636,12 @@ string CIdentifiDB::GetCachedName(string_pair id) {
         int result = sqlite3_step(statement);
 
         if (result == SQLITE_ROW) {
-            name = (char*)sqlite3_column_text(statement, 0);
+            value = (char*)sqlite3_column_text(statement, 0);
         }
     }
 
     sqlite3_finalize(statement);
-    return name;
+    return value;
 }
 
 // "Find all 'names' or a 'nicknames' linked to this identifier". Empty searchedPredicates catches all.
@@ -649,8 +701,9 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         sql << " OFFSET " << offset;
     }
 
-    int mostConfirmations = 0;
+    int mostNameConfirmations = 0, mostEmailConfirmations = 0;
     string_pair mostConfirmedName;
+    string mostConfirmedEmail;
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
@@ -688,9 +741,16 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 results.push_back(id);
                 if (startID.first != "name" && startID.first != "nickname") { 
                     if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
-                        if (id.confirmations >= mostConfirmations || (type == "name" && mostConfirmedName.first == "nickname")) {
+                        if (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname")) {
                             mostConfirmedName = make_pair(type, value);
+                            mostNameConfirmations = id.confirmations;
                         }
+                    }
+                }
+                if (startID.first != "email") {
+                    if (type == "email" && id.confirmations >= mostEmailConfirmations) {
+                        mostConfirmedEmail = value;
+                        mostEmailConfirmations = id.confirmations;
                     }
                 }
             }
@@ -703,28 +763,43 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     if (!mostConfirmedName.second.empty())
         UpdateCachedName(startID, mostConfirmedName.second);
+    if (!mostConfirmedEmail.empty())
+        UpdateCachedEmail(startID, mostConfirmedEmail);
 
     sqlite3_finalize(statement);
     return results;
 }
 
-void CIdentifiDB::UpdateCachedName(string_pair startID, string name) {
+void CIdentifiDB::UpdateCachedValue(string valueType, string_pair startID, string value) {
     sqlite3_stmt *statement;
 
-    const char* sql = "INSERT OR REPLACE INTO CachedNames (PredicateID, IdentifierID, CachedNameID) VALUES (?,?,?);";
+    const char* sql;
+    if (valueType == "name")
+        sql = "INSERT OR REPLACE INTO CachedNames (PredicateID, IdentifierID, CachedNameID) VALUES (?,?,?);";
+    else
+        sql = "INSERT OR REPLACE INTO CachedEmails (PredicateID, IdentifierID, CachedEmailID) VALUES (?,?,?);";
+        
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
             int predicateID = SavePredicate(startID.first);
             int identifierID = SaveIdentifier(startID.second);
-            int nameID = SaveIdentifier(name);
+            int valueID = SaveIdentifier(value);
             sqlite3_bind_int(statement, 1, predicateID);
             sqlite3_bind_int(statement, 2, identifierID);
-            sqlite3_bind_int(statement, 3, nameID);
+            sqlite3_bind_int(statement, 3, valueID);
             sqlite3_step(statement);
         }
     )
 
     sqlite3_finalize(statement);
+}
+
+void CIdentifiDB::UpdateCachedName(string_pair startID, string name) {
+    UpdateCachedValue("name", startID, name);
+}
+
+void CIdentifiDB::UpdateCachedEmail(string_pair startID, string name) {
+    UpdateCachedValue("email", startID, name);
 }
 
 CIdentifiPacket CIdentifiDB::GetPacketFromStatement(sqlite3_stmt *statement) {
@@ -1519,6 +1594,7 @@ void CIdentifiDB::UpdatePacketPriorities(string_pair authorOrSigner) {
     }
 }
 
+// There should probably be a separate table for old packets
 void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
     sqlite3_stmt *statement;
     ostringstream sql;

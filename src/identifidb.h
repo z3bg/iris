@@ -59,6 +59,7 @@ public:
     void SetPacketPriority(string packetHash, int priority);
     int GetPriority(CIdentifiPacket &packet);
     pair<string, string> GetPacketLinkedNames(CIdentifiPacket &packet, bool cachedOnly = false);
+    pair<string, string> GetPacketLinkedEmails(CIdentifiPacket &packet, bool authorOnly = false);
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropPacket(string strPacketHash);
     void DeleteTrustPathsByPacket(string strPacketHash);
@@ -67,6 +68,7 @@ public:
     IDOverview GetIDOverview(string_pair id, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string GetName(string_pair id, bool cachedOnly = false);
     string GetCachedName(string_pair id);
+    string GetCachedEmail(string_pair id);
     int GetTrustMapSize(string_pair id);
     bool GenerateTrustMap(string_pair id, int searchDepth = 2);
     
@@ -101,7 +103,10 @@ private:
     void CheckDefaultTrustPathablePredicates();
     void SearchForPathForMyKeys();
     bool HasTrustedSigner(CIdentifiPacket &packet, vector<string> trustedKeyIDs);
+    void UpdateCachedValue(string valueType, string_pair startID, string value);
     void UpdateCachedName(string_pair startID, string name);
+    void UpdateCachedEmail(string_pair startID, string name);
+    string GetCachedValue(string valueType, string_pair id);
     void AddPacketFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &packetType);
     void AddPacketFilterSQLWhere(ostringstream &sql, string_pair viewpoint); 
     void DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients); 

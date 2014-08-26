@@ -18,12 +18,14 @@ Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = 
         Object packetJSON = packet.GetJSON().get_obj();
         if (findNames) {            
             pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet, true);
+            pair<string, string> linkedEmails = pidentifidb->GetPacketLinkedEmails(packet, true);
 
             CSignature signature = packet.GetSignature();
             string signerName = pidentifidb->GetCachedName(make_pair("keyID", signature.GetSignerKeyID()));
 
             packetJSON.push_back(Pair("authorName", linkedNames.first));
             packetJSON.push_back(Pair("recipientName", linkedNames.second));
+            packetJSON.push_back(Pair("authorEmail", linkedEmails.first));
             packetJSON.push_back(Pair("signerName", signerName));
         }
         packetsJSON.push_back(packetJSON);
@@ -321,6 +323,8 @@ Value overview(const Array& params, bool fHelp)
 
     string name = pidentifidb->GetName(id);
     overviewJSON.push_back(Pair("name", name));
+    string email = pidentifidb->GetCachedEmail(id);
+    overviewJSON.push_back(Pair("email", email));
 
     return overviewJSON;
 }
