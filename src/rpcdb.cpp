@@ -252,13 +252,14 @@ Value getsavedpath(const Array& params, bool fHelp)
 
 Value search(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 1 || params.size() > 6)
         throw runtime_error(
-            "search <query> <predicate=\"\"> <limit=10> <offset=0>\n"
+            "search <query> <predicate=\"\"> <limit=10> <offset=0> <viewpointType> <viewpointValue>\n"
             "Returns a list of predicate / identifier pairs matching the query and predicate (optional).");
 
     Array resultsJSON;
-    string_pair query;
+    string_pair query, viewpoint;
+    string viewpointType, viewpointValue;
     int limit = 10, offset = 0;
     if (params.size() == 1)
         query = make_pair("", params[0].get_str());
@@ -266,10 +267,15 @@ Value search(const Array& params, bool fHelp)
         query = make_pair(params[1].get_str(), params[0].get_str());
     if (params.size() >= 3)
         limit = boost::lexical_cast<int>(params[2].get_str());
-    if (params.size() == 4)
+    if (params.size() >= 4)
         offset = boost::lexical_cast<int>(params[3].get_str());
+    if (params.size() > 5) {
+        viewpointType = params[4].get_str();
+        viewpointValue = params[5].get_str();
+        viewpoint = make_pair(viewpointType, viewpointValue);
+    }
 
-    vector<string_pair> results = pidentifidb->SearchForID(query, limit, offset);
+    vector<string_pair> results = pidentifidb->SearchForID(query, limit, offset, false, viewpoint);
 
     BOOST_FOREACH(string_pair result, results) {
         Array pair;

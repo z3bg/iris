@@ -836,6 +836,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsByRecipient(string_pair recipient
 
 vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly, string_pair viewpoint, int maxDistance) {
     vector<string_pair> results;
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
 
     sqlite3_stmt *statement;
     vector<CIdentifiPacket> packets;
@@ -844,30 +845,45 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     sql << "SELECT DISTINCT pred.Value, id.Value FROM Identifiers AS id, ";
     sql << "Predicates AS pred ";
     sql << "INNER JOIN PacketIdentifiers AS pi ";
-    sql << "ON pi.PredicateID = pred.id AND pi.IdentifierID = id.ID ";
+    sql << "ON pi.PredicateID = pred.ID AND pi.IdentifierID = id.ID ";
+    if (useViewpoint) {
+        sql << "INNER JOIN Predicates AS viewPred ON viewPred.Value = @viewpred ";
+        sql << "INNER JOIN Identifiers AS viewId ON viewId.Value = @viewid ";
+        sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicateID = pred.ID AND tp.EndID = id.ID ";
+        sql << "AND tp.StartPredicateID = viewPred.ID AND tp.StartID = viewId.ID ";
+    }
     sql << "WHERE ";
     if (!query.first.empty())
         sql << "pred.Value = @predValue AND ";
     else if (trustPathablePredicatesOnly)
         sql << "pred.TrustPathable = 1 AND ";
-    sql << "id.Value LIKE @query || '%' ";
+    sql << "id.Value LIKE '%' || @query || '%' ";
+
+    if (useViewpoint)
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        int n = 0;
+        if (useViewpoint) {
+            sqlite3_bind_text(statement, 1, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            n = 2;
+        }
         if (!query.first.empty()) {
-            sqlite3_bind_text(statement, 1, query.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 1+n, query.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2+n, query.second.c_str(), -1, SQLITE_TRANSIENT);
             if (limit) {
-                sqlite3_bind_int(statement, 3, limit);
-                sqlite3_bind_int(statement, 4, offset);
+                sqlite3_bind_int(statement, 3+n, limit);
+                sqlite3_bind_int(statement, 4+n, offset);
             }
         } else {
-            sqlite3_bind_text(statement, 1, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 1+n, query.second.c_str(), -1, SQLITE_TRANSIENT);
             if (limit) {
-                sqlite3_bind_int(statement, 2, limit);
-                sqlite3_bind_int(statement, 3, offset);
+                sqlite3_bind_int(statement, 2+n, limit);
+                sqlite3_bind_int(statement, 3+n, offset);
             }
         }
 
