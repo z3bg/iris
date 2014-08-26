@@ -346,6 +346,7 @@ vector<CIdentifiPacket> CIdentifiDB::GetPacketsBySigner(string_pair keyID) {
             } else break;
         }
     } else cout << sqlite3_errmsg(db) << "\n";
+    sqlite3_finalize(statement);
     return packets;
 }
 
