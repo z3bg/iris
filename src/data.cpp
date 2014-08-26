@@ -230,6 +230,7 @@ int CIdentifiPacket::GetMaxRating() const {
 }
 
 bool CIdentifiPacket::IsPositive() const {
+    if (maxRating * minRating == 0) return false;
     return (rating > (maxRating + minRating) / 2);
 }
 
