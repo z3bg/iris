@@ -1599,9 +1599,9 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
+    // Delete possible previous packet from A->B created less than minPacketInterval ago
     sql.str("");
-    sql << "UPDATE Packets SET IsLatest = 0 ";
-    sql << "WHERE Hash IN (SELECT p.Hash FROM Packets AS p ";
+    sql << "SELECT p.Hash FROM Packets AS p ";
     sql << "INNER JOIN PacketIdentifiers AS author ON author.PacketHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN PacketIdentifiers AS recipient ON recipient.PacketHash = p.Hash AND recipient.IsRecipient = 1 ";
     sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
@@ -1611,10 +1611,13 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
     sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
     sql << "WHERE packetType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
     sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
-    sql << "AND p.IsLatest = 1) ";
+    sql << "AND p.IsLatest = 1 AND p.Created < @newPacketCreated AND (@newPacketCreated - p.Created) < @minPacketInterval ";
 
     vector<string_pair> authors = packet.GetAuthors();
     vector<string_pair> recipients = packet.GetRecipients();
+    vector<string> packetsToDelete;
+
+    int64 minPacketInterval = GetArg("-minpacketinterval", 86400);
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1623,8 +1626,47 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
                 sqlite3_bind_text(statement, 3, author.second.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 4, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 5, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_step(statement);
+                sqlite3_bind_int64(statement, 6, packet.GetTimestamp());
+                sqlite3_bind_int64(statement, 7, minPacketInterval);
+                int result = sqlite3_step(statement);
+                if (result == SQLITE_ROW) {
+                    string packetHash = string((char*)sqlite3_column_text(statement, 0));
+                    packetsToDelete.push_back(packetHash);
+                }
             } else { cout << sqlite3_errmsg(db) << "\n"; }
+        }
+    }
+
+    if (!packetsToDelete.empty()) {
+        BOOST_FOREACH(string packetHash, packetsToDelete) {
+            DropPacket(packetHash);
+        }
+    } else {
+        sql.str("");
+        sql << "UPDATE Packets SET IsLatest = 0 ";
+        sql << "WHERE Hash IN (SELECT p.Hash FROM Packets AS p ";
+        sql << "INNER JOIN PacketIdentifiers AS author ON author.PacketHash = p.Hash AND author.IsRecipient = 0 ";
+        sql << "INNER JOIN PacketIdentifiers AS recipient ON recipient.PacketHash = p.Hash AND recipient.IsRecipient = 1 ";
+        sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
+        sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
+        sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
+        sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
+        sql << "INNER JOIN Predicates AS packetType ON packetType.ID = p.PredicateID ";
+        sql << "WHERE packetType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
+        sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
+        sql << "AND p.IsLatest = 1) ";
+
+        BOOST_FOREACH(string_pair author, authors) {
+            BOOST_FOREACH(string_pair recipient, recipients) {
+                if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+                    sqlite3_bind_text(statement, 1, packet.GetType().c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(statement, 2, author.first.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(statement, 3, author.second.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(statement, 4, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(statement, 5, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_step(statement);
+                } else { cout << sqlite3_errmsg(db) << "\n"; }
+            }
         }
     }
 
