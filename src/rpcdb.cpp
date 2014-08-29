@@ -433,13 +433,20 @@ Value refuteconnection(const Array& params, bool fHelp) {
 }  
 
 Value generatetrustmap(const Array& params, bool fHelp) {
-    if (fHelp || params.size() < 2 || params.size() > 3)
+    if (fHelp || params.size() > 3)
     throw runtime_error(
-        "generatetrustmap <id_type> <id_value> <search_depth=2>\n"
+        "generatetrustmap <id_type=keyID> <id_value=nodeDefaultKey> <search_depth=2>\n"
         "Add an identifier to trust map generation queue.");
     
-    string_pair id = make_pair(params[0].get_str(), params[1].get_str());
-    int searchDepth = 2;
+    string_pair id;
+    if (params.size() == 0) { 
+        CKey defaultKey = pidentifidb->GetDefaultKey();
+        IdentifiKey key = CKeyToIdentifiKey(defaultKey);
+        id = make_pair("keyID", key.keyID);
+    } else { 
+        id = make_pair(params[0].get_str(), params[1].get_str());
+    }
+    int searchDepth = 3;
     if (params.size() == 3) searchDepth = boost::lexical_cast<int>(params[2].get_str());
     return pidentifidb->GenerateTrustMap(id, searchDepth);
 }
