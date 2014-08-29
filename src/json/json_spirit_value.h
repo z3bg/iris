@@ -52,6 +52,7 @@ namespace json_spirit
         Value_impl( const Value_impl& other );
 
         bool operator==( const Value_impl& lhs ) const;
+        bool operator<( const Value_impl& lhs ) const;
 
         Value_impl& operator=( const Value_impl& lhs );
 
@@ -315,6 +316,16 @@ namespace json_spirit
         if( type() != lhs.type() ) return false;
 
         return v_ == lhs.v_; 
+    }
+
+    template< class Config >
+    bool Value_impl< Config >::operator<( const Value_impl& lhs ) const
+    {
+        if( this == &lhs ) return false;
+
+        if( type() != lhs.type() ) return false;
+
+        return v_ < lhs.v_; 
     }
 
     template< class Config >

@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <boost/lexical_cast.hpp>
+#include <algorithm>
 #include "main.h"
 #include "identifirpc.h"
 #include "data.h"
@@ -390,6 +391,7 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
     connected2.push_back(params[5].get_str());
     recipient.push_back(connected1);
     recipient.push_back(connected2);
+    sort(recipient.begin(), recipient.end());
 
     time_t now = time(NULL);
     mObject data, signedData;
@@ -531,7 +533,16 @@ Value savepacketfromdata(const Array& params, bool fHelp)
     // Canonicalize
     mValue val;
     read_string(params[0].get_str(), val);
-    string strData = write_string(val, false);
+    mObject data = val.get_obj();
+    mObject signedData = data["signedData"].get_obj();
+    mArray authors = signedData["author"].get_array();
+    mArray recipients = signedData["recipient"].get_array();
+    sort(authors.begin(), authors.end());
+    sort(recipients.begin(), recipients.end());
+    signedData["author"] = authors;
+    signedData["recipient"] = recipients;
+    data["signedData"] = signedData;
+    string strData = write_string(mValue(data), false);
 
     CIdentifiPacket packet;
     packet.SetData(strData);

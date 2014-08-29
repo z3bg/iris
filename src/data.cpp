@@ -1,6 +1,7 @@
 #include <string>
 #include <sstream>
 #include <boost/lexical_cast.hpp>
+#include <algorithm>
 #include "data.h"
 #include "base58.h"
 #include "json/json_spirit_value.h"
@@ -54,7 +55,7 @@ void CIdentifiPacket::UpdateSignatures() {
 
     read_string(strData, packet);
     data = packet.get_obj();
-    signedData = find_value(data, "signedData").get_obj();
+    signedData = data["signedData"].get_obj();
 
     signatureJSON["pubKey"] = signature.GetSignerPubKey();
     signatureJSON["signature"] = signature.GetSignature();
@@ -83,25 +84,25 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
             throw runtime_error("Json must be in json_spirit non-pretty print format and keys alphabetically sorted");
     }
 
-    signedData = find_value(data, "signedData").get_obj();
-    sigObj = find_value(data, "signature").get_obj();
+    signedData = data["signedData"].get_obj();
+    sigObj = data["signature"].get_obj();
     string strSignedData = write_string(mValue(signedData), false);
 
-    timestamp = find_value(signedData, "timestamp").get_int();
-    authorsArray = find_value(signedData, "author").get_array();
-    recipientsArray = find_value(signedData, "recipient").get_array();
-    type = find_value(signedData, "type").get_str();
+    timestamp = signedData["timestamp"].get_int();
+    authorsArray = signedData["author"].get_array();
+    recipientsArray = signedData["recipient"].get_array();
+    type = signedData["type"].get_str();
 
     bool hasRating = false;
     mValue val;
-    val = find_value(signedData, "rating");
+    val = signedData["rating"];
     if (val.type() != null_type)
         hasRating = true;
 
     if (hasRating) {
         rating = val.get_int();
-        minRating = find_value(signedData, "minRating").get_int();
-        maxRating = find_value(signedData, "maxRating").get_int();
+        minRating = signedData["minRating"].get_int();
+        maxRating = signedData["maxRating"].get_int();
         if (maxRating <= minRating ||
             rating > maxRating ||
             rating < minRating)
@@ -109,32 +110,52 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
     }
 
     if (authorsArray.empty())
-        throw runtime_error("Packets must have at least 1 subject");
+        throw runtime_error("Packets must have at least 1 author");
 
     if (recipientsArray.empty())
-        throw runtime_error("Packets must have at least 1 object");
+        throw runtime_error("Packets must have at least 1 recipient");
 
     for (mArray::iterator it = authorsArray.begin(); it != authorsArray.end(); it++) {
-        mArray subject = it->get_array();
-        if (subject.size() != 2)
-            throw runtime_error("Invalid packet subject length");
-        authors.push_back(make_pair(subject[0].get_str(), subject[1].get_str()));
+        mArray author = it->get_array();
+        if (!skipVerify) {
+            if (author.size() != 2)
+                throw runtime_error("Invalid packet author length");
+
+            if (it+1 != authorsArray.end()) {
+                mArray nextAuthor = (it+1)->get_array(); 
+                if ((author[0].get_str() > nextAuthor[0].get_str()) ||
+                    (author[0].get_str() == nextAuthor[0].get_str() && author[1].get_str() > nextAuthor[1].get_str()))
+                    throw runtime_error("Authors must be alphabetically sorted");
+            }
+        }
+
+        authors.push_back(make_pair(author[0].get_str(), author[1].get_str()));
     }
 
     for (mArray::iterator it = recipientsArray.begin(); it != recipientsArray.end(); it++) {
-        mArray object = it->get_array();
-        if (object.size() != 2)
-            throw runtime_error("Invalid packet object length");
-        recipients.push_back(make_pair(object[0].get_str(), object[1].get_str()));        
+        mArray recipient = it->get_array();
+        if (!skipVerify) {
+            if (recipient.size() != 2)
+                throw runtime_error("Invalid packet recipient length");
+
+            if (it+1 != recipientsArray.end()) {
+                mArray nextRecipient = (it+1)->get_array(); 
+                if ((recipient[0].get_str() > nextRecipient[0].get_str())
+                    || (recipient[0].get_str() == nextRecipient[0].get_str() && recipient[1].get_str() > nextRecipient[1].get_str()))
+                    throw runtime_error("Recipients must be alphabetically sorted");
+            }
+        }
+
+        recipients.push_back(make_pair(recipient[0].get_str(), recipient[1].get_str()));        
     }
 
     CSignature sig;
 
-    if (find_value(sigObj, "pubKey").type() != null_type && find_value(sigObj, "signature").type() != null_type) {
+    if (sigObj["pubKey"].type() != null_type && sigObj["signature"].type() != null_type) {
         if (sigObj.size() != 2)
             throw runtime_error("Signatures must contain only pubKey and signature");
-        string pubKey = find_value(sigObj, "pubKey").get_str();
-        string strSignature = find_value(sigObj, "signature").get_str();
+        string pubKey = sigObj["pubKey"].get_str();
+        string strSignature = sigObj["signature"].get_str();
         sig = CSignature(pubKey, strSignature);
         if (!skipVerify && !sig.IsValid(strSignedData))
             throw runtime_error("Invalid signature");
