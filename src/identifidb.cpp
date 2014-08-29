@@ -923,8 +923,8 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     sql << "INNER JOIN PacketIdentifiers AS pi ";
     sql << "ON pi.PredicateID = pred.ID AND pi.IdentifierID = id.ID ";
     if (useViewpoint) {
-        sql << "INNER JOIN Predicates AS viewPred ON viewPred.Value = @viewpred ";
-        sql << "INNER JOIN Identifiers AS viewId ON viewId.Value = @viewid ";
+        sql << "LEFT JOIN Predicates AS viewPred ON viewPred.Value = @viewpred ";
+        sql << "LEFT JOIN Identifiers AS viewId ON viewId.Value = @viewid ";
         sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicateID = pred.ID AND tp.EndID = id.ID ";
         sql << "AND tp.StartPredicateID = viewPred.ID AND tp.StartID = viewId.ID ";
     }
