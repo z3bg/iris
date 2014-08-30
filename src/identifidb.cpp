@@ -1620,6 +1620,7 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiPacket &packet) {
     int64 minPacketInterval = GetArg("-minpacketinterval", 86400);
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
+            if(packet.GetType() == "confirm_connection" || packet.GetType() == "refute_connection") continue;
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                 sqlite3_bind_text(statement, 1, packet.GetType().c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 2, author.first.c_str(), -1, SQLITE_TRANSIENT);
