@@ -608,6 +608,7 @@ string CIdentifiDB::GetCachedEmail(string_pair id) {
 }
 
 string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
+    if (valueType == id.first) return id.second;
     string value = "";
 
     sqlite3_stmt *statement;
