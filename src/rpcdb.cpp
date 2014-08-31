@@ -13,13 +13,13 @@
 using namespace json_spirit;
 using namespace std;
 
-Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = true) {
+Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = true, bool authorEmailOnly = true) {
     Array packetsJSON;
     BOOST_FOREACH(CIdentifiPacket packet, packets) {
         Object packetJSON = packet.GetJSON().get_obj();
         if (findNames) {            
             pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet, true);
-            pair<string, string> linkedEmails = pidentifidb->GetPacketLinkedEmails(packet, true);
+            pair<string, string> linkedEmails = pidentifidb->GetPacketLinkedEmails(packet, authorEmailOnly);
 
             CSignature signature = packet.GetSignature();
             string signerName = pidentifidb->GetCachedName(make_pair("keyID", signature.GetSignerKeyID()));
@@ -27,6 +27,8 @@ Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = 
             packetJSON.push_back(Pair("authorName", linkedNames.first));
             packetJSON.push_back(Pair("recipientName", linkedNames.second));
             packetJSON.push_back(Pair("authorEmail", linkedEmails.first));
+            if (!authorEmailOnly)
+                packetJSON.push_back(Pair("recipientEmail", linkedEmails.second));
             packetJSON.push_back(Pair("signerName", signerName));
         }
         packetsJSON.push_back(packetJSON);
@@ -234,7 +236,7 @@ Value getpath(const Array& params, bool fHelp)
     else
         packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
 
-    return packetVectorToJSONArray(packets);
+    return packetVectorToJSONArray(packets, true, false);
 }
 
 Value getsavedpath(const Array& params, bool fHelp)
