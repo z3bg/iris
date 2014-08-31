@@ -135,25 +135,25 @@ extern json_spirit::Value getpeerinfo(const json_spirit::Array& params, bool fHe
 extern json_spirit::Value addnode(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getaddednodeinfo(const json_spirit::Array& params, bool fHelp);
 
-extern json_spirit::Value getpacketcount(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value getmsgcount(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getidentifiercount(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getpacketbyhash(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getmsgbyhash(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value gettruststep(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getpacketsbyauthor(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getpacketsbyrecipient(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getpacketsafter(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getlatestpackets(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getmsgsbyauthor(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getmsgsbyrecipient(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getmsgsafter(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getlatestmsgs(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getsavedpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-extern json_spirit::Value savepacket(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value saverating(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value search(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value saveconnection(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value refuteconnection(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getconnections(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-extern json_spirit::Value getconnectingpackets(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value getconnectingmsgs(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value overview(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-extern json_spirit::Value deletepacket(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-extern json_spirit::Value savepacketfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value deletemsg(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value savemsgfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getname(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value listmykeys(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value importprivkey(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp

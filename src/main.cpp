@@ -120,7 +120,7 @@ bool static AlreadyHave(const CInv& inv)
     case MSG_PACKET:
         {
             try {
-                pidentifidb->GetPacketByHash(EncodeBase58(inv.hash));
+                pidentifidb->GetMessageByHash(EncodeBase58(inv.hash));
                 return true;
             } catch (runtime_error) {
                 return false;
@@ -170,11 +170,11 @@ void static ProcessGetData(CNode* pfrom)
                 }
                 if (!pushed && inv.type == MSG_PACKET) {
                     try {
-                        CIdentifiPacket packet = pidentifidb->GetPacketByHash(EncodeBase58(inv.hash));
+                        CIdentifiMessage msg = pidentifidb->GetMessageByHash(EncodeBase58(inv.hash));
                         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                         ss.reserve(10000);
-                        ss << packet;
-                        pfrom->PushMessage("packet", ss);
+                        ss << msg;
+                        pfrom->PushMessage("msg", ss);
                         pushed = true;
                     } catch(std::runtime_error &e) {
 
@@ -410,7 +410,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             boost::this_thread::interruption_point();
 
             if (inv.hash == 0) {
-                pfrom->PushGetPackets(0);
+                pfrom->PushGetMessages(0);
             } else {
                 pfrom->AddInventoryKnown(inv);
 
@@ -450,65 +450,65 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     }
 
 
-    else if (strCommand == "getpackets") {
+    else if (strCommand == "getmsgs") {
         time_t afterTimestamp;
         vRecv >> afterTimestamp;
 
         unsigned int nLimit = 500;
-        vector<CIdentifiPacket> packets;
+        vector<CIdentifiMessage> msgs;
 
         if (afterTimestamp == 0 && pfrom->hashContinue != 0) {
-            packets = pidentifidb->GetPacketsAfterPacket(EncodeBase58(pfrom->hashContinue), nLimit, 0, false);
+            msgs = pidentifidb->GetMessagesAfterMessage(EncodeBase58(pfrom->hashContinue), nLimit, 0, false);
         } else {
-            packets = pidentifidb->GetPacketsAfterTimestamp(afterTimestamp, nLimit, 0, false);            
+            msgs = pidentifidb->GetMessagesAfterTimestamp(afterTimestamp, nLimit, 0, false);            
         }
 
-        for (unsigned int i = 0; i < packets.size(); i++) {
-            pfrom->PushInventory(CInv(MSG_PACKET, packets.at(i).GetHash()));
+        for (unsigned int i = 0; i < msgs.size(); i++) {
+            pfrom->PushInventory(CInv(MSG_PACKET, msgs.at(i).GetHash()));
 
-            // Make them getpackets the next batch of inventory.
+            // Make them getmsgs the next batch of inventory.
             if (i == nLimit - 1) {
                 pfrom->PushInventory(CInv(MSG_PACKET, 0));
-                pfrom->hashContinue = packets.at(i).GetHash();
+                pfrom->hashContinue = msgs.at(i).GetHash();
             }
         }
-        if (packets.size() < nLimit)
+        if (msgs.size() < nLimit)
             pfrom->hashContinue = 0;
     }
 
 
 
 
-    else if (strCommand == "packet")
+    else if (strCommand == "msg")
     {
         vector<uint256> vWorkQueue;
         vector<uint256> vEraseQueue;
         CDataStream vMsg(vRecv);
-        CIdentifiPacket packet;
+        CIdentifiMessage msg;
         bool error = false;
         try {
-            vRecv >> packet;
+            vRecv >> msg;
         } catch (runtime_error &e) {
             pfrom->Misbehaving(1);
             error = true;
         }
 
         if (!error) {
-            CInv inv(MSG_PACKET, packet.GetHash());
+            CInv inv(MSG_PACKET, msg.GetHash());
             pfrom->AddInventoryKnown(inv);
-            RelayPacket(packet);
+            RelayMessage(msg);
             mapAlreadyAskedFor.erase(inv);
             vWorkQueue.push_back(inv.hash);
             vEraseQueue.push_back(inv.hash);
 
-            pidentifidb->SavePacket(packet);
-            pfrom->nLastPacketTime = packet.GetTimestamp();
+            pidentifidb->SaveMessage(msg);
+            pfrom->nLastMessageTime = msg.GetTimestamp();
         }
             /*
             CValidationState state;
-            if (packet.AcceptToDB(state))
+            if (msg.AcceptToDB(state))
             {
-                RelayPacket(packet, inv.hash, vMsg);
+                RelayMessage(msg, inv.hash, vMsg);
                 mapAlreadyAskedFor.erase(inv);
                 vWorkQueue.push_back(inv.hash);
                 vEraseQueue.push_back(inv.hash);
@@ -741,7 +741,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         if (pto->fStartSync) {
             pto->fStartSync = false;
 
-            pto->PushGetPackets(pto->nLastPacketTime);
+            pto->PushGetMessages(pto->nLastMessageTime);
         }
 
         // Address refresh broadcast

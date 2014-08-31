@@ -78,11 +78,11 @@ unsigned short GetListenPort()
     return (unsigned short)(GetArg("-port", GetDefaultPort()));
 }
 
-void CNode::PushGetPackets(time_t timestamp)
+void CNode::PushGetMessages(time_t timestamp)
 {
     if (fDebugNet)
-        printf("PushGetPackets(%lld)\n", (long long) timestamp);
-    PushMessage("getpackets", timestamp);
+        printf("PushGetMessages(%lld)\n", (long long) timestamp);
+    PushMessage("getmsgs", timestamp);
 }
 
 // find 'best' local address for a particular peer
@@ -1827,18 +1827,18 @@ instance_of_cnetcleanup;
 
 
 
-void RelayPacket(CIdentifiPacket& packet)
+void RelayMessage(CIdentifiMessage& msg)
 {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss.reserve(10000);
-    ss << packet;
-    RelayPacket(packet, ss);
+    ss << msg;
+    RelayMessage(msg, ss);
 }
 
-void RelayPacket(CIdentifiPacket& packet, const CDataStream& ss)
+void RelayMessage(CIdentifiMessage& msg, const CDataStream& ss)
 {
-    if (!packet.IsPublished()) return;
-    uint256 hash = packet.GetHash();
+    if (!msg.IsPublished()) return;
+    uint256 hash = msg.GetHash();
     CInv inv(MSG_PACKET, hash);
     {
         LOCK(cs_mapRelay);

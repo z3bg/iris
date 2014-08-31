@@ -59,17 +59,17 @@ private:
     string signerKeyID;         
 };
 
-class CIdentifiPacket {
+class CIdentifiMessage {
 public:
-    CIdentifiPacket(string strData = "", bool skipVerify = false) {
+    CIdentifiMessage(string strData = "", bool skipVerify = false) {
         if (!strData.empty())
             SetData(strData, skipVerify);
         published = false;
     }
-    bool operator== (const CIdentifiPacket &r) const {
+    bool operator== (const CIdentifiMessage &r) const {
         return (r.GetHash() == GetHash() && r.timestamp == timestamp);
     }
-    bool operator!= (const CIdentifiPacket &r) const {
+    bool operator!= (const CIdentifiMessage &r) const {
         return (r.GetHash() != GetHash() || r.timestamp != timestamp);
     }
     void SetData(string strData, bool skipVerify = false);
@@ -103,10 +103,10 @@ public:
             strData = GetData();
             READWRITE(strData);
         } else {
-            CIdentifiPacket *packet = const_cast<CIdentifiPacket*>(this);
+            CIdentifiMessage *msg = const_cast<CIdentifiMessage*>(this);
             READWRITE(strData);
-            packet->SetData(strData);
-            packet->SetPublished();
+            msg->SetData(strData);
+            msg->SetPublished();
         }
     )
 

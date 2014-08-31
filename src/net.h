@@ -197,7 +197,7 @@ protected:
 
 public:
     uint256 hashContinue;
-    time_t nLastPacketTime;
+    time_t nLastMessageTime;
     int nStartingHeight;
     bool fStartSync;
 
@@ -238,7 +238,7 @@ public:
         nSendSize = 0;
         nSendOffset = 0;
         hashContinue = 0;
-        nLastPacketTime = 0;
+        nLastMessageTime = 0;
         nStartingHeight = -1;
         fStartSync = true;
         fGetAddr = false;
@@ -589,7 +589,7 @@ public:
         }
     }
 
-    void PushGetPackets(time_t timestamp);
+    void PushGetMessages(time_t timestamp);
     bool IsSubscribed(unsigned int nChannel);
     void Subscribe(unsigned int nChannel, unsigned int nHops=0);
     void CancelSubscribe(unsigned int nChannel);
@@ -617,8 +617,8 @@ public:
     void copyStats(CNodeStats &stats);
 };
 
-void RelayPacket(CIdentifiPacket& rel);
-void RelayPacket(CIdentifiPacket& rel, const CDataStream& ss);
+void RelayMessage(CIdentifiMessage& rel);
+void RelayMessage(CIdentifiMessage& rel, const CDataStream& ss);
 
 
 #endif

@@ -18,7 +18,7 @@ static const char* ppszTypeName[] =
     "tx",
     "block",
     "filtered block",
-    "packet"
+    "msg"
 };
 
 CMessageHeader::CMessageHeader()

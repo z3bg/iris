@@ -13,65 +13,65 @@
 using namespace json_spirit;
 using namespace std;
 
-Array packetVectorToJSONArray(vector<CIdentifiPacket> packets, bool findNames = true, bool authorEmailOnly = true) {
-    Array packetsJSON;
-    BOOST_FOREACH(CIdentifiPacket packet, packets) {
-        Object packetJSON = packet.GetJSON().get_obj();
+Array msgVectorToJSONArray(vector<CIdentifiMessage> msgs, bool findNames = true, bool authorEmailOnly = true) {
+    Array msgsJSON;
+    BOOST_FOREACH(CIdentifiMessage msg, msgs) {
+        Object msgJSON = msg.GetJSON().get_obj();
         if (findNames) {            
-            pair<string, string> linkedNames = pidentifidb->GetPacketLinkedNames(packet, true);
-            pair<string, string> linkedEmails = pidentifidb->GetPacketLinkedEmails(packet, authorEmailOnly);
+            pair<string, string> linkedNames = pidentifidb->GetMessageLinkedNames(msg, true);
+            pair<string, string> linkedEmails = pidentifidb->GetMessageLinkedEmails(msg, authorEmailOnly);
 
-            CSignature signature = packet.GetSignature();
+            CSignature signature = msg.GetSignature();
             string signerName = pidentifidb->GetCachedName(make_pair("keyID", signature.GetSignerKeyID()));
 
-            packetJSON.push_back(Pair("authorName", linkedNames.first));
-            packetJSON.push_back(Pair("recipientName", linkedNames.second));
-            packetJSON.push_back(Pair("authorEmail", linkedEmails.first));
+            msgJSON.push_back(Pair("authorName", linkedNames.first));
+            msgJSON.push_back(Pair("recipientName", linkedNames.second));
+            msgJSON.push_back(Pair("authorEmail", linkedEmails.first));
             if (!authorEmailOnly)
-                packetJSON.push_back(Pair("recipientEmail", linkedEmails.second));
-            packetJSON.push_back(Pair("signerName", signerName));
+                msgJSON.push_back(Pair("recipientEmail", linkedEmails.second));
+            msgJSON.push_back(Pair("signerName", signerName));
         }
-        packetsJSON.push_back(packetJSON);
+        msgsJSON.push_back(msgJSON);
     }
-    return packetsJSON; 
+    return msgsJSON; 
 }
 
-Value getpacketcount(const Array& params, bool fHelp)
+Value getmsgcount(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getpacketcount\n"
-            "Returns the number of stored packets.");
+            "getmsgcount\n"
+            "Returns the number of stored msgs.");
 
-    return pidentifidb->GetPacketCount();
+    return pidentifidb->GetMessageCount();
 }
 
 Value getidentifiercount(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getpacketcount\n"
+            "getmsgcount\n"
             "Returns the number of stored identifiers.");
 
     return pidentifidb->GetIdentifierCount();
 }
 
-Value getpacketbyhash(const Array& params, bool fHelp)
+Value getmsgbyhash(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getpacketbyhash <hash>\n"
-            "Looks for a packet that matches the given hash.");
+            "getmsgbyhash <hash>\n"
+            "Looks for a msg that matches the given hash.");
 
-    vector<CIdentifiPacket> packets;
+    vector<CIdentifiMessage> msgs;
     try {
-        CIdentifiPacket packet = pidentifidb->GetPacketByHash(params[0].get_str()); 
-        packets.push_back(packet);       
+        CIdentifiMessage msg = pidentifidb->GetMessageByHash(params[0].get_str()); 
+        msgs.push_back(msg);       
     } catch (runtime_error) {
 
     }
 
-    return packetVectorToJSONArray(packets);
+    return msgVectorToJSONArray(msgs);
 }
 
 Value gettruststep(const Array& params, bool fHelp)
@@ -79,23 +79,23 @@ Value gettruststep(const Array& params, bool fHelp)
     if (fHelp || params.size() != 4)
         throw runtime_error(
             "gettruststep <start_predicate> <start_id> <end_predicate> <end_id>\n"
-            "Returns the hash of the next packet on the trust path from from start to end.");
+            "Returns the hash of the next msg on the trust path from from start to end.");
 
     string trustStep = pidentifidb->GetTrustStep(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
 
     return trustStep;
 }
 
-Value getpacketsbyauthor(const Array& params, bool fHelp)
+Value getmsgsbyauthor(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 8)
         throw runtime_error(
-            "getpacketsbyauthor <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <packetType>\n"
-            "Returns a list of packets associated with the given author identifier.");
+            "getmsgsbyauthor <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <msgType>\n"
+            "Returns a list of msgs associated with the given author identifier.");
 
-    vector<CIdentifiPacket> packets;
+    vector<CIdentifiMessage> msgs;
     int limit = 20, offset = 0, maxDistance = 0;
-    string viewpointIdType, viewpointIdValue, packetType;
+    string viewpointIdType, viewpointIdValue, msgType;
 
     if (params.size() > 2)
         limit = boost::lexical_cast<int>(params[2].get_str());
@@ -111,24 +111,24 @@ Value getpacketsbyauthor(const Array& params, bool fHelp)
         maxDistance = boost::lexical_cast<int>(params[6].get_str());
 
     if (params.size() > 7) {
-        packetType = params[7].get_str();
+        msgType = params[7].get_str();
     }
 
-    packets = pidentifidb->GetPacketsByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, packetType);
+    msgs = pidentifidb->GetMessagesByAuthor(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, msgType);
 
-    return packetVectorToJSONArray(packets);
+    return msgVectorToJSONArray(msgs);
 }
 
-Value getpacketsbyrecipient(const Array& params, bool fHelp)
+Value getmsgsbyrecipient(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 8 )
         throw runtime_error(
-            "getpacketsbyrecipient <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <packetType>\n"
-            "Returns a list of packets associated with the given recipient identifier.");
+            "getmsgsbyrecipient <id_type> <id_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <msgType>\n"
+            "Returns a list of msgs associated with the given recipient identifier.");
 
-    vector<CIdentifiPacket> packets;
+    vector<CIdentifiMessage> msgs;
     int limit = 20, offset = 0, maxDistance = 0;
-    string viewpointIdType, viewpointIdValue, packetType;
+    string viewpointIdType, viewpointIdValue, msgType;
 
     if (params.size() > 2)
         limit = boost::lexical_cast<int>(params[2].get_str());
@@ -145,25 +145,25 @@ Value getpacketsbyrecipient(const Array& params, bool fHelp)
     }
 
     if (params.size() > 7) {
-        packetType = params[7].get_str();
+        msgType = params[7].get_str();
     }
 
-    packets = pidentifidb->GetPacketsByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, packetType);
+    msgs = pidentifidb->GetMessagesByRecipient(make_pair(params[0].get_str(), params[1].get_str()), limit, offset, false, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, msgType);
 
-    return packetVectorToJSONArray(packets);
+    return msgVectorToJSONArray(msgs);
 
 }
 
-Value getpacketsafter(const Array& params, bool fHelp)
+Value getmsgsafter(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 7 )
         throw runtime_error(
-            "getpacketsafter <timestamp> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <packetType>\n"
-            "Get a list of packets after the given timestamp, limited to the given number of entries.");
+            "getmsgsafter <timestamp> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <msgType>\n"
+            "Get a list of msgs after the given timestamp, limited to the given number of entries.");
 
     time_t timestamp = boost::lexical_cast<int>(params[0].get_str());
     int limit = 20, offset = 0, maxDistance = 0;
-    string viewpointIdType, viewpointIdValue, packetType;
+    string viewpointIdType, viewpointIdValue, msgType;
 
     if (params.size() > 1)
         limit = boost::lexical_cast<int>(params[1].get_str());
@@ -181,23 +181,23 @@ Value getpacketsafter(const Array& params, bool fHelp)
     }
 
     if (params.size() > 6) {
-        packetType = params[6].get_str();
+        msgType = params[6].get_str();
     }
 
-    vector<CIdentifiPacket> packets = pidentifidb->GetPacketsAfterTimestamp(timestamp, limit, offset, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, packetType);
-    return packetVectorToJSONArray(packets);
+    vector<CIdentifiMessage> msgs = pidentifidb->GetMessagesAfterTimestamp(timestamp, limit, offset, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, msgType);
+    return msgVectorToJSONArray(msgs);
 
 }
 
-Value getlatestpackets(const Array& params, bool fHelp)
+Value getlatestmsgs(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 6)
         throw runtime_error(
-            "getlatestpackets <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <packetType>\n"
-            "Get a list of packets after the given timestamp, limited to the given number of entries.");
+            "getlatestmsgs <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <msgType>\n"
+            "Get a list of msgs after the given timestamp, limited to the given number of entries.");
 
     int limit = 20, offset = 0, maxDistance = 0;
-    string viewpointIdType, viewpointIdValue, packetType;
+    string viewpointIdType, viewpointIdValue, msgType;
     if (params.size() > 0)
         limit = boost::lexical_cast<int>(params[0].get_str());
 
@@ -214,11 +214,11 @@ Value getlatestpackets(const Array& params, bool fHelp)
     }
 
     if (params.size() > 5) {
-        packetType = params[5].get_str();
+        msgType = params[5].get_str();
     }
 
-    vector<CIdentifiPacket> packets = pidentifidb->GetLatestPackets(limit, offset, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, packetType);
-    return packetVectorToJSONArray(packets);
+    vector<CIdentifiMessage> msgs = pidentifidb->GetLatestMessages(limit, offset, true, make_pair(viewpointIdType, viewpointIdValue), maxDistance, msgType);
+    return msgVectorToJSONArray(msgs);
 
 }
 
@@ -227,16 +227,16 @@ Value getpath(const Array& params, bool fHelp)
     if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
             "getpath <id1_type> <id1> <id2_type> <id2> <search_depth=3>\n"
-            "Returns an array of packets that connect id1 and id2 with given predicates and optional max search depth.");
+            "Returns an array of msgs that connect id1 and id2 with given predicates and optional max search depth.");
 
-    Array packetsJSON;
-    vector<CIdentifiPacket> packets;
+    Array msgsJSON;
+    vector<CIdentifiMessage> msgs;
     if (params.size() == 4)
-        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true);
+        msgs = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true);
     else
-        packets = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
+        msgs = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
 
-    return packetVectorToJSONArray(packets, true, false);
+    return msgVectorToJSONArray(msgs, true, false);
 }
 
 Value getsavedpath(const Array& params, bool fHelp)
@@ -244,15 +244,15 @@ Value getsavedpath(const Array& params, bool fHelp)
     if (fHelp || params.size() != 4)
         throw runtime_error(
             "getsavedpath <id1_type> <id1> <id2_type> <id2>\n"
-            "Returns an array of packets that connect id1 and id2 with given predicates and optional max search depth.");
+            "Returns an array of msgs that connect id1 and id2 with given predicates and optional max search depth.");
 
-    Array packetsJSON;
-    vector<CIdentifiPacket> packets = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
-    for (vector<CIdentifiPacket>::iterator it = packets.begin(); it != packets.end(); ++it) {
-        packetsJSON.push_back(it->GetJSON());
+    Array msgsJSON;
+    vector<CIdentifiMessage> msgs = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
+    for (vector<CIdentifiMessage>::iterator it = msgs.begin(); it != msgs.end(); ++it) {
+        msgsJSON.push_back(it->GetJSON());
     }
 
-    return packetsJSON;
+    return msgsJSON;
 }
 
 Value search(const Array& params, bool fHelp)
@@ -332,12 +332,12 @@ Value overview(const Array& params, bool fHelp)
     return overviewJSON;
 }
 
-Value savepacket(const Array& params, bool fHelp)
+Value saverating(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 6 || params.size() > 7)
         throw runtime_error(
-            "savepacket <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <packet_comment> <rating[-10..10]> <publish=false>\n"
-            "Save a packet");
+            "saverating <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <msg_comment> <rating[-10..10]> <publish=false>\n"
+            "Save a msg");
 
     mArray author, author1, recipient, recipient1;
     mObject signature;
@@ -363,16 +363,16 @@ Value savepacket(const Array& params, bool fHelp)
     data["signature"] = signature;
 
     string strData = write_string(mValue(data), false);
-    CIdentifiPacket packet(strData);
+    CIdentifiMessage msg(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
-    packet.Sign(defaultKey);
+    msg.Sign(defaultKey);
 
     bool publish = (params.size() == 7 && params[6].get_str() == "true");
     if (publish) {
-        packet.SetPublished();
-        RelayPacket(packet);
+        msg.SetPublished();
+        RelayMessage(msg);
     }
-    return pidentifidb->SavePacket(packet);
+    return pidentifidb->SaveMessage(msg);
 }
 
 Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
@@ -409,16 +409,16 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
     data["signature"] = signature;
 
     string strData = write_string(mValue(data), false);
-    CIdentifiPacket packet(strData);
+    CIdentifiMessage msg(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
-    packet.Sign(defaultKey);
+    msg.Sign(defaultKey);
 
     bool publish = (params.size() == 7 && params[6].get_str() == "true");
     if (publish) {
-        packet.SetPublished();
-        RelayPacket(packet);
+        msg.SetPublished();
+        RelayMessage(msg);
     }
-    return pidentifidb->SavePacket(packet);
+    return pidentifidb->SaveMessage(msg);
 }
 
 Value saveconnection(const Array& params, bool fHelp) {
@@ -501,14 +501,14 @@ Value getconnections(const Array& params, bool fHelp) {
     return resultsJSON;
 }
 
-Value getconnectingpackets(const Array& params, bool fHelp) {
+Value getconnectingmsgs(const Array& params, bool fHelp) {
     if (fHelp || params.size() < 4 || params.size() > 10)
     throw runtime_error(
-        "getconnectingpackets <id1_type> <id1_value> <id2_type> <id2_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <packetType>\n"
-        "Get packets that link id1 and id2");
+        "getconnectingmsgs <id1_type> <id1_value> <id2_type> <id2_value> <limit=20> <offset=0> (<viewpointIdType> <viewpointIdValue> <maxDistance=0>) <msgType>\n"
+        "Get msgs that link id1 and id2");
 
     int limit = 20, offset = 0, maxDistance = 0;
-    string viewpointIdType, viewpointIdValue, packetType;
+    string viewpointIdType, viewpointIdValue, msgType;
     if (params.size() > 4)
         limit = boost::lexical_cast<int>(params[4].get_str());
 
@@ -525,19 +525,19 @@ Value getconnectingpackets(const Array& params, bool fHelp) {
     }
 
     if (params.size() > 9) {
-        packetType = params[9].get_str();
+        msgType = params[9].get_str();
     }
 
-    vector<CIdentifiPacket> results = pidentifidb->GetConnectingPackets(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), limit, offset, true, make_pair(viewpointIdType,viewpointIdValue), maxDistance, packetType);
-    return packetVectorToJSONArray(results);
+    vector<CIdentifiMessage> results = pidentifidb->GetConnectingMessages(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), limit, offset, true, make_pair(viewpointIdType,viewpointIdValue), maxDistance, msgType);
+    return msgVectorToJSONArray(results);
 }
 
-Value savepacketfromdata(const Array& params, bool fHelp)
+Value savemsgfromdata(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "savepacketfromdata <packet_json_data> <publish=false> <sign=true>\n"
-            "Save a packet.");
+            "savemsgfromdata <msg_json_data> <publish=false> <sign=true>\n"
+            "Save a msg.");
 
     // Canonicalize
     mValue val;
@@ -553,20 +553,20 @@ Value savepacketfromdata(const Array& params, bool fHelp)
     data["signedData"] = signedData;
     string strData = write_string(mValue(data), false);
 
-    CIdentifiPacket packet;
-    packet.SetData(strData);
+    CIdentifiMessage msg;
+    msg.SetData(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
     bool publish = (params.size() >= 2 && params[1].get_str() == "true");
-    if (packet.GetSignature().GetSignature().empty()) {
+    if (msg.GetSignature().GetSignature().empty()) {
         if (publish || !(params.size() == 3 && params[2].get_str() == "false")) {
-            packet.Sign(defaultKey);
+            msg.Sign(defaultKey);
         }
     }
     if (publish) {
-        packet.SetPublished();
-        RelayPacket(packet);
+        msg.SetPublished();
+        RelayMessage(msg);
     }
-    return pidentifidb->SavePacket(packet);
+    return pidentifidb->SaveMessage(msg);
 }
 
 Value getname(const Array& params, bool fHelp)
@@ -579,14 +579,14 @@ Value getname(const Array& params, bool fHelp)
     return pidentifidb->GetName(make_pair(params[0].get_str(), params[1].get_str()));
 }
 
-Value deletepacket(const Array& params, bool fHelp)
+Value deletemsg(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "deletepacket <packet_hash>\n"
-            "Delete a packet from the local database");
+            "deletemsg <msg_hash>\n"
+            "Delete a msg from the local database");
 
-    pidentifidb->DropPacket(params[0].get_str());
+    pidentifidb->DropMessage(params[0].get_str());
 
     return true;
 }
@@ -663,16 +663,16 @@ Value addsignature(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "addsignature <signed_packet_hash> <signer_pubkey> <signature>\n"
-            "Add a signature to a packet");
+            "addsignature <signed_msg_hash> <signer_pubkey> <signature>\n"
+            "Add a signature to a msg");
 
     CSignature sig(params[1].get_str(), params[2].get_str());
-    CIdentifiPacket packet = pidentifidb->GetPacketByHash(params[0].get_str());
+    CIdentifiMessage msg = pidentifidb->GetMessageByHash(params[0].get_str());
 
-    if (!packet.AddSignature(sig))
+    if (!msg.AddSignature(sig))
         throw runtime_error("Invalid signature");
 
-    pidentifidb->SavePacket(packet);
+    pidentifidb->SaveMessage(msg);
 
     return true;
 }
@@ -681,13 +681,13 @@ Value publish(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "publish <packet_hash>\n"
-            "Publish a previously local-only packet to the network");
+            "publish <msg_hash>\n"
+            "Publish a previously local-only msg to the network");
 
-    CIdentifiPacket rel = pidentifidb->GetPacketByHash(params[0].get_str());
+    CIdentifiMessage rel = pidentifidb->GetMessageByHash(params[0].get_str());
     rel.SetPublished();
-    RelayPacket(rel);
-    pidentifidb->SavePacket(rel);
+    RelayMessage(rel);
+    pidentifidb->SaveMessage(rel);
 
     return true;
 }

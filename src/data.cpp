@@ -24,37 +24,37 @@ IdentifiKey CKeyToIdentifiKey(CKey& key) {
     return identifiKey;
 }
 
-uint256 CIdentifiPacket::GetHash() const {
+uint256 CIdentifiMessage::GetHash() const {
     //return Hash(strData.begin(), strData.end());
     return GetSignedDataHash();
 }
 
-string CIdentifiPacket::GetHashStr() const {
+string CIdentifiMessage::GetHashStr() const {
     uint256 hash = GetSignedDataHash();
     return EncodeBase58(hash);
 }
 
-uint256 CIdentifiPacket::GetSignedDataHash() const {
+uint256 CIdentifiMessage::GetSignedDataHash() const {
     string signedData = GetSignedData();
     return Hash(signedData.begin(), signedData.end());
 }
 
-string CIdentifiPacket::GetData() const {
+string CIdentifiMessage::GetData() const {
     return strData;
 }
 
-string CIdentifiPacket::GetSignedData() const {
+string CIdentifiMessage::GetSignedData() const {
     Value json;
     read_string(strData, json);
     return write_string(Value(find_value(json.get_obj(), "signedData").get_obj()), false);
 }
 
-void CIdentifiPacket::UpdateSignatures() {
-    mValue packet;
+void CIdentifiMessage::UpdateSignatures() {
+    mValue msg;
     mObject data, newData, signedData, signatureJSON;
 
-    read_string(strData, packet);
-    data = packet.get_obj();
+    read_string(strData, msg);
+    data = msg.get_obj();
     signedData = data["signedData"].get_obj();
 
     signatureJSON["pubKey"] = signature.GetSignerPubKey();
@@ -66,7 +66,7 @@ void CIdentifiPacket::UpdateSignatures() {
     strData = write_string(mValue(newData), false);
 }
 
-void CIdentifiPacket::SetData(string strData, bool skipVerify) {
+void CIdentifiMessage::SetData(string strData, bool skipVerify) {
     mValue json;
     mObject data, signedData, sigObj;
     mArray authorsArray, recipientsArray;
@@ -78,7 +78,7 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
 
     if (!skipVerify) {
         if (data.size() != 2)
-            throw runtime_error("Packets must contain only signature and signedData");
+            throw runtime_error("Messages must contain only signature and signedData");
 
         if (write_string(json, false) != strData)
             throw runtime_error("Json must be in json_spirit non-pretty print format and keys alphabetically sorted");
@@ -110,16 +110,16 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
     }
 
     if (authorsArray.empty())
-        throw runtime_error("Packets must have at least 1 author");
+        throw runtime_error("Messages must have at least 1 author");
 
     if (recipientsArray.empty())
-        throw runtime_error("Packets must have at least 1 recipient");
+        throw runtime_error("Messages must have at least 1 recipient");
 
     for (mArray::iterator it = authorsArray.begin(); it != authorsArray.end(); it++) {
         mArray author = it->get_array();
         if (!skipVerify) {
             if (author.size() != 2)
-                throw runtime_error("Invalid packet author length");
+                throw runtime_error("Invalid msg author length");
 
             if (it+1 != authorsArray.end()) {
                 mArray nextAuthor = (it+1)->get_array(); 
@@ -136,7 +136,7 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
         mArray recipient = it->get_array();
         if (!skipVerify) {
             if (recipient.size() != 2)
-                throw runtime_error("Invalid packet recipient length");
+                throw runtime_error("Invalid msg recipient length");
 
             if (it+1 != recipientsArray.end()) {
                 mArray nextRecipient = (it+1)->get_array(); 
@@ -162,10 +162,10 @@ void CIdentifiPacket::SetData(string strData, bool skipVerify) {
     }
     signature = sig;
 
-    CIdentifiPacket::strData = strData;
+    CIdentifiMessage::strData = strData;
 }
 
-bool CIdentifiPacket::Sign(CKey& key) {
+bool CIdentifiMessage::Sign(CKey& key) {
     string signedData = GetSignedData();
     uint256 hashToSign = Hash(signedData.begin(), signedData.end());
 
@@ -183,7 +183,7 @@ bool CIdentifiPacket::Sign(CKey& key) {
     return true;
 }
 
-bool CIdentifiPacket::AddSignature(CSignature sig) {
+bool CIdentifiMessage::AddSignature(CSignature sig) {
     if (sig.IsValid(GetSignedData())) {
         signature = sig;
         UpdateSignatures();
@@ -192,74 +192,74 @@ bool CIdentifiPacket::AddSignature(CSignature sig) {
     return false;
 }
 
-vector<pair<string, string> > CIdentifiPacket::GetAuthors() const {
+vector<pair<string, string> > CIdentifiMessage::GetAuthors() const {
     return authors;
 }
 
-vector<pair<string, string> > CIdentifiPacket::GetRecipients() const {
+vector<pair<string, string> > CIdentifiMessage::GetRecipients() const {
     return recipients;
 }
 
-CSignature CIdentifiPacket::GetSignature() const {
+CSignature CIdentifiMessage::GetSignature() const {
     return signature;
 }
 
-time_t CIdentifiPacket::GetTimestamp() const {
+time_t CIdentifiMessage::GetTimestamp() const {
     return timestamp;
 }
 
-Value CIdentifiPacket::GetJSON() {
+Value CIdentifiMessage::GetJSON() {
     Value data;
-    Object packetJSON;
+    Object msgJSON;
 
     read_string(strData, data);
-    packetJSON.push_back(Pair("hash", GetHashStr()));
-    packetJSON.push_back(Pair("data", data));
-    packetJSON.push_back(Pair("published", published));
-    packetJSON.push_back(Pair("priority", priority));
-    packetJSON.push_back(Pair("signatureDetails", signature.GetJSON()));
+    msgJSON.push_back(Pair("hash", GetHashStr()));
+    msgJSON.push_back(Pair("data", data));
+    msgJSON.push_back(Pair("published", published));
+    msgJSON.push_back(Pair("priority", priority));
+    msgJSON.push_back(Pair("signatureDetails", signature.GetJSON()));
 
-    return packetJSON;
+    return msgJSON;
 }
 
-void CIdentifiPacket::SetPublished() {
+void CIdentifiMessage::SetPublished() {
     published = true;
 }
 
-bool CIdentifiPacket::IsPublished() {
+bool CIdentifiMessage::IsPublished() {
     return published;
 }
 
-int CIdentifiPacket::GetPriority() {
+int CIdentifiMessage::GetPriority() {
     return priority;
 }
 
-void CIdentifiPacket::SetPriority(int priority) {
-    CIdentifiPacket::priority = priority;
+void CIdentifiMessage::SetPriority(int priority) {
+    CIdentifiMessage::priority = priority;
 }
 
-int CIdentifiPacket::GetRating() const {
+int CIdentifiMessage::GetRating() const {
     return rating;
 }
 
-int CIdentifiPacket::GetMinRating() const {
+int CIdentifiMessage::GetMinRating() const {
     return minRating;
 }
 
-int CIdentifiPacket::GetMaxRating() const {
+int CIdentifiMessage::GetMaxRating() const {
     return maxRating;
 }
 
-bool CIdentifiPacket::IsPositive() const {
+bool CIdentifiMessage::IsPositive() const {
     if (maxRating * minRating == 0) return false;
     return (rating > (maxRating + minRating) / 2);
 }
 
-string CIdentifiPacket::GetComment() const {
+string CIdentifiMessage::GetComment() const {
     return comment;
 }
 
-string CIdentifiPacket::GetType() const {
+string CIdentifiMessage::GetType() const {
     return type;
 }
 
