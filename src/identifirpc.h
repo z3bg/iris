@@ -146,6 +146,7 @@ extern json_spirit::Value getlatestmsgs(const json_spirit::Array& params, bool f
 extern json_spirit::Value getpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getsavedpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value saverating(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value rate(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value search(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value saveconnection(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value refuteconnection(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp

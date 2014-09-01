@@ -36,6 +36,12 @@ Array msgVectorToJSONArray(vector<CIdentifiMessage> msgs, bool findNames = true,
     return msgsJSON; 
 }
 
+string getDefaultKeyID() {
+    CKey defaultKey = pidentifidb->GetDefaultKey();
+    IdentifiKey key = CKeyToIdentifiKey(defaultKey);
+    return key.keyID;
+}
+
 Value getmsgcount(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -332,11 +338,25 @@ Value overview(const Array& params, bool fHelp)
     return overviewJSON;
 }
 
+Value rate(const Array& params, bool fHelp) {
+    if (fHelp || params.size() < 3 || params.size() > 5)
+        throw runtime_error(
+            "rate <recipient_id_type> <recipient_id_value> <rating[-10..10]> <msg_comment=""> <publish=true>\n"
+            "Save a msg");
+
+    Value defaultKeyID = getDefaultKeyID();
+    Array p;
+    p.push_back(defaultKeyID);
+    p.push_back("keyID");
+    p.insert(p.end(), params.begin(), params.end());
+    return saverating(p, false);
+}
+
 Value saverating(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 6 || params.size() > 7)
+    if (fHelp || params.size() < 5 || params.size() > 7)
         throw runtime_error(
-            "saverating <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <msg_comment> <rating[-10..10]> <publish=false>\n"
+            "saverating <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <rating[-10..10]> <msg_comment=""> <publish=true>\n"
             "Save a msg");
 
     mArray author, author1, recipient, recipient1;
@@ -354,10 +374,12 @@ Value saverating(const Array& params, bool fHelp)
     signedData["author"] = author;
     signedData["recipient"] = recipient;
     signedData["type"] = "rating";
-    signedData["comment"] = params[4].get_str();
-    signedData["rating"] = lexical_cast<int>(params[5].get_str());
+    signedData["rating"] = lexical_cast<int>(params[4].get_str());
     signedData["maxRating"] = 10;
     signedData["minRating"] = -10;
+    
+    if (params.size() > 5)
+        signedData["comment"] = params[5].get_str();
 
     data["signedData"] = signedData;
     data["signature"] = signature;
@@ -367,7 +389,7 @@ Value saverating(const Array& params, bool fHelp)
     CKey defaultKey = pidentifidb->GetDefaultKey();
     msg.Sign(defaultKey);
 
-    bool publish = (params.size() == 7 && params[6].get_str() == "true");
+    bool publish = (params.size() < 7 || params[6].get_str() == "true");
     if (publish) {
         msg.SetPublished();
         RelayMessage(msg);
@@ -379,7 +401,7 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
 {
     if (fHelp || params.size() < 6 || params.size() > 7)
         throw runtime_error(
-            "saveconnection <author_id_type> <author_id_value> <connected_id1_type> <connected_id1_value> <connected_id2_type> <connected_id2_value> <publish=false>\n"
+            "saveconnection <author_id_type> <author_id_value> <connected_id1_type> <connected_id1_value> <connected_id2_type> <connected_id2_value> <publish=true>\n"
             "Save a connection between id1 and id2");
 
     mArray author, author1, recipient, connected1, connected2;
@@ -413,7 +435,7 @@ Value confirmOrRefuteConnection(const Array& params, bool fHelp, bool confirm)
     CKey defaultKey = pidentifidb->GetDefaultKey();
     msg.Sign(defaultKey);
 
-    bool publish = (params.size() == 7 && params[6].get_str() == "true");
+    bool publish = (params.size() < 7 || params[6].get_str() == "true");
     if (publish) {
         msg.SetPublished();
         RelayMessage(msg);
@@ -428,7 +450,7 @@ Value saveconnection(const Array& params, bool fHelp) {
 Value refuteconnection(const Array& params, bool fHelp) {
     if (fHelp || params.size() < 6 || params.size() > 7)
     throw runtime_error(
-        "refuteconnection <author_id_type> <author_id_value> <disconnected_id1_type> <disconnected_id1_value> <disconnected_id2_type> <disconnected_id2_value> <publish=false>\n"
+        "refuteconnection <author_id_type> <author_id_value> <disconnected_id1_type> <disconnected_id1_value> <disconnected_id2_type> <disconnected_id2_value> <publish=true>\n"
         "Save a connection between id1 and id2");
 
     return confirmOrRefuteConnection(params, fHelp, false);
@@ -442,9 +464,7 @@ Value generatetrustmap(const Array& params, bool fHelp) {
     
     string_pair id;
     if (params.size() == 0) { 
-        CKey defaultKey = pidentifidb->GetDefaultKey();
-        IdentifiKey key = CKeyToIdentifiKey(defaultKey);
-        id = make_pair("keyID", key.keyID);
+        id = make_pair("keyID", getDefaultKeyID());
     } else { 
         id = make_pair(params[0].get_str(), params[1].get_str());
     }
@@ -536,7 +556,7 @@ Value savemsgfromdata(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "savemsgfromdata <msg_json_data> <publish=false> <sign=true>\n"
+            "savemsgfromdata <msg_json_data> <publish=true> <sign=true>\n"
             "Save a msg.");
 
     // Canonicalize
@@ -556,7 +576,7 @@ Value savemsgfromdata(const Array& params, bool fHelp)
     CIdentifiMessage msg;
     msg.SetData(strData);
     CKey defaultKey = pidentifidb->GetDefaultKey();
-    bool publish = (params.size() >= 2 && params[1].get_str() == "true");
+    bool publish = (params.size() < 2 || params[1].get_str() == "true");
     if (msg.GetSignature().GetSignature().empty()) {
         if (publish || !(params.size() == 3 && params[2].get_str() == "false")) {
             msg.Sign(defaultKey);
