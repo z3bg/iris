@@ -342,7 +342,7 @@ Value rate(const Array& params, bool fHelp) {
     if (fHelp || params.size() < 3 || params.size() > 5)
         throw runtime_error(
             "rate <recipient_id_type> <recipient_id_value> <rating[-10..10]> <msg_comment=""> <publish=true>\n"
-            "Save a msg");
+            "Save a rating for an identifier, authored by your default key");
 
     Value defaultKeyID = getDefaultKeyID();
     Array p;
@@ -357,7 +357,7 @@ Value saverating(const Array& params, bool fHelp)
     if (fHelp || params.size() < 5 || params.size() > 7)
         throw runtime_error(
             "saverating <author_id_type> <author_id_value> <recipient_id_type> <recipient_id_value> <rating[-10..10]> <msg_comment=""> <publish=true>\n"
-            "Save a msg");
+            "Save a rating from author to recipient");
 
     mArray author, author1, recipient, recipient1;
     mObject signature;
