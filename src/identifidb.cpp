@@ -224,7 +224,7 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS MessageIdentifiers (";
-    sql << "MessageHash          NVARCHAR(45)    NOT NULL,";
+    sql << "MessageHash         NVARCHAR(45)    NOT NULL,";
     sql << "PredicateID         INTEGER         NOT NULL,";
     sql << "IdentifierID        INTEGER         NOT NULL,";
     sql << "IsRecipient         BOOL            NOT NULL,";
@@ -250,7 +250,7 @@ void CIdentifiDB::Initialize() {
     sql << "FOREIGN KEY(StartPredicateID)   REFERENCES Predicates(ID),";
     sql << "FOREIGN KEY(EndID)              REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(EndPredicateID)     REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(NextStep)           REFERENCES Messages(MessageHash));";
+    sql << "FOREIGN KEY(NextStep)           REFERENCES Messages(Hash));";
     query(sql.str().c_str());
 
     sql.str("");
