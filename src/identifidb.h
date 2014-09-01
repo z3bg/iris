@@ -20,7 +20,7 @@ using namespace std;
 class CIdentifiDB
 {
 public:
-    CIdentifiDB(int sqliteMaxSize = 1000, const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
+    CIdentifiDB(int sqliteMaxSize = 200, const boost::filesystem::path &filename = (GetDataDir() / "db.sqlite"));
     ~CIdentifiDB();
     void Initialize();
     vector<CIdentifiMessage> GetLatestMessages(int limit = 10, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "");
@@ -76,6 +76,7 @@ public:
     bool Write(const CAddrMan& addr);
     bool Read(CAddrMan& addr);
     boost::filesystem::path pathAddr;
+
 private:
     sqlite3 *db;
     CKey defaultKey;

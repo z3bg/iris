@@ -262,7 +262,7 @@ std::string HelpMessage()
         "  -pid=<file>            " + _("Specify pid file (default: identifid.pid)") + "\n" +
         "  -datadir=<dir>         " + _("Specify data directory") + "\n" +
         "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n" +
-        "  -dbmaxsize=<n>         " + _("Set database maximum size in megabytes (default: 1000)") + "\n" +
+        "  -dbmaxsize=<n>         " + _("Set database maximum size in megabytes (default: 200)") + "\n" +
         "  -saveuntrustedmsgs=<n> " + _("Save msgs that are not connected to your WoT (default: 1)") + "\n" +
         "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n" +
         "  -proxy=<ip:port>       " + _("Connect through socks proxy") + "\n" +
@@ -284,6 +284,7 @@ std::string HelpMessage()
         "  -bantime=<n>           " + _("Number of seconds to keep misbehaving peers from reconnecting (default: 86400)") + "\n" +
         "  -maxreceivebuffer=<n>  " + _("Maximum per-connection receive buffer, <n>*1000 bytes (default: 5000)") + "\n" +
         "  -maxsendbuffer=<n>     " + _("Maximum per-connection send buffer, <n>*1000 bytes (default: 1000)") + "\n" +
+        "  -minmsginterval=<n>    " + _("Don't remove previous packet of the same type from A->B if it's older than this (default: 2592000 (30 days))") + "\n" +
 #ifdef USE_UPNP
 #if USE_UPNP
         "  -upnp                  " + _("Use UPnP to map the listening port (default: 1 when listening)") + "\n" +
@@ -609,7 +610,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     nTotalCache -= nCoinDBCache;
 
     // SQLite size in megabytes
-    int sqliteMaxSize = GetArg("-dbmaxsize", 1000);
+    int sqliteMaxSize = GetArg("-dbmaxsize", 200);
 
     pidentifidb = new CIdentifiDB(sqliteMaxSize);
 

@@ -1618,7 +1618,7 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     vector<string_pair> recipients = msg.GetRecipients();
     vector<string> msgsToDelete;
 
-    int64 minMessageInterval = GetArg("-minmsginterval", 86400);
+    int64 minMessageInterval = GetArg("-minmsginterval", 30 * 24 * 60 * 60);
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
             if(msg.GetType() == "confirm_connection" || msg.GetType() == "refute_connection") continue;
