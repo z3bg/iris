@@ -98,8 +98,6 @@ Identifi is released under the terms of the MIT license. See `COPYING` for more 
 Data format
 -----------
 
-Using JSON serialization for the prototype. BSON might be more efficient to process and would enable binary fields for attachments such as images.
-
 Suggested data format for Identifi packets:
 
 ```
