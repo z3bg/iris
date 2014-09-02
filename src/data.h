@@ -62,6 +62,9 @@ private:
 class CIdentifiMessage {
 public:
     CIdentifiMessage(string strData = "", bool skipVerify = false) {
+        maxRating = 0;
+        minRating = 0;
+        rating = 0;
         if (!strData.empty())
             SetData(strData, skipVerify);
         published = false;
