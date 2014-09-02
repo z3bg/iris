@@ -289,10 +289,12 @@ Value search(const Array& params, bool fHelp)
     vector<string_pair> results = pidentifidb->SearchForID(query, limit, offset, false, viewpoint);
 
     BOOST_FOREACH(string_pair result, results) {
-        Array pair;
-        pair.push_back(result.first);
-        pair.push_back(result.second);
-        resultsJSON.push_back(pair);
+        string email = pidentifidb->GetCachedEmail(result);
+        Object o;
+        o.push_back(Pair("type",result.first));
+        o.push_back(Pair("value",result.second));
+        o.push_back(Pair("email",email));
+        resultsJSON.push_back(o);
     }
 
     return resultsJSON;

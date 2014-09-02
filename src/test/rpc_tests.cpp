@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_msgs)
     BOOST_CHECK_EQUAL(r.get_int(), 8);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 14);
+    BOOST_CHECK_EQUAL(r.get_int(), 13);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor email alice@example.com"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(save_and_read_msgs)
     BOOST_CHECK_NO_THROW(r=CallRPC("savemsgfromdata {\"signedData\":{\"timestamp\":1234567,\"author\":[[\"mbox\",\"mailto:alice@example.com\"],[\"profile\",\"http://www.example.com/alice\"]],\"recipient\":[[\"mbox\",\"mailto:bob@example.com\"],[\"profile\",\"http://www.example.com/bob\"]],\"type\":\"review\",\"comment\":\"thanks\",\"rating\":100,\"minRating\":-100,\"maxRating\":100},\"signature\":{}} false"));
     BOOST_CHECK_EQUAL(r.get_str(), "H3EpyBikTvEJwffX5kj3FaDBL4Lub3ZzJz5JAGuYzRCs");
     BOOST_CHECK_NO_THROW(r=CallRPC("getidentifiercount"));
-    BOOST_CHECK_EQUAL(r.get_int(), 18);
+    BOOST_CHECK_EQUAL(r.get_int(), 17);
 
     BOOST_CHECK_NO_THROW(r=CallRPC("getmsgbyhash H3EpyBikTvEJwffX5kj3FaDBL4Lub3ZzJz5JAGuYzRCs"));
     BOOST_CHECK_EQUAL(find_value(r.get_array().front().get_obj(), "published").get_bool(), false);
