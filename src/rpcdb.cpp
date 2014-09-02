@@ -346,8 +346,8 @@ Value rate(const Array& params, bool fHelp) {
 
     Value defaultKeyID = getDefaultKeyID();
     Array p;
-    p.push_back(defaultKeyID);
     p.push_back("keyID");
+    p.push_back(defaultKeyID);
     p.insert(p.end(), params.begin(), params.end());
     return saverating(p, false);
 }
