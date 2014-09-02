@@ -245,7 +245,7 @@ void CIdentifiDB::Initialize() {
     sql << "EndPredicateID      INTEGER         NOT NULL,";
     sql << "NextStep            NVARCHAR(45)    NOT NULL,";
     sql << "Distance            INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(StartID, StartPredicateID, EndID, EndPredicateID, NextStep),";
+    sql << "PRIMARY KEY(StartID, StartPredicateID, EndID, EndPredicateID, NextStep, Distance),";
     sql << "FOREIGN KEY(StartID)            REFERENCES Identifiers(ID),";
     sql << "FOREIGN KEY(StartPredicateID)   REFERENCES Predicates(ID),";
     sql << "FOREIGN KEY(EndID)              REFERENCES Identifiers(ID),";
@@ -2663,8 +2663,6 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
         sql << "tp.EndPredicateID = author.PredicateID ";
         if (maxDistance > 0)
             sql << "AND tp.Distance <= @maxDistance";
-        else
-            sql << "AND tp.Distance >= 0"; // Makes the query not last several minutes, for some reason
         sql << ") ";
     }
 }
