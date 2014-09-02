@@ -937,7 +937,7 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     sql << "id.Value LIKE '%' || @query || '%' ";
 
     if (useViewpoint)
-        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC ";
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, pred.TrustPathable DESC ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
