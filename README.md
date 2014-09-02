@@ -102,35 +102,38 @@ Using JSON serialization for the prototype. BSON might be more efficient to proc
 
 Suggested data format for Identifi packets:
 
-    {
-    	'signedData':
-    	{
-	    	'timestamp': 1373924495,
-		    'author':
-		    [
-		    	['name', 'Alice Smith'],
-		    	['email', 'alice@example.com']
-		    ],
-  			'recipient':
-  			[
-  	    		['nick', 'Bob the Builder'],
-  	    		['url','http://twitter.com/bob'],
-  	    		['url','http://www.facebook.com/bob'],
-  	    		['depiction','magnet:<photo hash>?xs=http://example.com/1.jpg']
-  			],
-  			'responseTo': ['magnet:<hash of bob's message>'],
-  			'type': 'review',
-  			'comment': 'Bought a laptop from Bob. Thanks for the trade!',
-  			'rating': 1,
-  			'maxRating': 10,
-  			'minRating': -10
-  		},
-  		'signature':
-  		{
-  			'signerPubKey': 'RXfBZLerFkiD9k3LgreFbiGEyNFjxRc61YxAdPtHPy7HpDDxBQB62UBJLDniZwxXcf849WSra1u6TDCvUtdJxFJU',
-  			'signature': 'AN1rKoqJauDSAeJFjoCayzCk7iYjVLBtCMeACm5xG6mup6cVkw7zrWrZk35W2K7892KKstbdqEpRYWVPejKLDw12HPnF3fQCH'
-  		}
-  	}
+```
+{
+    "signature": {
+      "pubKey": "PA4oX2htY38kXuNVnvNxXHiSiafcfJJyxJntwfgx7tgisjVbuEZcb1v3V2dojuHkrRyfVNu9Xi24nFcSPEdEvLeN",
+      "signature": "AN1rKpVZvbBCZBcpTMyT9eaEsby8gRoYeNwkf8osYHQKLddPiFaYgiyME1ZKKzkgJRutxzQA5R6FLGCy5rJYWZZ67egTRnXot"
+    },
+    "signedData": {
+      "author": [
+        [
+          "keyID",
+          "1DqrzTcimQp3Ye88oHgxdU7DBTsM2TRYFj"
+        ]
+      ],
+      "comment": "Identifi developers' key, trusted by default",
+      "maxRating": 1,
+      "minRating": -1,
+      "rating": 1,
+      "recipient": [
+        [
+          "keyID",
+          "147cQZJ7Bd4ErnVYZahLfCaecJVkJVvqBP"
+        ],
+        [
+          "nickname",
+          "Identifi dev key 1"
+        ]
+      ],
+      "timestamp": 1409307849,
+      "type": "rating"
+    }
+}
+```
 
 SignedData may optionally contain additional fields.
 
@@ -144,7 +147,7 @@ Message encoding is UTF-8.
 Future considerations
 ---------------------
 
-Browser plugin implementation
+Browser plugin & mobile app
 
 Query packets from peers by trust viewpoint? "Send me the trust tree from [ID] with packets after [timestamp] as leaves." Would help counter spam and irrelevant content.
 
@@ -159,5 +162,3 @@ Use external SQL DB instead of sqlite for better multi-application access to dat
 [ArangoDB](https://www.arangodb.org/) graph database? Could enable on-demand trust path finding and eliminate the need for caching them.
 
 Use [GPGME](http://www.gnupg.org/related_software/gpgme) to integrate with PGP web of trust? Could provide a nice entry point into the Identifi WoT for many people.
-
-Serialize in BSON to improve efficiency and enable embedded binary (images etc)? It's also a canonical format unlike JSON by default.
