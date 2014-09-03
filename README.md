@@ -72,7 +72,7 @@ Building
 
     sudo apt-get install build-essential libssl-dev libboost-all-dev libsqlite3-dev libminiupnpc-dev
 
-    git clone git@github.com:identifi/identifi.git
+    git clone git://github.com/identifi/identifi.git
     cd ./identifi/src
     make -f makefile.unix
 
@@ -82,7 +82,7 @@ Developing
 ----------
 Core functionality of the implementation is in identifidb.cpp, data.cpp and rpcdb.cpp.
 
-Get the daemon running with `./identifid -daemon`. Call the JSON-RPC with .`./identifid rpccommand`. Rpc_tests.cpp shows how to use the RPC.
+Get the daemon running with `./identifi -daemon`. Call the JSON-RPC with .`./identifi rpccommand`. Rpc_tests.cpp shows how to use the RPC.
 
 The program connects to a seed node from DNS by default and requests for packets created after a certain timestamp. Identifi developers' ECDSA pubkey is included and trusted by default as an entry point to the WoT. You need to connect your own pubkey or other identifiers to the WoT if you want your packets prioritized over spam by other nodes. An example website for this TBD.
 
