@@ -18,7 +18,6 @@ using namespace std;
 using namespace boost;
 
 typedef std::pair<string, string> string_pair;
-typedef std::pair<int, int> int_pair;
 
 struct IdentifiKey {
     string pubKey;

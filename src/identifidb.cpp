@@ -41,7 +41,6 @@ CIdentifiDB::CIdentifiDB(int sqliteMaxSize, const filesystem::path &filename) {
     if (sqlite3_open(filename.string().c_str(), &db) == SQLITE_OK) {
         Initialize();
         SetMaxSize(sqliteMaxSize);
-        GetDefaultKeyFromDB();
 
         dbWorker = new thread(&CIdentifiDB::DBWorker, this);
 
@@ -101,20 +100,20 @@ void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
 }
 
 void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM Predicates");
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM TrustPathablePredicates");
     if (lexical_cast<int>(result[0][0]) < 1) {
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('mbox', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('email', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('account', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('url', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('tel', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('keyID', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('base58pubkey', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('bitcoin_address', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('identifi_msg', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('twitter', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('facebook', 1)");
-        query("INSERT INTO Predicates (Value, TrustPathable) VALUES ('google_oauth2', 1)");
+        query("INSERT INTO TrustPathablePredicates VALUES ('mbox')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('email')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('account')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('url')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('tel')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('keyID')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('base58pubkey')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('bitcoin_address')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('identifi_msg')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('twitter')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('facebook')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('google_oauth2')");
     }
 }
 
@@ -127,6 +126,8 @@ void CIdentifiDB::CheckDefaultKey() {
         CSecret secret = newKey.GetSecret(compressed);
         string strPrivateKey = CIdentifiSecret(secret, compressed).ToString();
         SetDefaultKey(strPrivateKey);
+    } else {
+        defaultKey = GetDefaultKeyFromDB();
     }
 }
 
@@ -190,17 +191,8 @@ void CIdentifiDB::Initialize() {
     ostringstream sql;
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS Identifiers (";
-    sql << "ID              INTEGER         PRIMARY KEY,";
-    sql << "Value           NVARCHAR(255)   NOT NULL";
-    sql << ");";
-    query(sql.str().c_str());
-
-    sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS Predicates (";
-    sql << "ID                  INTEGER         PRIMARY KEY,";
-    sql << "Value               NVARCHAR(255)   NOT NULL,";
-    sql << "TrustPathable       BOOL            DEFAULT 0";
+    sql << "CREATE TABLE IF NOT EXISTS TrustPathablePredicates (";
+    sql << "Value               NVARCHAR(255)   PRIMARY KEY";
     sql << ");";
     query(sql.str().c_str());
 
@@ -209,80 +201,65 @@ void CIdentifiDB::Initialize() {
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME        NOT NULL,";
-    sql << "PredicateID         INTEGER         NOT NULL,";
+    sql << "Predicate           INTEGER         NOT NULL,";
     sql << "Rating              INTEGER         DEFAULT 0 NOT NULL,";
     sql << "MinRating           INTEGER         DEFAULT 0 NOT NULL,";
     sql << "MaxRating           INTEGER         DEFAULT 0 NOT NULL,";
     sql << "Published           BOOL            DEFAULT 0 NOT NULL,";
     sql << "Priority            INTEGER         DEFAULT 0 NOT NULL,";
-    sql << "SignerPubKeyID      INTEGER         NOT NULL,";
+    sql << "SignerPubKey        NVARCHAR(255)   NOT NULL,";
     sql << "Signature           NVARCHAR(100)   NOT NULL,";
-    sql << "IsLatest            BOOL            DEFAULT 0 NOT NULL,";
-    sql << "FOREIGN KEY(SignerPubKeyID)     REFERENCES Identifiers(ID)";
+    sql << "IsLatest            BOOL            DEFAULT 0 NOT NULL";
     sql << ");";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS MessageIdentifiers (";
     sql << "MessageHash         NVARCHAR(45)    NOT NULL,";
-    sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "IdentifierID        INTEGER         NOT NULL,";
+    sql << "Predicate           NVARCHAR(255)   NOT NULL,";
+    sql << "Identifier          NVARCHAR(255)   NOT NULL,";
     sql << "IsRecipient         BOOL            NOT NULL,";
-    sql << "PRIMARY KEY(MessageHash, PredicateID, IdentifierID, IsRecipient),";
-    sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
+    sql << "PRIMARY KEY(MessageHash, Predicate, Identifier, IsRecipient),";
     sql << "FOREIGN KEY(MessageHash)     REFERENCES Messages(Hash));";
     query(sql.str().c_str());
     query("CREATE INDEX IF NOT EXISTS PIIndex ON MessageIdentifiers(MessageHash)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_predID ON MessageIdentifiers(PredicateID)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_idID ON MessageIdentifiers(IdentifierID)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_predID ON MessageIdentifiers(Predicate)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_idID ON MessageIdentifiers(Identifier)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
-    sql << "StartID             INTEGER         NOT NULL,";
-    sql << "StartPredicateID    INTEGER         NOT NULL,";
-    sql << "EndID               INTEGER         NOT NULL,";
-    sql << "EndPredicateID      INTEGER         NOT NULL,";
+    sql << "StartID             NVARCHAR(255)   NOT NULL,";
+    sql << "StartPredicate      NVARCHAR(255)   NOT NULL,";
+    sql << "EndID               NVARCHAR(255)   NOT NULL,";
+    sql << "EndPredicate        NVARCHAR(255)   NOT NULL,";
     sql << "NextStep            NVARCHAR(45)    NOT NULL,";
     sql << "Distance            INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(StartID, StartPredicateID, EndID, EndPredicateID, NextStep, Distance),";
-    sql << "FOREIGN KEY(StartID)            REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(StartPredicateID)   REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(EndID)              REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(EndPredicateID)     REFERENCES Predicates(ID),";
+    sql << "PRIMARY KEY(StartID, StartPredicate, EndID, EndPredicate, NextStep, Distance),";
     sql << "FOREIGN KEY(NextStep)           REFERENCES Messages(Hash));";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Keys (";
-    sql << "PubKeyID            INTEGER         PRIMARY KEY,";
-    sql << "KeyIdentifierID     INTEGER         DEFAULT NULL,";
+    sql << "PubKey              NVARCHAR(255)   PRIMARY KEY,";
+    sql << "KeyID               NVARCHAR(255)   DEFAULT NULL,";
     sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
-    sql << "IsDefault           BOOL            NOT NULL DEFAULT 0,";
-    sql << "FOREIGN KEY(KeyIdentifierID)    REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PubKeyID)           REFERENCES Identifiers(ID));";
+    sql << "IsDefault           BOOL            NOT NULL DEFAULT 0)";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS CachedNames (";
-    sql << "IdentifierID        INTEGER         NOT NULL,";
-    sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "CachedNameID        INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(PredicateID, IdentifierID),";
-    sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(CachedNameID)   REFERENCES Identifiers(ID))";
+    sql << "Identifier          NVARCHAR(255)   NOT NULL,";
+    sql << "Predicate           NVARCHAR(255)   NOT NULL,";
+    sql << "CachedName          NVARCHAR(255)   NOT NULL,";
+    sql << "PRIMARY KEY(Predicate, Identifier))";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS CachedEmails (";
-    sql << "IdentifierID        INTEGER         NOT NULL,";
-    sql << "PredicateID         INTEGER         NOT NULL,";
-    sql << "CachedEmailID       INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(PredicateID, IdentifierID),";
-    sql << "FOREIGN KEY(IdentifierID)   REFERENCES Identifiers(ID),";
-    sql << "FOREIGN KEY(PredicateID)    REFERENCES Predicates(ID),";
-    sql << "FOREIGN KEY(CachedEmailID)   REFERENCES Identifiers(ID))";
+    sql << "Identifier        NVARCHAR(255)         NOT NULL,";
+    sql << "Predicate         NVARCHAR(255)         NOT NULL,";
+    sql << "CachedEmail       NVARCHAR(255)         NOT NULL,";
+    sql << "PRIMARY KEY(Predicate, Identifier))";
     query(sql.str().c_str());
 
     CheckDefaultTrustPathablePredicates();
@@ -298,56 +275,14 @@ void CIdentifiDB::SearchForPathForMyKeys() {
     }
 }
 
-vector<string_pair> CIdentifiDB::GetAuthorsOrRecipientsByMessageHash(string msgHash, bool isRecipient) {
-    vector<string_pair> authors;
-    sqlite3_stmt *statement;
-    ostringstream sql;
-
-    sql.str("");
-    sql << "SELECT p.Value, id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = @msghash ";
-    sql << "INNER JOIN Predicates AS p ON pi.PredicateID = p.ID ";
-    sql << "WHERE id.ID = pi.IdentifierID AND pi.IsRecipient = @isrecipient;";
-
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, msgHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 2, isRecipient);
-
-        int result = 0;
-        while(true) {
-            result = sqlite3_step(statement);
-             
-            if(result == SQLITE_ROW) {
-                string predicate = string((char*)sqlite3_column_text(statement, 0));
-                string identifier = string((char*)sqlite3_column_text(statement, 1));
-                authors.push_back(make_pair(predicate, identifier));
-            } else {
-                break;  
-            }
-        }
-    }
-
-    sqlite3_finalize(statement);
-    return authors;
-}
-
-vector<string_pair> CIdentifiDB::GetAuthorsByMessageHash(string msgHash) {
-    return GetAuthorsOrRecipientsByMessageHash(msgHash, false);
-}
-
-vector<string_pair> CIdentifiDB::GetRecipientsByMessageHash(string msgHash) {
-    return GetAuthorsOrRecipientsByMessageHash(msgHash, true);
-}
-
 vector<CIdentifiMessage> CIdentifiDB::GetMessagesBySigner(string_pair keyID) {
     sqlite3_stmt *statement;
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
     sql << "SELECT * FROM Messages ";
-    sql << "INNER JOIN Keys ON Keys.PubKeyID = SignerPubKeyID ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = Keys.KeyIdentifierID ";
-    sql << "WHERE id.Value = ?";
+    sql << "INNER JOIN Keys ON Keys.PubKey = SignerPubKey ";
+    sql << "WHERE Keys.KeyID = ?";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, keyID.second.c_str(), -1, SQLITE_TRANSIENT);
         while (true) {
@@ -373,22 +308,20 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByIdentifier(string_pair identi
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
-    sql << "INNER JOIN Predicates AS pred ON pi.PredicateID = pred.ID ";
     sql << "WHERE ";
 
     if (filterMessageType)
-        sql << "msgType.Value = @msgType AND ";
+        sql << "p.Predicate = @msgType AND ";
 
     if (!identifier.first.empty())
-        sql << "pred.Value = @predValue AND ";
+        sql << "pi.Predicate = @predValue AND ";
     else if (trustPathablePredicatesOnly)
         sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     if (latestOnly)
         sql << "p.IsLatest = 1 AND ";
-    sql << "id.Value = @idValue ";
+    sql << "pi.Identifier = @idValue ";
     AddMessageFilterSQLWhere(sql, viewpoint);
     
     sql << "ORDER BY p.Created ";
@@ -468,27 +401,23 @@ vector<CIdentifiMessage> CIdentifiDB::GetConnectingMessages(string_pair id1, str
     sql << "ON (LinkedID1.MessageHash = p.Hash AND LinkedID1.IsRecipient = 1) ";
     sql << "INNER JOIN MessageIdentifiers AS LinkedID2 ";
     sql << "ON (LinkedID2.MessageHash = p.Hash AND LinkedID2.IsRecipient = 1 ";
-    sql << "AND NOT (LinkedID1.IdentifierID = LinkedID2.IdentifierID AND LinkedID1.PredicateID = LinkedID2.PredicateID)) ";
-    sql << "INNER JOIN Predicates AS ID1type ON ID1type.ID = LinkedID1.PredicateID ";
-    sql << "INNER JOIN Predicates AS ID2type ON ID2type.ID = LinkedID2.PredicateID ";
-    sql << "INNER JOIN Identifiers AS ID1value ON ID1value.ID = LinkedID1.IdentifierID ";
-    sql << "INNER JOIN Identifiers AS ID2value ON ID2value.ID = LinkedID2.IdentifierID ";
-    sql << "WHERE ID1type.Value = @id1type AND ID1value.Value = @id1value AND ";
-    sql << "ID2type.Value = @id2type AND ID2value.Value = @id2value ";
+    sql << "AND NOT (LinkedID1.Identifier = LinkedID2.Identifier AND LinkedID1.Predicate = LinkedID2.Predicate)) ";
+    sql << "WHERE LinkedID1.Predicate = @id1type AND LinkedID1.Identifier = @id1value AND ";
+    sql << "LinkedID2.Predicate = @id2type AND LinkedID2.Identifier = @id2value ";
     AddMessageFilterSQLWhere(sql, viewpoint);
 
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "AND msgType.Value != @msgType ";
+            sql << "AND p.Predicate != @msgType ";
         } else {
-            sql << "AND msgType.Value = @msgType ";
+            sql << "AND p.Predicate = @msgType ";
         }
     }
 
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
 
-    sql << "GROUP BY LinkAuthor.PredicateID, LinkAuthor.IdentifierID ";
+    sql << "GROUP BY LinkAuthor.Predicate, LinkAuthor.Identifier ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -617,17 +546,11 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     sql.str("");
 
     if (valueType == "name") {
-        sql << "SELECT nameID.Value FROM CachedNames AS cn ";
-        sql << "INNER JOIN Identifiers AS searchedID ON cn.IdentifierID = searchedID.ID ";
-        sql << "INNER JOIN Predicates AS searchedPred ON cn.PredicateID = searchedPred.ID ";
-        sql << "INNER JOIN Identifiers AS nameID ON cn.CachedNameID = nameID.ID ";
-        sql << "WHERE searchedPred.Value = @type AND searchedID.Value = @value";
+        sql << "SELECT CachedName FROM CachedNames AS cn ";
+        sql << "WHERE Predicate = @type AND Identifier = @value";
     } else {
-        sql << "SELECT emailID.Value FROM CachedEmails AS ce ";
-        sql << "INNER JOIN Identifiers AS searchedID ON ce.IdentifierID = searchedID.ID ";
-        sql << "INNER JOIN Predicates AS searchedPred ON ce.PredicateID = searchedPred.ID ";
-        sql << "INNER JOIN Identifiers AS emailID ON ce.CachedEmailID = emailID.ID ";
-        sql << "WHERE searchedPred.Value = @type AND searchedID.Value = @value";
+        sql << "SELECT CachedEmail FROM CachedEmails AS ce ";
+        sql << "WHERE Predicate = @type AND Identifier = @value";
     }
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -654,9 +577,9 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     ostringstream sql;
     sql.str("");
 
-    sql << "SELECT LinkedPredicate.Value AS IdType, LinkedID.Value AS IdValue, ";
-    sql << "SUM(CASE WHEN MessageType.Value = 'confirm_connection' AND LinkedMessageID.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
-    sql << "SUM(CASE WHEN MessageType.Value = 'refute_connection' AND LinkedMessageID.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "SELECT LinkedMessageID.Predicate AS IdType, LinkedMessageID.Identifier AS IdValue, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND LinkedMessageID.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND LinkedMessageID.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Messages AS p ";
 
     // TODO: always show self-linked identifiers?
@@ -673,20 +596,12 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "INNER JOIN (SELECT DISTINCT LinkAuthor.MessageHash AS ph FROM MessageIdentifiers AS LinkAuthor ";
     sql << "INNER JOIN MessageIdentifiers AS LinkRecipient ON (LinkRecipient.IsRecipient = 1 AND LinkAuthor.MessageHash = LinkRecipient.MessageHash) ";
     sql << "WHERE LinkAuthor.IsRecipient = 0 ";
-    sql << "GROUP BY LinkAuthor.IdentifierID, LinkAuthor.PredicateID, LinkRecipient.PredicateID, LinkRecipient.IdentifierID ";
+    sql << "GROUP BY LinkAuthor.Identifier, LinkAuthor.Predicate, LinkRecipient.Predicate, LinkRecipient.Identifier ";
     sql << ") ON ph = p.Hash ";
 
-    sql << "INNER JOIN Identifiers AS SearchedID ON SearchedMessageID.IdentifierID = SearchedID.ID ";
-    sql << "INNER JOIN Predicates AS SearchedPredicate ON SearchedMessageID.PredicateID = SearchedPredicate.ID ";
-
-    sql << "INNER JOIN Identifiers AS LinkedID ON LinkedMessageID.IdentifierID = LinkedID.ID ";
-    sql << "INNER JOIN Predicates AS LinkedPredicate ON LinkedMessageID.PredicateID = LinkedPredicate.ID ";
-
-    sql << "INNER JOIN Predicates AS MessageType ON p.PredicateID = MessageType.id ";
-
-    sql << "WHERE SearchedPredicate.Value = @type ";
-    sql << "AND SearchedID.Value = @value ";
-    sql << "AND NOT (IdType = SearchedPredicate.Value AND IdValue = SearchedID.Value) ";
+    sql << "WHERE SearchedMessageID.Predicate = @type ";
+    sql << "AND SearchedMessageID.Identifier = @value ";
+    sql << "AND NOT (IdType = SearchedMessageID.Predicate AND IdValue = SearchedMessageID.Identifier) ";
 
     if (!searchedPredicates.empty()) {
         vector<string> questionMarks(searchedPredicates.size(), "?");
@@ -776,18 +691,15 @@ void CIdentifiDB::UpdateCachedValue(string valueType, string_pair startID, strin
 
     const char* sql;
     if (valueType == "name")
-        sql = "INSERT OR REPLACE INTO CachedNames (PredicateID, IdentifierID, CachedNameID) VALUES (?,?,?);";
+        sql = "INSERT OR REPLACE INTO CachedNames (Predicate, Identifier, CachedNameID) VALUES (?,?,?);";
     else
-        sql = "INSERT OR REPLACE INTO CachedEmails (PredicateID, IdentifierID, CachedEmailID) VALUES (?,?,?);";
+        sql = "INSERT OR REPLACE INTO CachedEmails (Predicate, Identifier, CachedEmailID) VALUES (?,?,?);";
         
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-            int predicateID = SavePredicate(startID.first);
-            int identifierID = SaveIdentifier(startID.second);
-            int valueID = SaveIdentifier(value);
-            sqlite3_bind_int(statement, 1, predicateID);
-            sqlite3_bind_int(statement, 2, identifierID);
-            sqlite3_bind_int(statement, 3, valueID);
+            sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 3, value.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_step(statement);
         }
     )
@@ -824,13 +736,15 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON pi.IdentifierID = id.ID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID WHERE ";
+    if (trustPathablePredicatesOnly) {
+        sql << "INNER JOIN TrustPathablePredicates AS tpp ON tpp.Value = pi.Predicate ";
+    }
+    sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "msgType.Value != @msgType AND ";
+            sql << "p.Predicate != @msgType AND ";
         } else {
-            sql << "msgType.Value = @msgType AND ";
+            sql << "p.Predicate = @msgType AND ";
         }
     }
     if (byRecipient)
@@ -838,14 +752,12 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     else
         sql << "pi.IsRecipient = 0 AND ";
     if (!author.first.empty())
-        sql << "pred.Value = @predValue AND ";
-    if (trustPathablePredicatesOnly)
-        sql << "pred.TrustPathable = 1 AND ";
+        sql << "pi.Predicate = @predValue AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     if (latestOnly)
         sql << "p.IsLatest = 1 AND ";
-    sql << "id.Value = @idValue ";
+    sql << "pi.Identifier = @idValue ";
     AddMessageFilterSQLWhere(sql, viewpoint);
     sql << "ORDER BY p.Created DESC ";
     if (limit)
@@ -919,25 +831,19 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT pred.Value, id.Value FROM Identifiers AS id, ";
-    sql << "Predicates AS pred ";
-    sql << "INNER JOIN MessageIdentifiers AS pi ";
-    sql << "ON pi.PredicateID = pred.ID AND pi.IdentifierID = id.ID ";
+    sql << "SELECT DISTINCT Predicate, Identifier FROM MessageIdentifiers AS pi ";
     if (useViewpoint) {
-        sql << "LEFT JOIN Predicates AS viewPred ON viewPred.Value = @viewpred ";
-        sql << "LEFT JOIN Identifiers AS viewId ON viewId.Value = @viewid ";
-        sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicateID = pred.ID AND tp.EndID = id.ID ";
-        sql << "AND tp.StartPredicateID = viewPred.ID AND tp.StartID = viewId.ID ";
+        sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicate = Predicate AND tp.EndID = Identifier ";
+        sql << "AND tp.StartPredicate = @viewPredicate AND tp.StartID = @viewID ";
     }
     sql << "WHERE ";
+    sql << "Identifier LIKE '%' || @query || '%' ";
+
     if (!query.first.empty())
-        sql << "pred.Value = @predValue AND ";
-    else if (trustPathablePredicatesOnly)
-        sql << "pred.TrustPathable = 1 AND ";
-    sql << "id.Value LIKE '%' || @query || '%' ";
+      sql << "AND Predicate = @pred ";
 
     if (useViewpoint)
-        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, pred.TrustPathable DESC ";
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -950,8 +856,8 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
             n = 2;
         }
         if (!query.first.empty()) {
-            sqlite3_bind_text(statement, 1+n, query.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2+n, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 1+n, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2+n, query.first.c_str(), -1, SQLITE_TRANSIENT);
             if (limit) {
                 sqlite3_bind_int(statement, 3+n, limit);
                 sqlite3_bind_int(statement, 4+n, offset);
@@ -985,57 +891,6 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
     return results;
 }
 
-int CIdentifiDB::SavePredicate(string predicate) {
-    sqlite3_stmt *statement;
-    int rowid = -1;
-
-    const char *sql = "SELECT rowid FROM Predicates WHERE Value = @value;";
-    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, predicate.c_str(), -1, SQLITE_TRANSIENT);
-    }
-    if (sqlite3_step(statement) == SQLITE_ROW) {
-        rowid = sqlite3_column_int(statement, 0);
-    } else {
-        sql = "INSERT INTO Predicates (Value) VALUES (@value);";
-        RETRY_IF_DB_FULL(
-            if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, predicate.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_step(statement);
-                sqliteReturnCode = sqlite3_reset(statement);
-            }
-        )
-        rowid = sqlite3_last_insert_rowid(db);
-    }
-    sqlite3_finalize(statement);
-    return rowid;
-}
-
-int CIdentifiDB::SaveIdentifier(string identifier) {
-    sqlite3_stmt *statement;
-    int rowid = -1;
-
-    const char *sql = "SELECT ID FROM Identifiers WHERE Value = @value;";
-    if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
-        
-        if (sqlite3_step(statement) == SQLITE_ROW) {
-            rowid = sqlite3_column_int(statement, 0);
-        } else {
-            sql = "INSERT INTO Identifiers (Value) VALUES (@value);";
-            RETRY_IF_DB_FULL(
-                if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-                    sqlite3_bind_text(statement, 1, identifier.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_step(statement);
-                    sqliteReturnCode = sqlite3_reset(statement);
-                }
-            )
-            rowid = sqlite3_last_insert_rowid(db);
-        }
-    }
-    sqlite3_finalize(statement);
-    return rowid;
-}
-
 void CIdentifiDB::DropMessage(string strMessageHash) {
     sqlite3_stmt *statement;
     ostringstream sql;
@@ -1047,22 +902,6 @@ void CIdentifiDB::DropMessage(string strMessageHash) {
     sql << "DELETE FROM MessageIdentifiers WHERE MessageHash = @hash;";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, strMessageHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-    }
-
-    // Remove identifiers that were mentioned in this msg only
-    sql.str("");
-    sql << "DELETE FROM Identifiers WHERE ID IN ";
-    sql << "(SELECT id.ID FROM Identifiers AS id ";
-    sql << "JOIN MessageIdentifiers AS pi ON pi.IdentifierID = id.ID ";
-    sql << "WHERE pi.MessageHash = @msghash) ";
-    sql << "AND ID NOT IN ";
-    sql << "(SELECT id.ID FROM Identifiers AS id ";
-    sql << "JOIN MessageIdentifiers AS pi ON pi.IdentifierID = id.ID ";
-    sql << "WHERE pi.MessageHash != @msghash)";
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, strMessageHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, strMessageHash.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     }
 
@@ -1078,40 +917,6 @@ void CIdentifiDB::DropMessage(string strMessageHash) {
     sqlite3_finalize(statement);
 }
 
-string CIdentifiDB::GetIdentifierById(int id) {
-    sqlite3_stmt *statement;
-    const char *sql = "SELECT Value FROM Identifiers WHERE ID = ?";
-    
-    if (sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int(statement, 1, id);
-        int result = sqlite3_step(statement);
-        if (result == SQLITE_ROW) {
-            string strId = (char*)sqlite3_column_text(statement, 0);
-            sqlite3_finalize(statement);
-            return strId;
-        }
-    }
-    sqlite3_finalize(statement);
-    throw runtime_error("Identifier not found");
-}
-
-string CIdentifiDB::GetPredicateById(int id) {
-    sqlite3_stmt *statement;
-    const char *sql = "SELECT Value FROM Predicates WHERE ID = ?";
-
-    if (sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int(statement, 1, id);
-        int result = sqlite3_step(statement);
-        if (result == SQLITE_ROW) {
-            string pred = (char*)sqlite3_column_text(statement, 0);
-            sqlite3_finalize(statement);
-            return pred;
-        }        
-    }
-    sqlite3_finalize(statement);
-    throw runtime_error("Predicate not found");
-}
-
 void CIdentifiDB::DeleteTrustPathsByMessage(string strMessageHash) {
     sqlite3_stmt *statement;
     ostringstream sql, deleteTrustPathSql;
@@ -1120,12 +925,10 @@ void CIdentifiDB::DeleteTrustPathsByMessage(string strMessageHash) {
 
     // find endpoints for trustpaths that go through this msg
     sql.str("");
-    sql << "SELECT tp.EndID, tp.EndPredicateID FROM TrustPaths AS tp ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = tp.StartPredicateID ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = tp.StartID ";
-    sql << "WHERE pred.Value = @pred AND id.Value = @id ";
+    sql << "SELECT tp.EndPredicate, tp.EndID, FROM TrustPaths AS tp ";
+    sql << "WHERE tp.StartPredicate = @startpred AND tp.StartID = @id ";
 
-    vector<int_pair> endpoints;
+    vector<string_pair> endpoints;
     
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         while (true) {
@@ -1133,25 +936,25 @@ void CIdentifiDB::DeleteTrustPathsByMessage(string strMessageHash) {
             sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
             int result = sqlite3_step(statement);
             if (result == SQLITE_ROW) {
-                int endId = sqlite3_column_int(statement, 0);
-                int endPred = sqlite3_column_int(statement, 1);
+                string endPred = string((char*)sqlite3_column_text(statement, 0));
+                string endId = string((char*)sqlite3_column_text(statement, 1));
                 endpoints.push_back(make_pair(endPred, endId));
             } else { 
                 break;
             }
         }
     }
-
+    
     // identifiers in this msg can also be trustpath endpoints
     sql.str("");
-    sql << "SELECT PredicateID, IdentifierID FROM MessageIdentifiers WHERE MessageHash = ?";
+    sql << "SELECT Predicate, Identifier FROM MessageIdentifiers WHERE MessageHash = ?";
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         while (true) {
             sqlite3_bind_text(statement, 1, strMessageHash.c_str(), -1, SQLITE_TRANSIENT);
             int result = sqlite3_step(statement);
             if (result == SQLITE_ROW) {
-                int endPred = sqlite3_column_int(statement, 0);
-                int endId = sqlite3_column_int(statement, 1);
+                string endPred = string((char*)sqlite3_column_text(statement, 0));
+                string endId = string((char*)sqlite3_column_text(statement, 1));
                 endpoints.push_back(make_pair(endPred, endId));
             } else { 
                 break;
@@ -1161,48 +964,44 @@ void CIdentifiDB::DeleteTrustPathsByMessage(string strMessageHash) {
 
     // Iterate over trust steps and delete them
     sql.str("");
-    sql << "SELECT tp.StartID, tp.StartPredicateID, tp.NextStep FROM TrustPaths AS tp ";
-    sql << "INNER JOIN Predicates AS startPred ON startPred.ID = tp.StartPredicateID ";
-    sql << "INNER JOIN Identifiers AS startID ON startID.ID = tp.StartID ";
-    sql << "WHERE tp.EndPredicateID = @endpredid AND tp.EndID = @endid ";
-    sql << "AND startPred.Value = @pred AND startID.Value = @id ";
+    sql << "SELECT tp.StartPredicate, tp.StartID, tp.NextStep FROM TrustPaths AS tp ";
+    sql << "WHERE tp.EndPredicate = @endpred AND tp.EndID = @endId ";
+    sql << "AND tp.StartPredicate = @startpred AND tp.StartID = @startid ";
 
     deleteTrustPathSql.str("");
     deleteTrustPathSql << "DELETE FROM TrustPaths WHERE ";
-    deleteTrustPathSql << "StartID = ? AND StartPredicateID = ? AND ";
-    deleteTrustPathSql << "EndID = ? AND EndPredicateID = ? AND NextStep = ?";
+    deleteTrustPathSql << "StartPredicate = ? AND StartID = ? AND ";
+    deleteTrustPathSql << "EndPredicate = ? AND EndID = ? AND NextStep = ?";
 
     string_pair current = start;
     string nextStep = current.second;
 
-    BOOST_FOREACH(int_pair endpoint, endpoints) {
+    BOOST_FOREACH(string_pair endpoint, endpoints) {
         while (true) {
             if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_int(statement, 1, endpoint.first);
-                sqlite3_bind_int(statement, 2, endpoint.second);
+                sqlite3_bind_text(statement, 1, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 2, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 3, current.first.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_text(statement, 4, current.second.c_str(), -1, SQLITE_TRANSIENT);
 
                 int result = sqlite3_step(statement);
                 if (result == SQLITE_ROW) {
-                    int startID = sqlite3_column_int(statement, 0);
-                    int startPredID = sqlite3_column_int(statement, 1);
+                    string startPred = string((char*)sqlite3_column_text(statement, 0));
+                    string startID = string((char*)sqlite3_column_text(statement, 1));
                     nextStep = string((char*)sqlite3_column_text(statement, 2));
 
                     if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                        sqlite3_bind_int(statement, 1, startID);
-                        sqlite3_bind_int(statement, 2, startPredID);
-                        sqlite3_bind_int(statement, 3, endpoint.second);
-                        sqlite3_bind_int(statement, 4, endpoint.first);
+                        sqlite3_bind_text(statement, 1, startPred.c_str(), -1, SQLITE_TRANSIENT);
+                        sqlite3_bind_text(statement, 2, startID.c_str(), -1, SQLITE_TRANSIENT);
+                        sqlite3_bind_text(statement, 3, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+                        sqlite3_bind_text(statement, 4, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
                         sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
                         sqlite3_step(statement);
                     }
 
                     bool startsFromOurKey = (current.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), current.second) != myPubKeyIDs.end());
                     if (startsFromOurKey) {
-                        string endPred = GetPredicateById(endpoint.first);
-                        string endId = GetIdentifierById(endpoint.second);
-                        UpdateMessagePriorities(make_pair(endPred, endId));
+                        UpdateMessagePriorities(endpoint);
                     }
 
                     if (nextStep == current.second) break;
@@ -1218,45 +1017,39 @@ void CIdentifiDB::DeleteTrustPathsByMessage(string strMessageHash) {
     
     // Delete trustpaths backwards
     sql.str("");
-    sql << "SELECT startPred.ID, startID.ID, startPred.Value, startID.Value FROM TrustPaths AS tp ";
-    sql << "INNER JOIN Predicates AS startPred ON startPred.ID = tp.StartPredicateID ";
-    sql << "INNER JOIN Identifiers AS startID ON startID.ID = tp.StartID ";
-    sql << "WHERE tp.EndPredicateID = @endpredid AND tp.EndID = @endid AND tp.NextStep = @nextstep ";
+    sql << "SELECT tp.StartPredicate, tp.StartID FROM TrustPaths AS tp ";
+    sql << "WHERE tp.EndPredicate = @endpred AND tp.EndID = @endid AND tp.NextStep = @nextstep ";
 
     current = start;
 
-    BOOST_FOREACH(int_pair endpoint, endpoints) {
+    BOOST_FOREACH(string_pair endpoint, endpoints) {
         deque<string> deleteQueue;
         deleteQueue.push_front(strMessageHash);
         while (!deleteQueue.empty()) {
             nextStep = deleteQueue.front();
             while (true) {
                 if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                    sqlite3_bind_int(statement, 1, endpoint.first);
-                    sqlite3_bind_int(statement, 2, endpoint.second);
+                    sqlite3_bind_text(statement, 1, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_bind_text(statement, 2, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
                     sqlite3_bind_text(statement, 3, nextStep.c_str(), -1, SQLITE_TRANSIENT);
 
                     int result = sqlite3_step(statement);
                     if (result == SQLITE_ROW) {
-                        int startPredID = sqlite3_column_int(statement, 0);
-                        int startID = sqlite3_column_int(statement, 1);
-                        current.first = string((char*)sqlite3_column_text(statement, 2));
-                        current.second = string((char*)sqlite3_column_text(statement, 3));
+                        current.first = string((char*)sqlite3_column_text(statement, 0));
+                        current.second = string((char*)sqlite3_column_text(statement, 1));
 
                         if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                            sqlite3_bind_int(statement, 1, startID);
-                            sqlite3_bind_int(statement, 2, startPredID);
-                            sqlite3_bind_int(statement, 3, endpoint.second);
-                            sqlite3_bind_int(statement, 4, endpoint.first);
+                            sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
+                            sqlite3_bind_text(statement, 2, current.second.c_str(), -1, SQLITE_TRANSIENT);
+                            sqlite3_bind_text(statement, 3, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+                            sqlite3_bind_text(statement, 4, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
                             sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
                             sqlite3_step(statement);
-                        }
+                        } 
 
                         bool startsFromOurKey = (current.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), current.second) != myPubKeyIDs.end());
                         if (startsFromOurKey) {
-                            string endPred = GetPredicateById(endpoint.first);
-                            string endId = GetIdentifierById(endpoint.second);
-                            UpdateMessagePriorities(make_pair(endPred, endId));
+                            UpdateMessagePriorities(endpoint);
                         }
 
                         if (current.first == "identifi_msg") deleteQueue.push_back(current.second);
@@ -1291,7 +1084,7 @@ bool CIdentifiDB::MakeFreeSpace(int nFreeBytesNeeded) {
     return true;
 }
 
-void CIdentifiDB::SaveMessageAuthorOrRecipient(string msgHash, int predicateID, int identifierID, bool isRecipient) {
+void CIdentifiDB::SaveMessageAuthorOrRecipient(string msgHash, string_pair identifier, bool isRecipient) {
     sqlite3_stmt *statement;
 
     ostringstream sql;
@@ -1299,26 +1092,26 @@ void CIdentifiDB::SaveMessageAuthorOrRecipient(string msgHash, int predicateID, 
 
     sql << "SELECT * FROM MessageIdentifiers ";
     sql << "WHERE MessageHash = @msghash ";
-    sql << "AND PredicateID = @predicateid ";
-    sql << "AND IdentifierID = @idid ";
+    sql << "AND Predicate = @predicate ";
+    sql << "AND Identifier = @idid ";
     sql << "AND IsRecipient = @isrecipient";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, msgHash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 2, predicateID);
-        sqlite3_bind_int(statement, 3, identifierID);
+        sqlite3_bind_text(statement, 2, identifier.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 4, isRecipient);
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO MessageIdentifiers (MessageHash, PredicateID, IdentifierID, IsRecipient) ";
+        sql << "INSERT OR IGNORE INTO MessageIdentifiers (MessageHash, Predicate, Identifier, IsRecipient) ";
         sql << "VALUES (@msghash, @predicateid, @identifierid, @isRecipient);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
                 sqlite3_bind_text(statement, 1, msgHash.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_int(statement, 2, predicateID);
-                sqlite3_bind_int(statement, 3, identifierID);
+                sqlite3_bind_text(statement, 2, identifier.first.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(statement, 3, identifier.second.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(statement, 4, isRecipient);
                 sqlite3_step(statement);
                 sqliteReturnCode = sqlite3_reset(statement);
@@ -1328,12 +1121,12 @@ void CIdentifiDB::SaveMessageAuthorOrRecipient(string msgHash, int predicateID, 
     sqlite3_finalize(statement);
 }
 
-void CIdentifiDB::SaveMessageAuthor(string msgHash, int predicateID, int authorID) {
-    SaveMessageAuthorOrRecipient(msgHash, predicateID, authorID, false);
+void CIdentifiDB::SaveMessageAuthor(string msgHash, string_pair author) {
+    SaveMessageAuthorOrRecipient(msgHash, author, false);
 }
 
-void CIdentifiDB::SaveMessageRecipient(string msgHash, int predicateID, int recipientID) {
-    SaveMessageAuthorOrRecipient(msgHash, predicateID, recipientID, true);
+void CIdentifiDB::SaveMessageRecipient(string msgHash, string_pair recipient) {
+    SaveMessageAuthorOrRecipient(msgHash, recipient, true);
 }
 
 int CIdentifiDB::GetTrustMapSize(string_pair id) {
@@ -1342,10 +1135,8 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
 
     sql.str("");
     sql << "SELECT COUNT(1) FROM ";
-    sql << "(SELECT DISTINCT tp.EndPredicateID, tp.EndID FROM TrustPaths AS tp ";
-    sql << "INNER JOIN Predicates AS pred ON tp.StartPredicateID = pred.ID ";
-    sql << "INNER JOIN Identifiers AS id ON tp.StartID = id.ID ";
-    sql << "WHERE pred.Value = @type AND id.Value = @value)";
+    sql << "(SELECT DISTINCT tp.EndPredicate, tp.EndID FROM TrustPaths AS tp ";
+    sql << "WHERE tp.StartPredicate = @type AND tp.StartID = @value)";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1357,7 +1148,7 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
         return count;
     } else {
         sqlite3_finalize(statement);
-        throw runtime_error("GetMessageCountByAuthor failed");
+        throw runtime_error("GetTrustMapSize failed");
     }
 }
 
@@ -1377,11 +1168,8 @@ int CIdentifiDB::GetMessageCountByAuthor(string_pair author) {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT COUNT(1) FROM Messages AS p ";
-    sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID ";
-    sql << "WHERE pred.Value = @type AND id.Value = @value AND pi.IsRecipient = 0";
+    sql << "SELECT COUNT(1) FROM MessageIdentifiers ";
+    sql << "WHERE Predicate = @type AND Identifier = @value AND IsRecipient = 0";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1462,12 +1250,10 @@ void CIdentifiDB::DeletePreviousTrustPaths(vector<string_pair> &authors, vector<
     sql << "SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
-    sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
-    sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
-    sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
+    sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
+    sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
     sql << "INNER JOIN TrustPaths AS tp ON tp.NextStep = p.Hash ";
-    sql << "WHERE authorPred.Value = ? AND authorID.Value = ? AND recipientPred.Value = ? AND recipientID.Value = ?";
+    sql << "WHERE author.Predicate = ? AND author.Identifier = ? AND recipient.Predicate = ? AND recipient.Identifier = ?";
 
     set<string> msgHashes;
 
@@ -1509,9 +1295,7 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
 
     vector<string_pair> authors = msg.GetAuthors();
     BOOST_FOREACH (string_pair author, authors) {
-        int predicateID = SavePredicate(author.first);
-        int authorID = SaveIdentifier(author.second);
-        SaveMessageAuthor(msgHash, predicateID, authorID);
+        SaveMessageAuthor(msgHash, author);
         /*
         sql.str("");
         sql << "UPDATE Messages SET IsLatest = 0 ";
@@ -1524,9 +1308,7 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
     }
     vector<string_pair> recipients = msg.GetRecipients();
     BOOST_FOREACH (string_pair recipient, recipients) {
-        int predicateID = SavePredicate(recipient.first);
-        int recipientID = SaveIdentifier(recipient.second);
-        SaveMessageRecipient(msgHash, predicateID, recipientID);
+        SaveMessageRecipient(msgHash, recipient);
     }
 
     if (!msg.IsPositive()) {
@@ -1536,12 +1318,11 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
     CSignature sig = msg.GetSignature();
     string strPubKey = sig.GetSignerPubKey();
     SavePubKey(strPubKey);
-    int signerPubKeyID = SaveIdentifier(strPubKey);
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO Messages ";
-    sql << "(Hash, SignedData, Created, PredicateID, Rating, ";
-    sql << "MaxRating, MinRating, Published, Priority, SignerPubKeyID, Signature) ";
+    sql << "(Hash, SignedData, Created, Predicate, Rating, ";
+    sql << "MaxRating, MinRating, Published, Priority, SignerPubKey, Signature) ";
     sql << "VALUES (@id, @data, @timestamp, @predicateid, @rating, ";
     sql << "@maxRating, @minRating, @published, @priority, @signerPubKeyID, @signature);";
 
@@ -1550,13 +1331,13 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
             sqlite3_bind_text(statement, 1, msgHash.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, msg.GetData().c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int64(statement, 3, msg.GetTimestamp());
-            sqlite3_bind_int(statement, 4, SavePredicate(msg.GetType()));
+            sqlite3_bind_text(statement, 4, msg.GetType().c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(statement, 5, msg.GetRating());
             sqlite3_bind_int(statement, 6, msg.GetMaxRating());
             sqlite3_bind_int(statement, 7, msg.GetMinRating());
             sqlite3_bind_int(statement, 8, msg.IsPublished());
             sqlite3_bind_int(statement, 9, priority);
-            sqlite3_bind_int(statement, 10, signerPubKeyID);
+            sqlite3_bind_text(statement, 10, strPubKey.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 11, sig.GetSignature().c_str(), -1, SQLITE_TRANSIENT);
         } else {
             printf("DB Error: %s\n", sqlite3_errmsg(db));
@@ -1605,13 +1386,10 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     sql << "SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
-    sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
-    sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
-    sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
-    sql << "INNER JOIN Predicates AS msgType ON msgType.ID = p.PredicateID ";
-    sql << "WHERE msgType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
-    sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
+    sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
+    sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
+    sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
+    sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
     sql << "AND p.IsLatest = 1 AND p.Created < @newMessageCreated AND (@newMessageCreated - p.Created) < @minMessageInterval ";
 
     vector<string_pair> authors = msg.GetAuthors();
@@ -1649,13 +1427,10 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
         sql << "WHERE Hash IN (SELECT p.Hash FROM Messages AS p ";
         sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
         sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-        sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
-        sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
-        sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
-        sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
-        sql << "INNER JOIN Predicates AS msgType ON msgType.ID = p.PredicateID ";
-        sql << "WHERE msgType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
-        sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
+        sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
+        sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
+        sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
+        sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
         sql << "AND p.IsLatest = 1) ";
 
         BOOST_FOREACH(string_pair author, authors) {
@@ -1678,14 +1453,11 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     sql << "WHERE Hash IN (SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN Identifiers AS authorID ON authorID.ID = author.IdentifierID ";
-    sql << "INNER JOIN Predicates AS authorPred ON authorPred.ID = author.PredicateID AND authorPred.TrustPathable = 1 ";
-    sql << "INNER JOIN Identifiers AS recipientID ON recipientID.ID = recipient.IdentifierID ";
-    sql << "INNER JOIN Predicates AS recipientPred ON recipientPred.ID = recipient.PredicateID AND recipientPred.TrustPathable = 1 ";
-    sql << "INNER JOIN Predicates AS msgType ON msgType.ID = p.PredicateID ";
-    sql << "WHERE msgType.Value = ? AND authorPred.Value = ? AND authorID.Value = ? ";
-    sql << "AND recipientPred.Value = ? AND recipientID.Value = ? ";
-    sql << "ORDER BY p.Created DESC, p.Hash DESC LIMIT 1)"; 
+    sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
+    sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
+    sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
+    sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
+    sql << "ORDER BY p.Created DESC, p.Hash DESC LIMIT 1) ";
 
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
@@ -1729,10 +1501,8 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
     CPubKey pubKey = key.GetPubKey();
     vector<unsigned char> rawPubKey = pubKey.Raw();
     string pubKeyStr = EncodeBase58(rawPubKey);
-    int pubKeyID = SaveIdentifier(pubKeyStr);
 
     CIdentifiAddress address(pubKey.GetID());
-    int keyIdentifierID = SaveIdentifier(address.ToString());
 
     if (setDefault) {
         query("UPDATE Keys SET IsDefault = 0");
@@ -1740,10 +1510,10 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
     }
 
     sqlite3_stmt *statement;
-    string sql = "INSERT OR REPLACE INTO Keys (PubKeyID, KeyIdentifierID, PrivateKey, IsDefault) VALUES (@pubkeyid, @keyIdentifierID, @privatekey, @isdefault);";
+    string sql = "INSERT OR REPLACE INTO Keys (PubKey, KeyID, PrivateKey, IsDefault) VALUES (@pubkey, @keyId, @privatekey, @isdefault);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int(statement, 1, pubKeyID);
-        sqlite3_bind_int(statement, 2, keyIdentifierID);
+        sqlite3_bind_text(statement, 1, pubKeyStr.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, address.ToString().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 3, privKey.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(statement, 4, setDefault);
         sqlite3_step(statement);
@@ -1763,14 +1533,12 @@ bool CIdentifiDB::SavePubKey(string pubKey) {
         throw runtime_error("SavePubKey failed: invalid key");
 
     CIdentifiAddress address(key.GetID());
-    int KeyIdentifierID = SaveIdentifier(address.ToString());
-    int pubKeyID = SaveIdentifier(pubKey);
 
     sqlite3_stmt *statement;
-    string sql = "INSERT OR IGNORE INTO Keys (PubKeyID, KeyIdentifierID) VALUES (@pubkeyid, @KeyIdentifierID);";
+    string sql = "INSERT OR IGNORE INTO Keys (PubKey, KeyID) VALUES (@pubkeyid, @KeyID);";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_int(statement, 1, pubKeyID);
-        sqlite3_bind_int(statement, 2, KeyIdentifierID);
+        sqlite3_bind_text(statement, 1, pubKey.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, address.ToString().c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
@@ -1826,9 +1594,8 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN Keys AS k ON k.PubKeyID = id.ID ";
-    sql << "WHERE k.PrivateKey IS NOT NULL";
+    sql << "SELECT PubKey FROM Keys ";
+    sql << "WHERE PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -1845,9 +1612,8 @@ vector<string>& CIdentifiDB::GetMyPubKeyIDsFromDB() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT id.Value FROM Identifiers AS id ";
-    sql << "INNER JOIN Keys AS k ON k.KeyIdentifierID = id.ID ";
-    sql << "WHERE k.PrivateKey IS NOT NULL";
+    sql << "SELECT KeyID FROM Keys ";
+    sql << "WHERE PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -1870,10 +1636,8 @@ vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT pubKeyID.Value, keyID.Value, k.PrivateKey FROM Identifiers AS pubKeyID ";
-    sql << "INNER JOIN Keys AS k ON k.PubKeyID = pubKeyID.ID ";
-    sql << "INNER JOIN Identifiers AS keyID ON k.KeyIdentifierID = keyID.ID ";
-    sql << "WHERE k.PrivateKey IS NOT NULL";
+    sql << "SELECT PubKey, KeyID, PrivateKey FROM Keys ";
+    sql << "WHERE PrivateKey IS NOT NULL";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -1892,10 +1656,8 @@ string CIdentifiDB::GetSavedKeyID(string pubKey) {
     sqlite3_stmt *statement;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT keyID.Value FROM Identifiers AS keyID ";
-    sql << "INNER JOIN Keys AS k ON keyID.ID = k.KeyIdentifierID ";
-    sql << "INNER JOIN Identifiers AS pubKey ON k.PubKeyID = pubKey.ID ";
-    sql << "WHERE pubKey.Value = @pubkey";
+    sql << "SELECT KeyID FROM Keys ";
+    sql << "WHERE PubKey = @pubkey";
 
     string keyID = "";
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1914,8 +1676,8 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiMessage &msg, vector<string> trusted
     CSignature sig = msg.GetSignature();
 
     string strSignerKeyID = GetSavedKeyID(sig.GetSignerPubKey());
-    if (strSignerKeyID.empty())
-        return false;
+    if (strSignerKeyID.empty()) {
+        return false;}
     if (find(trustedKeyIDs.begin(), trustedKeyIDs.end(), strSignerKeyID) != trustedKeyIDs.end()) {
         return true;
     }
@@ -1937,25 +1699,22 @@ vector<CIdentifiMessage> CIdentifiDB::GetSavedPath(string_pair start, string_pai
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    int endID = SaveIdentifier(end.second);
     string_pair current = start;
     string nextStep = current.second;
 
     sql.str("");
     sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
-    sql << "INNER JOIN Predicates AS startpred ON startpred.Value = @startpred ";
-    sql << "INNER JOIN Predicates AS endpred ON endpred.Value = @endpred ";
-    sql << "WHERE tp.StartPredicateID = startpred.ID ";
+    sql << "WHERE tp.StartPredicate = @startPred ";
     sql << "AND tp.StartID = @startid ";
-    sql << "AND tp.EndPredicateID = endpred.ID ";
+    sql << "AND tp.EndPredicate = @endPred ";
     sql << "AND tp.EndID = @endid ";
 
     while (true) {
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, end.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 3, SaveIdentifier(nextStep));
-            sqlite3_bind_int(statement, 4, endID);
+            sqlite3_bind_text(statement, 2, current.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
 
             int result = sqlite3_step(statement);
             if(result == SQLITE_ROW)
@@ -1983,59 +1742,21 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    string endHash = EncodeBase58(Hash(end.second.begin(), end.second.end()));
-
-    int startPredicateID = SavePredicate(start.first);
-    int endPredicateID = SavePredicate(end.first);
-    int startID = SaveIdentifier(start.second);
-    int endID = SaveIdentifier(end.second);
-
-    sql.str("");
-    sql << "SELECT startPred.TrustPathable, endPred.TrustPathable FROM Predicates AS startPred ";
-    sql << "INNER JOIN Predicates AS endPred ON endPred.ID = @endID ";
-    sql << "WHERE startPred.ID = @startID";
-    sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0);
-    sqlite3_bind_int(statement, 1, endPredicateID);
-    sqlite3_bind_int(statement, 2, startPredicateID);
-    sqlite3_step(statement);
-    int startTrustPathable = sqlite3_column_int(statement, 0);
-    int endTrustPathable = sqlite3_column_int(statement, 1);
-    sqlite3_finalize(statement);
-
-    if (!startTrustPathable || !endTrustPathable) return; 
-
-    sql.str("");
-    sql << "SELECT COUNT(1) FROM TrustPaths WHERE ";
-    sql << "StartPredicateID = @startpredID ";
-    sql << "AND StartID = @startID ";
-    sql << "AND EndPredicateID = @endpredID ";
-    sql << "AND EndID = @endID";
-    sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0);
-    sqlite3_bind_int(statement, 1, startPredicateID);
-    sqlite3_bind_int(statement, 2, startID);
-    sqlite3_bind_int(statement, 3, endPredicateID);
-    sqlite3_bind_int(statement, 4, endID);
-    sqlite3_step(statement);
-    int exists = sqlite3_column_int(statement, 0);
-    sqlite3_finalize(statement);
-
-    if (exists) return; // TODO: fix?
-
     sql.str("");
     sql << "INSERT OR REPLACE INTO TrustPaths ";
-    sql << "(StartPredicateID, StartID, EndPredicateID, EndID, NextStep, Distance) ";
-    sql << "VALUES (@startpredID, @startID, @endpredID, @endID, @nextstep, @distance)";
+    sql << "(StartPredicate, StartID, EndPredicate, EndID, NextStep, Distance) ";
+    sql << "VALUES (@startpred, @startID, @endpred, @endID, @nextstep, @distance)";
 
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_int(statement, 1, startPredicateID);
-            sqlite3_bind_int(statement, 2, startID);
-            sqlite3_bind_int(statement, 3, endPredicateID);
-            sqlite3_bind_int(statement, 4, endID);
+            sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(statement, 6, distance);
             sqliteReturnCode = sqlite3_step(statement);
-        }
+        } else cout << sqlite3_errmsg(db) << "\n";
     )
 
     bool startsFromOurKey = (start.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), start.second) != myPubKeyIDs.end());
@@ -2065,12 +1786,72 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
 
     sql.str("");
     sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
-    sql << "LEFT JOIN Predicates AS startpred ON startpred.Value = @startpred ";
-    sql << "INNER JOIN Predicates AS endpred ON endpred.Value = @endpred ";
-    sql << "WHERE tp.StartPredicateID = startpred.ID ";
-    sql << "AND tp.StartID = @starthash ";
-    sql << "AND tp.EndPredicateID = endpred.ID ";
-    sql << "AND tp.EndID = @endhash ";  
+    sql << "WHERE tp.StartPredicate = @startpred ";
+    sql << "AND tp.StartID = @startid ";
+    sql << "AND tp.EndPredicate = @endpred ";
+    sql << "AND tp.EndID = @endid ";  
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        int result = sqlite3_step(statement);
+        if(result == SQLITE_ROW)
+        {
+            nextStep = string((char*)sqlite3_column_text(statement, 0));
+        }
+    } else cout << sqlite3_errmsg(db) << "\n";
+    sqlite3_finalize(statement);
+
+    return nextStep;
+}
+
+struct SearchQueueMessage {
+    CIdentifiMessage msg;
+    bool matchedByAuthor;
+    string_pair matchedByIdentifier;
+};
+
+/*
+vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    string nextStep;
+
+    sql.str("");
+    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string) AS ";
+    sql << "(";
+    sql << "SELECT pr1.Value, id1.Value, pr2.Value, id2.Value, 1 AS distance, ";
+    sql << "         pr1val || ':' || id1val || '.' || pr2val || ':' || id2val || '.' AS path_string ";
+    sql << "FROM Messages AS m ";
+    sql << "INNER JOIN MessageIdentifiers AS mid1 ON m.Hash = id1.MessageHash AND mid1.IsRecipient = 0 ";
+    sql << "INNER JOIN PacketIdentifiers AS mid2 ON m.Hash = mid2.MessageHash AND mid2.ID != mid1.ID ";
+    sql << "INNER JOIN Predicates AS pr1 ON pr1.ID = mid1.Predicate ";
+    sql << "INNER JOIN Identifiers AS id1 ON id1.ID = mid1.Identifier ";
+    sql << "INNER JOIN Predicates AS pr2 ON pr2.ID = mid2.Predicate ";
+    sql << "INNER JOIN Identifiers AS id2 ON id2.ID = mid2.Identifier ";
+    sql << "WHERE pr1.Value = @startPred AND id1.Value = @startId ";
+
+    sql << "UNION ALL ";
+
+    sql << "SELECT tc.pr1val, tc.id1val, pr2.Value, id2.Value, tc.distance + 1, ";
+    sql << "tc.path_string || pr2.Value || ':' || id2.Value || '.' AS path_string ";
+    sql << "FROM Messages AS m ";
+    sql << "INNER JOIN MessageIdentifiers AS mid1 ON m.Hash = mid1.MessageHash AND mid1.IsRecipient = 0 ";
+    sql << "INNER JOIN MessageIdentifiers AS mid2 ON m.Hash = mid2.MessageHash AND mid2.ID != mid1.ID ";
+    sql << "INNER JOIN Predicates AS pr1 ON pr1.ID = mid1.Predicate ";
+    sql << "INNER JOIN Identifiers AS id1 ON id1.ID = mid1.Identifier ";
+    sql << "INNER JOIN Predicates AS pr2 ON pr2.ID = mid2.Predicate ";
+    sql << "INNER JOIN Identifiers AS id2 ON id2.ID = mid2.Identifier ";
+    sql << "JOIN transitive_closure AS tc ON pr1.Value = tc.pr2val AND id1.Value = tc.id2val ";
+    sql << "WHERE tc.path_string NOT LIKE '%' || pr2.Value || ':' || id2.Value || '.%' ";
+    sql << ") ";
+    sql << "SELECT * FROM transitive_closure ";
+    sql << "WHERE pr2val = @endPred AND id2val = @endId ";
+    sql << "ORDER BY distance; ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -2088,12 +1869,7 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
 
     return nextStep;
 }
-
-struct SearchQueueMessage {
-    CIdentifiMessage msg;
-    bool matchedByAuthor;
-    string_pair matchedByIdentifier;
-};
+*/
 
 // Breadth-first search for the shortest trust paths to all known msgs, starting from id1
 vector<CIdentifiMessage> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
@@ -2254,7 +2030,7 @@ CIdentifiMessage CIdentifiDB::GetMessageByHash(string hash) {
 }
 
 int CIdentifiDB::GetIdentifierCount() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM Identifiers");
+    vector<vector<string> > result = query("SELECT COUNT(DISTINCT Identifier) FROM MessageIdentifiers");
     return lexical_cast<int>(result[0][0]);
 }
 
@@ -2280,9 +2056,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetLatestMessages(int limit, int offset, b
 
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "AND msgType.Value != @msgType ";
+            sql << "AND p.Predicate != @msgType ";
         } else {
-            sql << "AND msgType.Value = @msgType ";
+            sql << "AND p.Predicate = @msgType ";
         }
     }
 
@@ -2347,9 +2123,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesAfterTimestamp(time_t timestamp
 
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "AND msgType.Value != @msgType ";
+            sql << "AND p.Predicate != @msgType ";
         } else {
-            sql << "AND msgType.Value = @msgType ";
+            sql << "AND p.Predicate = @msgType ";
         }
     }
     AddMessageFilterSQLWhere(sql, viewpoint);
@@ -2412,9 +2188,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesAfterMessage(string msgHash, in
     sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "msgType.Value != @msgType AND ";
+            sql << "p.Predicate != @msgType AND ";
         } else {
-            sql << "msgType.Value = @msgType AND ";
+            sql << "p.Predicate = @msgType AND ";
         }
     }
     sql << "((Created = @timestamp AND Hash > @msghash) OR ";
@@ -2483,9 +2259,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesBeforeMessage(string msgHash, i
     sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "msgType.Value != @msgType AND ";
+            sql << "p.Predicate != @msgType AND ";
         } else {
-            sql << "msgType.Value = @msgType AND ";
+            sql << "p.Predicate = @msgType AND ";
         }
     }
     sql << "((Created = @timestamp AND Hash > @msghash) OR ";
@@ -2573,11 +2349,11 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     } else {
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 AND ";
-        sql << "(tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 AND ";
-        sql << "(tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 AND  ";
-        sql << "(tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) THEN 1 ELSE 0 END), ";
     }
     sql << "MIN(p.Created) ";
     sql << "FROM Messages AS p ";
@@ -2586,12 +2362,9 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN Identifiers AS id ON id.ID = pi.IdentifierID ";
-    sql << "INNER JOIN Predicates AS pred ON pred.ID = pi.PredicateID ";
-    sql << "INNER JOIN Predicates AS msgType ON p.PredicateID = msgType.ID ";
-    sql << "WHERE msgType.Value = 'rating' ";
+    sql << "WHERE p.Predicate = 'rating' ";
     sql << "AND p.IsLatest = 1 ";
-    sql << "AND pred.Value = @type AND id.Value = @value ";
+    sql << "AND pi.Predicate = @type AND pi.Identifier = @value ";
     AddMessageFilterSQLWhere(sql, viewpoint);
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -2640,7 +2413,6 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterMessageType = !msgType.empty();
     if (filterMessageType) {
-        sql << "INNER JOIN Predicates AS msgType ON msgType.ID = p.PredicateID ";
         vector<string> strs;
         split(strs, msgType, is_any_of("/"));
         if (strs.size() > 1 && strs.front() == "rating") {
@@ -2654,13 +2426,11 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
     }
     if (useViewpoint) {
         sql << "INNER JOIN MessageIdentifiers AS author ON (author.MessageHash = p.Hash AND author.IsRecipient = 0) ";
-        sql << "INNER JOIN Identifiers AS viewpointID ON viewpointID.Value = @viewpointID ";
-        sql << "INNER JOIN Predicates AS viewpointPred ON viewpointPred.Value = @viewpointPred ";
         sql << "LEFT JOIN TrustPaths AS tp ON ";
-        sql << "(tp.StartID = viewpointID.ID AND ";
-        sql << "tp.StartPredicateID = viewpointPred.ID AND ";
-        sql << "tp.EndID = author.IdentifierID AND ";
-        sql << "tp.EndPredicateID = author.PredicateID ";
+        sql << "(tp.StartID = @viewpointID AND ";
+        sql << "tp.StartPredicate = @viewpointPred AND ";
+        sql << "tp.EndID = author.Identifier AND ";
+        sql << "tp.EndPredicate = author.Predicate ";
         if (maxDistance > 0)
             sql << "AND tp.Distance <= @maxDistance";
         sql << ") ";
@@ -2670,7 +2440,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
 void CIdentifiDB::AddMessageFilterSQLWhere(ostringstream &sql, string_pair viewpoint) {
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     if (useViewpoint)
-        sql << "AND (tp.StartID IS NOT NULL OR (author.IdentifierID = viewpointID.ID AND author.PredicateID = viewpointPred.ID)) ";
+        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) ";
 }
 
 void CIdentifiDB::DBWorker() {

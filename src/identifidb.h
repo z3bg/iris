@@ -84,18 +84,13 @@ private:
     queue<trustMapQueueItem> generateTrustMapQueue;
     set<string_pair> generateTrustMapSet;
     vector<string> myPubKeyIDs;
-    vector<string_pair> GetAuthorsOrRecipientsByMessageHash(string msgHash, bool isRecipient);
-    vector<string_pair > GetAuthorsByMessageHash(string msgHash);
-    vector<string_pair > GetRecipientsByMessageHash(string msgHash);
     CIdentifiMessage GetMessageFromStatement(sqlite3_stmt *statement);
     vector<CIdentifiMessage> GetMessagesByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
     boost::thread* dbWorker;
     void DBWorker();
-    void SaveMessageAuthorOrRecipient(string msgHash, int predicateID, int identifierID, bool isRecipient);
-    void SaveMessageAuthor(string msgHash, int predicateID, int authorID);
-    void SaveMessageRecipient(string msgHash, int predicateID, int authorID);
-    int SavePredicate(string predicate);
-    int SaveIdentifier(string identifier);
+    void SaveMessageAuthorOrRecipient(string msgHash, string_pair identifier, bool isRecipient);
+    void SaveMessageAuthor(string msgHash, string_pair author);
+    void SaveMessageRecipient(string msgHash, string_pair author);
     bool SavePubKey(string pubKey);
     vector<vector<string> > query(const char* query);
     void CheckDefaultKey();
@@ -111,8 +106,6 @@ private:
     void AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &msgType);
     void AddMessageFilterSQLWhere(ostringstream &sql, string_pair viewpoint); 
     void DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients); 
-    string GetIdentifierById(int id);
-    string GetPredicateById(int id);
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H
