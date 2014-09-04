@@ -223,8 +223,8 @@ void CIdentifiDB::Initialize() {
     sql << "FOREIGN KEY(MessageHash)     REFERENCES Messages(Hash));";
     query(sql.str().c_str());
     query("CREATE INDEX IF NOT EXISTS PIIndex ON MessageIdentifiers(MessageHash)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_predID ON MessageIdentifiers(Predicate)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_idID ON MessageIdentifiers(Identifier)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_pred ON MessageIdentifiers(Predicate)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_id ON MessageIdentifiers(Identifier)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
@@ -248,16 +248,16 @@ void CIdentifiDB::Initialize() {
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS CachedNames (";
-    sql << "Identifier          NVARCHAR(255)   NOT NULL,";
     sql << "Predicate           NVARCHAR(255)   NOT NULL,";
+    sql << "Identifier          NVARCHAR(255)   NOT NULL,";
     sql << "CachedName          NVARCHAR(255)   NOT NULL,";
     sql << "PRIMARY KEY(Predicate, Identifier))";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS CachedEmails (";
-    sql << "Identifier        NVARCHAR(255)         NOT NULL,";
     sql << "Predicate         NVARCHAR(255)         NOT NULL,";
+    sql << "Identifier        NVARCHAR(255)         NOT NULL,";
     sql << "CachedEmail       NVARCHAR(255)         NOT NULL,";
     sql << "PRIMARY KEY(Predicate, Identifier))";
     query(sql.str().c_str());
@@ -546,10 +546,10 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     sql.str("");
 
     if (valueType == "name") {
-        sql << "SELECT CachedName FROM CachedNames AS cn ";
+        sql << "SELECT CachedName FROM CachedNames ";
         sql << "WHERE Predicate = @type AND Identifier = @value";
     } else {
-        sql << "SELECT CachedEmail FROM CachedEmails AS ce ";
+        sql << "SELECT CachedEmail FROM CachedEmails ";
         sql << "WHERE Predicate = @type AND Identifier = @value";
     }
 
@@ -691,9 +691,9 @@ void CIdentifiDB::UpdateCachedValue(string valueType, string_pair startID, strin
 
     const char* sql;
     if (valueType == "name")
-        sql = "INSERT OR REPLACE INTO CachedNames (Predicate, Identifier, CachedNameID) VALUES (?,?,?);";
+        sql = "INSERT OR REPLACE INTO CachedNames (Predicate, Identifier, CachedName) VALUES (?,?,?);";
     else
-        sql = "INSERT OR REPLACE INTO CachedEmails (Predicate, Identifier, CachedEmailID) VALUES (?,?,?);";
+        sql = "INSERT OR REPLACE INTO CachedEmails (Predicate, Identifier, CachedEmail) VALUES (?,?,?);";
         
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
