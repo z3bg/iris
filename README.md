@@ -45,8 +45,8 @@ How
   - Identified by content hash
   - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
 - Flood packages throughout the network
-  - Nodes maintain their own trust graphs which are updated as new packets arrive
-  - Packet storage priority is based on its author's and signer's position in the node's web of trust
+  - Nodes maintain their own trust graphs which are updated as new messages arrive
+  - Message storage priority is based on its author's and signer's position in the node's web of trust
   - Later on, connections to other nodes can be prioritized by trust
 - Crawl initial data from existing social networks and review systems
 
@@ -84,9 +84,9 @@ Core functionality of the implementation is in identifidb.cpp, data.cpp and rpcd
 
 Get the daemon running with `./identifi -daemon`. Call the JSON-RPC with .`./identifi rpccommand`. Rpc_tests.cpp shows how to use the RPC.
 
-The program connects to a seed node from DNS by default and requests for packets created after a certain timestamp. Identifi developers' ECDSA pubkey is included and trusted by default as an entry point to the WoT. You need to connect your own pubkey or other identifiers to the WoT if you want your packets prioritized over spam by other nodes. An example website for this TBD.
+The program connects to seed nodes from DNS by default and requests for messages created after a certain timestamp. Identifi developers' ECDSA pubkey is included and trusted by default as an entry point to the WoT. You need to connect your own pubkey or other identifiers to the WoT if you want your messages prioritized over spam by other nodes.
 
-The default database size limit 2 GB. Add `saveuntrustedpackets=1` to DATADIR/identifi.conf to allow packets from outside your WoT for testing.
+The default database size limit 2 GB. Add `saveuntrustedmsgs=1` to DATADIR/identifi.conf to allow messages from outside your WoT for testing.
 
 [Sqlite Manager](https://addons.mozilla.org/en-US/firefox/addon/sqlite-manager/) is a nice Firefox plugin for debugging DATADIR/db.sqlite.
 
@@ -98,7 +98,7 @@ Identifi is released under the terms of the MIT license. See `COPYING` for more 
 Data format
 -----------
 
-Suggested data format for Identifi packets:
+Suggested data format for Identifi messages:
 
 ```
 {
@@ -135,9 +135,7 @@ Suggested data format for Identifi packets:
 
 SignedData may optionally contain additional fields.
 
-Packets and identifiers are to be stored locally in a hash table (or maybe later in a DHT). These hashes can be referred to with magnet URIs.
-
-Packets are digitally signed by the entity that verifies that the message originated from the claimed sender. For example, this could be a website where the sender logged in with a Facebook account, or a crawler that read the sender's message from Twitter.
+Messages are digitally signed by the entity that verifies that the message originated from the claimed sender. For example, this could be a website where the sender logged in with a Facebook account, or a crawler that read the sender's message from Twitter.
 
 Message encoding is UTF-8.
 
@@ -147,15 +145,13 @@ Future considerations
 
 Browser plugin & mobile app
 
-Query packets from peers by trust viewpoint? "Send me the trust tree from [ID] with packets after [timestamp] as leaves." Would help counter spam and irrelevant content.
+Query messages from peers by trust viewpoint? "Send me the trust tree from [ID] with messages after [timestamp] as leaves." Would help counter spam and irrelevant content.
 
 Use [Trsst](http://www.trsst.com) for data propagation and storage?
 
-Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) instead of a flooding network?
+Use [Whanau DHT](http://pdos.csail.mit.edu/papers/whanau-nsdi10-abstract.html) for distributed storage and retrieval?
 
 [Freenet](http://freenetproject.org) as data storage? Saving data is trivial, but efficient indexing needs some effort.
-
-Use external SQL DB instead of sqlite for better multi-application access to data?
 
 [ArangoDB](https://www.arangodb.org/) graph database? Could enable on-demand trust path finding and eliminate the need for caching them.
 
