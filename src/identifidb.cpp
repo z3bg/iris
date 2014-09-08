@@ -1700,7 +1700,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetSavedPath(string_pair start, string_pai
     ostringstream sql;
 
     string_pair current = start;
-    string nextStep = current.second;
+    string nextStep;
 
     sql.str("");
     sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
@@ -1808,12 +1808,6 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
     return nextStep;
 }
 
-struct SearchQueueMessage {
-    CIdentifiMessage msg;
-    bool matchedByAuthor;
-    string_pair matchedByIdentifier;
-};
-
 /*
 vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end) {
     sqlite3_stmt *statement;
@@ -1871,9 +1865,74 @@ vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end) {
 }
 */
 
+void CIdentifiDB::BacktrackAndSavePath(vector<CIdentifiMessage> &path, string_pair &identifier, string_pair &start, string_pair &end, CIdentifiMessage &currentMessage, bool &pathFound, bool &savePath, map<uint256, CIdentifiMessage> &previousMessages, int &currentDistanceFromStart) {
+    if (pathFound || savePath) {
+        if (pathFound)
+            path.push_back(currentMessage);
+
+        CIdentifiMessage msgIter = currentMessage;
+        int depth = 0;
+        while (previousMessages.find(msgIter.GetHash()) != previousMessages.end()) {
+            if (savePath) {
+                string msgIterHash = EncodeBase58(msgIter.GetHash());
+                string previousMessageHash = EncodeBase58(previousMessages.at(msgIter.GetHash()).GetHash());
+                SaveTrustStep(make_pair("identifi_msg", previousMessageHash), identifier, msgIterHash, currentDistanceFromStart - depth);
+            }
+            msgIter = previousMessages.at(msgIter.GetHash());
+            if (pathFound)
+                path.insert(path.begin(), msgIter);
+            depth++;
+        }
+        if (savePath) {
+            string msgHash = msgIter.GetHashStr();
+            SaveTrustStep(start, identifier, msgHash, currentDistanceFromStart);
+        }
+    }
+}
+
+void CIdentifiDB::AddIdentifierToSearchQueue(string_pair &identifier, deque<SearchQueueMessage> &searchQueue, map<uint256, CIdentifiMessage> &previousMessages, vector<uint256> &visitedMessages, map<uint256, int> &msgDistanceFromStart, int &currentDistanceFromStart, CIdentifiMessage &currentMessage) {
+    vector<CIdentifiMessage> allMessages;
+    vector<CIdentifiMessage> authors2 = GetMessagesByAuthor(identifier, 0, 0, true, true, make_pair("",""), 0, "", true);
+    vector<CIdentifiMessage> recipients2 = GetMessagesByRecipient(identifier, 0, 0, true, true, make_pair("",""), 0, "", true);
+    allMessages.insert(allMessages.end(), authors2.begin(), authors2.end());
+    allMessages.insert(allMessages.end(), recipients2.begin(), recipients2.end());
+
+    BOOST_FOREACH(CIdentifiMessage p, authors2) {
+        SearchQueueMessage sqp;
+        sqp.msg = p;
+        sqp.matchedByAuthor = true;
+        sqp.matchedByIdentifier = identifier;
+        searchQueue.push_back(sqp);
+    }
+
+    BOOST_FOREACH(CIdentifiMessage p, recipients2) {
+        SearchQueueMessage sqp;
+        sqp.msg = p;
+        sqp.matchedByAuthor = false;
+        sqp.matchedByIdentifier = identifier;
+        searchQueue.push_back(sqp);
+    }
+
+    BOOST_FOREACH (CIdentifiMessage p, allMessages) {
+        if (previousMessages.find(p.GetHash()) == previousMessages.end()
+            && find(visitedMessages.begin(), visitedMessages.end(), p.GetHash()) == visitedMessages.end())
+            previousMessages[p.GetHash()] = currentMessage;
+        if (msgDistanceFromStart.find(p.GetHash()) == msgDistanceFromStart.end()
+            && find(visitedMessages.begin(), visitedMessages.end(), p.GetHash()) == visitedMessages.end()) {
+            msgDistanceFromStart[p.GetHash()] = currentDistanceFromStart + 1;
+        }
+    }
+}
+
 // Breadth-first search for the shortest trust paths to all known msgs, starting from id1
 vector<CIdentifiMessage> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
+    deque<SearchQueueMessage> searchQueue;
+    map<uint256, CIdentifiMessage> previousMessages;
+    map<uint256, int> msgDistanceFromStart;
+    int currentDistanceFromStart = 1;
+    vector<uint256> visitedMessages;
     vector<CIdentifiMessage> path;
+
     if (start == end)
         return path;
 
@@ -1887,20 +1946,14 @@ vector<CIdentifiMessage> CIdentifiDB::SearchForPath(string_pair start, string_pa
             return path; // Return if the end ID is not involved in any msgs
     }
 
-    deque<SearchQueueMessage> searchQueue;
-    map<uint256, CIdentifiMessage> previousMessages;
-    map<uint256, int> msgDistanceFromStart;
-    vector<uint256> visitedMessages;
-
-    vector<CIdentifiMessage> msgs = GetMessagesByAuthor(start, 0, 0, true, true, make_pair("",""), 0, "", true);
-    BOOST_FOREACH(CIdentifiMessage p, msgs) {
+    vector<CIdentifiMessage> msgsToQueue = GetMessagesByAuthor(start, 0, 0, true, true, make_pair("",""), 0, "", true);
+    BOOST_FOREACH(CIdentifiMessage p, msgsToQueue) {
         SearchQueueMessage sqp;
         sqp.msg = p;
         sqp.matchedByAuthor = true;
         sqp.matchedByIdentifier = start;
         searchQueue.push_back(sqp);
     }
-    int currentDistanceFromStart = 1;
 
     while (!searchQueue.empty() && !ShutdownRequested()) {
         CIdentifiMessage currentMessage = searchQueue.front().msg;
@@ -1909,13 +1962,10 @@ vector<CIdentifiMessage> CIdentifiDB::SearchForPath(string_pair start, string_pa
         searchQueue.pop_front();
         if (find(visitedMessages.begin(), visitedMessages.end(), currentMessage.GetHash()) != visitedMessages.end())
             continue;
+        else
+            visitedMessages.push_back(currentMessage.GetHash());
 
-        visitedMessages.push_back(currentMessage.GetHash());
-
-        if (!currentMessage.IsPositive())
-            continue;
-
-        if (!HasTrustedSigner(currentMessage, myPubKeyIDs))
+        if (!currentMessage.IsPositive() || !HasTrustedSigner(currentMessage, myPubKeyIDs))
             continue;
 
         if (msgDistanceFromStart.find(currentMessage.GetHash()) != msgDistanceFromStart.end())
@@ -1924,77 +1974,26 @@ vector<CIdentifiMessage> CIdentifiDB::SearchForPath(string_pair start, string_pa
         if (currentDistanceFromStart > searchDepth)
             return path;
 
-        vector<string_pair> authors;
         vector<string_pair> allIdentifiers = currentMessage.GetRecipients();
         if (matchedByAuthor) {
-            authors = currentMessage.GetAuthors();
+            vector<string_pair> authors = currentMessage.GetAuthors();
             allIdentifiers.insert(allIdentifiers.end(), authors.begin(), authors.end());            
         }
+
         BOOST_FOREACH (string_pair identifier, allIdentifiers) {
-            if (identifier != matchedByIdentifier) {
-                bool pathFound = path.empty()
-                        && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
-                        && identifier.second == end.second;
+            if (identifier == matchedByIdentifier)
+                continue;
 
-                if (pathFound || savePath) {
-                    if (pathFound)
-                        path.push_back(currentMessage);
+            bool pathFound = path.empty()
+                    && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
+                    && identifier.second == end.second;
 
-                    CIdentifiMessage msgIter = currentMessage;
-                    int depth = 0;
-                    while (previousMessages.find(msgIter.GetHash()) != previousMessages.end()) {
-                        if (savePath) {
-                            string msgIterHash = EncodeBase58(msgIter.GetHash());
-                            string previousMessageHash = EncodeBase58(previousMessages.at(msgIter.GetHash()).GetHash());
-                            SaveTrustStep(make_pair("identifi_msg", previousMessageHash), identifier, msgIterHash, currentDistanceFromStart - depth);
-                        }
-                        msgIter = previousMessages.at(msgIter.GetHash());
-                        if (pathFound)
-                            path.insert(path.begin(), msgIter);
-                        depth++;
-                    }
+            BacktrackAndSavePath(path, identifier, start, end, currentMessage, pathFound, savePath, previousMessages, currentDistanceFromStart); 
 
-                    if (savePath) {
-                        string msgHash = EncodeBase58(msgIter.GetHash());
-                        SaveTrustStep(start, identifier, msgHash, currentDistanceFromStart);
-                    }
-
-                    if (pathFound && !generateTrustMap)
-                        return path;
-                }
-
-                vector<CIdentifiMessage> allMessages;
-                vector<CIdentifiMessage> authors2 = GetMessagesByAuthor(identifier, 0, 0, true, true, make_pair("",""), 0, "", true);
-                vector<CIdentifiMessage> recipients2 = GetMessagesByRecipient(identifier, 0, 0, true, true, make_pair("",""), 0, "", true);
-                allMessages.insert(allMessages.end(), authors2.begin(), authors2.end());
-                allMessages.insert(allMessages.end(), recipients2.begin(), recipients2.end());
-
-                BOOST_FOREACH(CIdentifiMessage p, authors2) {
-                    SearchQueueMessage sqp;
-                    sqp.msg = p;
-                    sqp.matchedByAuthor = true;
-                    sqp.matchedByIdentifier = identifier;
-                    searchQueue.push_back(sqp);
-                }
-
-                BOOST_FOREACH(CIdentifiMessage p, recipients2) {
-                    SearchQueueMessage sqp;
-                    sqp.msg = p;
-                    sqp.matchedByAuthor = false;
-                    sqp.matchedByIdentifier = identifier;
-                    searchQueue.push_back(sqp);
-                }
-
-                BOOST_FOREACH (CIdentifiMessage p, allMessages) {
-                    if (previousMessages.find(p.GetHash()) == previousMessages.end()
-                        && find(visitedMessages.begin(), visitedMessages.end(), p.GetHash()) == visitedMessages.end())
-                        previousMessages[p.GetHash()] = currentMessage;
-                    if (msgDistanceFromStart.find(p.GetHash()) == msgDistanceFromStart.end()
-                        && find(visitedMessages.begin(), visitedMessages.end(), p.GetHash()) == visitedMessages.end()) {
-                        msgDistanceFromStart[p.GetHash()] = currentDistanceFromStart + 1;
-                    }
-                }
-            }
+            if (pathFound && !generateTrustMap)
+                return path;
+            else
+                AddIdentifierToSearchQueue(identifier, searchQueue, previousMessages, visitedMessages, msgDistanceFromStart, currentDistanceFromStart, currentMessage); 
         }
     }
 

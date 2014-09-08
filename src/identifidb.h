@@ -17,6 +17,12 @@
 
 using namespace std;
 
+struct SearchQueueMessage {
+    CIdentifiMessage msg;
+    bool matchedByAuthor;
+    string_pair matchedByIdentifier;
+};
+
 class CIdentifiDB
 {
 public:
@@ -106,6 +112,8 @@ private:
     void AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &msgType);
     void AddMessageFilterSQLWhere(ostringstream &sql, string_pair viewpoint); 
     void DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients); 
+    void AddIdentifierToSearchQueue(string_pair &identifier, deque<SearchQueueMessage> &searchQueue, map<uint256, CIdentifiMessage> &previousMessages, vector<uint256> &visitedMessages, map<uint256, int> &msgDistanceFromStart, int &currentDistanceFromStart, CIdentifiMessage &currentMessage);
+    void BacktrackAndSavePath(vector<CIdentifiMessage> &path, string_pair &identifier, string_pair &start, string_pair &end, CIdentifiMessage &currentMessage, bool &pathFound, bool &savePath, map<uint256, CIdentifiMessage> &previousMessages, int &currentDistanceFromStart); 
 };
 
 #endif // IDENTIFI_IDENTIFIDB_H
