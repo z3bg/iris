@@ -120,7 +120,7 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
 }
 
 void CIdentifiDB::CheckDefaultKey() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM Keys WHERE IsDefault = 1");
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM PrivateKeys WHERE IsDefault = 1");
     if (lexical_cast<int>(result[0][0]) < 1) {
         CKey newKey;
         newKey.MakeNewKey(false);
@@ -243,9 +243,15 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Keys (";
     sql << "PubKey              NVARCHAR(255)   PRIMARY KEY,";
-    sql << "KeyID               NVARCHAR(255)   DEFAULT NULL,";
-    sql << "PrivateKey          NVARCHAR(1000)  DEFAULT NULL,";
-    sql << "IsDefault           BOOL            NOT NULL DEFAULT 0)";
+    sql << "KeyID               NVARCHAR(255)   NOT NULL)";
+    query(sql.str().c_str());
+
+    sql.str("");
+    sql << "CREATE TABLE IF NOT EXISTS PrivateKeys (";
+    sql << "PubKey              NVARCHAR(255)   PRIMARY KEY,";
+    sql << "PrivateKey          NVARCHAR(1000)  NOT NULL,";
+    sql << "IsDefault           BOOL            NOT NULL DEFAULT 0,";
+    sql << "FOREIGN KEY(PubKey)                 REFERENCES Keys(PubKey));";
     query(sql.str().c_str());
 
     sql.str("");
@@ -1491,6 +1497,7 @@ void CIdentifiDB::SaveMessageTrustPaths(CIdentifiMessage &msg) {
 
 
 bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
+    sqlite3_stmt *statement;
     CIdentifiSecret s;
     s.SetString(privKey);
     if (!s.IsValid())
@@ -1506,18 +1513,25 @@ bool CIdentifiDB::ImportPrivKey(string privKey, bool setDefault) {
 
     CIdentifiAddress address(pubKey.GetID());
 
-    if (setDefault) {
-        query("UPDATE Keys SET IsDefault = 0");
-        defaultKey = key;
-    }
-
-    sqlite3_stmt *statement;
-    string sql = "INSERT OR REPLACE INTO Keys (PubKey, KeyID, PrivateKey, IsDefault) VALUES (@pubkey, @keyId, @privatekey, @isdefault);";
+    string sql = "INSERT INTO Keys (PubKey, KeyID) VALUES (?,?)";
     if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, pubKeyStr.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, address.ToString().c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 3, privKey.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 4, setDefault);
+        sqlite3_step(statement);
+    } else {
+        printf("DB Error: %s\n", sqlite3_errmsg(db));
+    }   
+
+    if (setDefault) {
+        query("UPDATE PrivateKeys SET IsDefault = 0");
+        defaultKey = key;
+    }
+
+    sql = "INSERT OR REPLACE INTO PrivateKeys (PubKey, PrivateKey, IsDefault) VALUES (@pubkey, @privatekey, @isdefault);";
+    if(sqlite3_prepare_v2(db, sql.c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, pubKeyStr.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, privKey.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 3, setDefault);
         sqlite3_step(statement);
     } else {
         printf("DB Error: %s\n", sqlite3_errmsg(db));
@@ -1562,7 +1576,7 @@ CKey CIdentifiDB::GetDefaultKeyFromDB() {
     sqlite3_stmt *statement;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT PrivateKey FROM Keys WHERE IsDefault = 1";
+    sql << "SELECT PrivateKey FROM PrivateKeys WHERE IsDefault = 1";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int result = sqlite3_step(statement);
@@ -1596,8 +1610,8 @@ vector<string> CIdentifiDB::GetMyPubKeys() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT PubKey FROM Keys ";
-    sql << "WHERE PrivateKey IS NOT NULL";
+    sql << "SELECT PubKey FROM Keys AS keys ";
+    sql << "INNER JOIN PrivateKeys AS priv ON priv.PubKey = keys.PubKey ";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -1614,8 +1628,8 @@ vector<string>& CIdentifiDB::GetMyPubKeyIDsFromDB() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT KeyID FROM Keys ";
-    sql << "WHERE PrivateKey IS NOT NULL";
+    sql << "SELECT KeyID FROM Keys AS keys ";
+    sql << "INNER JOIN PrivateKeys AS priv ON priv.PubKey = keys.PubKey ";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
@@ -1638,8 +1652,8 @@ vector<IdentifiKey> CIdentifiDB::GetMyKeys() {
 
     ostringstream sql;
     sql.str("");
-    sql << "SELECT PubKey, KeyID, PrivateKey FROM Keys ";
-    sql << "WHERE PrivateKey IS NOT NULL";
+    sql << "SELECT keys.PubKey, keys.KeyID, priv.PrivateKey FROM Keys AS keys ";
+    sql << "INNER JOIN PrivateKeys AS priv ON priv.PubKey = keys.PubKey";
 
     vector<vector<string> > result = query(sql.str().c_str());
 
