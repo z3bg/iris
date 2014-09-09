@@ -31,6 +31,7 @@ using namespace json_spirit;
     do {                                                        \
         {statements}                                            \
         if (sqliteReturnCode == SQLITE_FULL) {                  \
+            printf("Db full, pruning\n");                       \
             if (!MakeFreeSpace(10000))                          \
                 throw runtime_error("Not enough DB space");     \
         }                                                       \
@@ -1743,6 +1744,30 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
     ostringstream sql;
 
     sql.str("");
+    sql << "SELECT COUNT(1) FROM TrustPaths WHERE ";
+    sql << "StartPredicate = ? AND StartID = ? AND EndPredicate = ? AND EndID = ? AND NextStep = ? ";
+    sql << "AND Distance <= ?";
+
+    bool exists = false;
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 6, distance);
+        int sqliteReturnCode = sqlite3_step(statement);
+        if (sqliteReturnCode == SQLITE_ROW)
+            exists = sqlite3_column_int(statement, 0);
+    } else
+          cout << sqlite3_errmsg(db) << "\n";
+
+    if (exists) {
+        sqlite3_finalize(statement);
+        return;
+    }
+
+    sql.str("");
     sql << "INSERT OR REPLACE INTO TrustPaths ";
     sql << "(StartPredicate, StartID, EndPredicate, EndID, NextStep, Distance) ";
     sql << "VALUES (@startpred, @startID, @endpred, @endID, @nextstep, @distance)";
@@ -1756,7 +1781,8 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
             sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_int(statement, 6, distance);
             sqliteReturnCode = sqlite3_step(statement);
-        } else cout << sqlite3_errmsg(db) << "\n";
+        } else
+              cout << sqlite3_errmsg(db) << "\n";
     )
 
     bool startsFromOurKey = (start.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), start.second) != myPubKeyIDs.end());
