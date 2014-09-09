@@ -111,6 +111,7 @@ void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
         query("INSERT INTO TrustPathablePredicates VALUES ('keyID')");
         query("INSERT INTO TrustPathablePredicates VALUES ('base58pubkey')");
         query("INSERT INTO TrustPathablePredicates VALUES ('bitcoin_address')");
+        query("INSERT INTO TrustPathablePredicates VALUES ('bitcoin')");
         query("INSERT INTO TrustPathablePredicates VALUES ('identifi_msg')");
         query("INSERT INTO TrustPathablePredicates VALUES ('twitter')");
         query("INSERT INTO TrustPathablePredicates VALUES ('facebook')");
