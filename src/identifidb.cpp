@@ -1849,62 +1849,58 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
     return nextStep;
 }
 
-/*
-vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end) {
+vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end, int searchDepth) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    string nextStep;
+    vector<string> paths;
 
     sql.str("");
     sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string) AS ";
     sql << "(";
-    sql << "SELECT pr1.Value, id1.Value, pr2.Value, id2.Value, 1 AS distance, ";
-    sql << "         pr1val || ':' || id1val || '.' || pr2val || ':' || id2val || '.' AS path_string ";
-    sql << "FROM Messages AS m ";
-    sql << "INNER JOIN MessageIdentifiers AS mid1 ON m.Hash = id1.MessageHash AND mid1.IsRecipient = 0 ";
-    sql << "INNER JOIN PacketIdentifiers AS mid2 ON m.Hash = mid2.MessageHash AND mid2.ID != mid1.ID ";
-    sql << "INNER JOIN Predicates AS pr1 ON pr1.ID = mid1.Predicate ";
-    sql << "INNER JOIN Identifiers AS id1 ON id1.ID = mid1.Identifier ";
-    sql << "INNER JOIN Predicates AS pr2 ON pr2.ID = mid2.Predicate ";
-    sql << "INNER JOIN Identifiers AS id2 ON id2.ID = mid2.Identifier ";
-    sql << "WHERE pr1.Value = @startPred AND id1.Value = @startId ";
+    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, "; 
+    sql << "printf('%s:%s.%s:%s.',id1.Predicate,id1.Identifier,id2.Predicate,id2.Identifier) AS path_string "; 
+    sql << "FROM Messages AS m "; 
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "WHERE id1.Predicate = ? AND id1.Identifier = ? ";
 
-    sql << "UNION ALL ";
+    sql << "UNION ALL "; 
 
-    sql << "SELECT tc.pr1val, tc.id1val, pr2.Value, id2.Value, tc.distance + 1, ";
-    sql << "tc.path_string || pr2.Value || ':' || id2.Value || '.' AS path_string ";
-    sql << "FROM Messages AS m ";
-    sql << "INNER JOIN MessageIdentifiers AS mid1 ON m.Hash = mid1.MessageHash AND mid1.IsRecipient = 0 ";
-    sql << "INNER JOIN MessageIdentifiers AS mid2 ON m.Hash = mid2.MessageHash AND mid2.ID != mid1.ID ";
-    sql << "INNER JOIN Predicates AS pr1 ON pr1.ID = mid1.Predicate ";
-    sql << "INNER JOIN Identifiers AS id1 ON id1.ID = mid1.Identifier ";
-    sql << "INNER JOIN Predicates AS pr2 ON pr2.ID = mid2.Predicate ";
-    sql << "INNER JOIN Identifiers AS id2 ON id2.ID = mid2.Identifier ";
-    sql << "JOIN transitive_closure AS tc ON pr1.Value = tc.pr2val AND id1.Value = tc.id2val ";
-    sql << "WHERE tc.path_string NOT LIKE '%' || pr2.Value || ':' || id2.Value || '.%' ";
-    sql << ") ";
-    sql << "SELECT * FROM transitive_closure ";
-    sql << "WHERE pr2val = @endPred AND id2val = @endId ";
+    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, "; 
+    sql << "printf('%s%s:%s.',tc.path_string,id2.Predicate,id2.Identifier) AS path_string "; 
+    sql << "FROM Messages AS m "; 
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
+    sql << "WHERE tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s.%%',id2.Predicate,id2.Identifier) "; 
+    sql << ") "; 
+    sql << "SELECT path_string FROM transitive_closure "; 
+    sql << "WHERE pr2val = ? AND id2val = ? ";
     sql << "ORDER BY distance; ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, end.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 3, SaveIdentifier(start.second));
-        sqlite3_bind_int(statement, 4, SaveIdentifier(end.second));
+        sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 3, searchDepth);
+        sqlite3_bind_text(statement, 4, end.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 5, end.second.c_str(), -1, SQLITE_TRANSIENT);
 
-        int result = sqlite3_step(statement);
-        if(result == SQLITE_ROW)
-        {
-            nextStep = string((char*)sqlite3_column_text(statement, 0));
+        while (true) {
+            int result = sqlite3_step(statement);
+            if (result == SQLITE_ROW) {
+                paths.push_back(string((char*)sqlite3_column_text(statement, 0)));
+            } else break;
         }
-    }
+    } else cout << sqlite3_errmsg(db) << "\n";
+    
     sqlite3_finalize(statement);
-
-    return nextStep;
+    return paths;
 }
-*/
 
 void CIdentifiDB::BacktrackAndSavePath(vector<CIdentifiMessage> &path, string_pair &identifier, string_pair &start, string_pair &end, CIdentifiMessage &currentMessage, bool &pathFound, bool &savePath, map<uint256, CIdentifiMessage> &previousMessages, int &currentDistanceFromStart) {
     if (pathFound || savePath) {

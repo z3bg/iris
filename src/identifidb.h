@@ -42,6 +42,7 @@ public:
     vector<CIdentifiMessage> GetSavedPath(string_pair start, string_pair end, int searchDepth = 5);
     vector<CIdentifiMessage> SearchForPath(string_pair start, string_pair end = make_pair("",""), bool savePath = true, int searchDepth = 3);
     vector<CIdentifiMessage> GetPath(string_pair start, string_pair end = make_pair("",""), bool savePath = true, int searchDepth = 3);
+    vector<string> GetAllPaths(string_pair start, string_pair end, int searchDepth);
     vector<string_pair> SearchForID(string_pair query, int limit = 50, int offset = 0, bool trustPathablePredicatesOnly = false, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string SaveMessage(CIdentifiMessage &msg);
     void SaveMessageTrustPaths(CIdentifiMessage &msg);
