@@ -1865,7 +1865,7 @@ vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end, int 
     sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
     sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
-    sql << "WHERE id1.Predicate = ? AND id1.Identifier = ? ";
+    sql << "WHERE m.IsLatest AND id1.Predicate = ? AND id1.Identifier = ? ";
 
     sql << "UNION ALL "; 
 
@@ -1877,11 +1877,12 @@ vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end, int 
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
     sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
     sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
-    sql << "WHERE tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s.%%',id2.Predicate,id2.Identifier) "; 
+    sql << "WHERE m.IsLatest AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s.%%',id2.Predicate,id2.Identifier) "; 
     sql << ") "; 
     sql << "SELECT path_string FROM transitive_closure "; 
     sql << "WHERE pr2val = ? AND id2val = ? ";
-    sql << "ORDER BY distance; ";
+    sql << "GROUP BY path_string ";
+    sql << "ORDER BY distance ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
