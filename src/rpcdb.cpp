@@ -254,14 +254,28 @@ Value getallpaths(const Array& params, bool fHelp)
 
     Array paths;
     int searchDepth = 3;
-    if (params.size() == 5)
+    if (params.size() > 4)
         searchDepth = boost::lexical_cast<int>(params[4].get_str());
     string_pair start = make_pair(params[0].get_str(), params[1].get_str());
     string_pair end = make_pair(params[2].get_str(), params[3].get_str());
     vector<string> strPaths = pidentifidb->GetAllPaths(start, end, searchDepth);
 
+    regex re("(?<!:):(?!:)");
     BOOST_FOREACH(string s, strPaths) {
-        paths.push_back(Value(s));
+        boost::sregex_token_iterator i(s.begin(), s.end(), re, -1);
+        boost::sregex_token_iterator j;
+        Array path;
+        Array id;
+        while (i != j) {
+            string str = *i++;
+            replace_all(str, "::", ":");
+            id.push_back(Value(str));
+            if (id.size() == 2) {
+                path.push_back(id);
+                id.clear();
+            }
+        }
+        paths.push_back(path);
     }
 
     return Value(paths);

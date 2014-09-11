@@ -1859,29 +1859,28 @@ vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end, int 
     sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string) AS ";
     sql << "(";
     sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, "; 
-    sql << "printf('%s:%s.%s:%s.',id1.Predicate,id1.Identifier,id2.Predicate,id2.Identifier) AS path_string "; 
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
     sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
     sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
-    sql << "WHERE m.IsLatest AND id1.Predicate = ? AND id1.Identifier = ? ";
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Predicate = ? AND id1.Identifier = ? ";
 
     sql << "UNION ALL "; 
 
     sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, "; 
-    sql << "printf('%s%s:%s.',tc.path_string,id2.Predicate,id2.Identifier) AS path_string "; 
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
     sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
     sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
     sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
-    sql << "WHERE m.IsLatest AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s.%%',id2.Predicate,id2.Identifier) "; 
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
     sql << ") "; 
-    sql << "SELECT path_string FROM transitive_closure "; 
+    sql << "SELECT DISTINCT path_string FROM transitive_closure "; 
     sql << "WHERE pr2val = ? AND id2val = ? ";
-    sql << "GROUP BY path_string ";
     sql << "ORDER BY distance ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
