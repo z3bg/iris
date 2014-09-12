@@ -1849,7 +1849,7 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
     return nextStep;
 }
 
-vector<string> CIdentifiDB::GetAllPaths(string_pair start, string_pair end, int searchDepth) {
+vector<string> CIdentifiDB::GetPaths(string_pair start, string_pair end, int searchDepth) {
     sqlite3_stmt *statement;
     ostringstream sql;
 

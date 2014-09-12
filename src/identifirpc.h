@@ -144,7 +144,7 @@ extern json_spirit::Value getmsgsbyrecipient(const json_spirit::Array& params, b
 extern json_spirit::Value getmsgsafter(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getlatestmsgs(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
-extern json_spirit::Value getallpaths(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value getpaths(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getsavedpath(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value saverating(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value rate(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp

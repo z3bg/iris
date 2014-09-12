@@ -199,7 +199,7 @@ static const CRPCCommand vRPCCommands[] =
     { "stop",                       &stop,                      true },
     { "getmsgcount",                &getmsgcount,               true },
     { "getpath",                    &getpath,                   true },
-    { "getallpaths",                &getallpaths,               true },
+    { "getpaths",                &getpaths,               true },
     { "getsavedpath",               &getsavedpath,              true },
     { "gettruststep",               &gettruststep,              true },
     { "getidentifiercount",         &getidentifiercount,        true },

@@ -245,12 +245,12 @@ Value getpath(const Array& params, bool fHelp)
     return msgVectorToJSONArray(msgs, true, false);
 }
 
-Value getallpaths(const Array& params, bool fHelp)
+Value getpaths(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 4 || params.size() > 5)
         throw runtime_error(
-            "getallpaths <id1_type> <id1> <id2_type> <id2> <search_depth=3>\n"
-            "Returns an array of msgs that connect id1 and id2 with given predicates and optional max search depth.");
+            "getpaths <id1_type> <id1> <id2_type> <id2> <search_depth=3>\n"
+            "Returns an array of trust paths that connect id1 and id2.");
 
     Array paths;
     int searchDepth = 3;
@@ -258,7 +258,7 @@ Value getallpaths(const Array& params, bool fHelp)
         searchDepth = boost::lexical_cast<int>(params[4].get_str());
     string_pair start = make_pair(params[0].get_str(), params[1].get_str());
     string_pair end = make_pair(params[2].get_str(), params[3].get_str());
-    vector<string> strPaths = pidentifidb->GetAllPaths(start, end, searchDepth);
+    vector<string> strPaths = pidentifidb->GetPaths(start, end, searchDepth);
 
     regex re("(?<!:):(?!:)");
     BOOST_FOREACH(string s, strPaths) {
