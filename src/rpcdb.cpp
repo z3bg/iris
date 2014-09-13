@@ -637,6 +637,16 @@ Value getname(const Array& params, bool fHelp)
     return pidentifidb->GetName(make_pair(params[0].get_str(), params[1].get_str()));
 }
 
+Value getcachedemail(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getcachedemail <id_type> <id_value>\n"
+            "Find the cached email address related to an identifier.");
+
+    return pidentifidb->GetCachedEmail(make_pair(params[0].get_str(), params[1].get_str()));
+}
+
 Value deletemsg(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)

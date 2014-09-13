@@ -218,6 +218,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getconnectingmsgs",          &getconnectingmsgs,         true },    
     { "savemsgfromdata",            &savemsgfromdata,           true },
     { "getname",                    &getname,                   true },
+    { "getcachedemail",                   &getcachedemail,                  true },
     { "deletemsg",                  &deletemsg,                 true },
     { "listmykeys",                 &listmykeys,                true },
     { "importprivkey",              &importprivkey,             true },

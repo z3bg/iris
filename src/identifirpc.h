@@ -157,6 +157,7 @@ extern json_spirit::Value overview(const json_spirit::Array& params, bool fHelp)
 extern json_spirit::Value deletemsg(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value savemsgfromdata(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getname(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
+extern json_spirit::Value getcachedemail(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value listmykeys(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value importprivkey(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
 extern json_spirit::Value getnewkey(const json_spirit::Array& params, bool fHelp); // in rpcdb.cpp
