@@ -80,16 +80,16 @@ Value getmsgbyhash(const Array& params, bool fHelp)
     return msgVectorToJSONArray(msgs);
 }
 
-Value gettruststep(const Array& params, bool fHelp)
+Value gettrustdistance(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "gettruststep <start_predicate> <start_id> <end_predicate> <end_id>\n"
-            "Returns the hash of the next msg on the trust path from from start to end.");
+            "gettrustdistance <start_predicate> <start_id> <end_predicate> <end_id>\n"
+            "Returns the trust path length from start_id to end_id.");
 
-    string trustStep = pidentifidb->GetTrustStep(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
+    int distance = pidentifidb->GetTrustDistance(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
 
-    return trustStep;
+    return distance;
 }
 
 Value getmsgsbyauthor(const Array& params, bool fHelp)
@@ -228,23 +228,6 @@ Value getlatestmsgs(const Array& params, bool fHelp)
 
 }
 
-Value getpath(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() < 4 || params.size() > 5)
-        throw runtime_error(
-            "getpath <id1_type> <id1> <id2_type> <id2> <search_depth=3>\n"
-            "Returns an array of msgs that connect id1 and id2 with given predicates and optional max search depth.");
-
-    Array msgsJSON;
-    vector<CIdentifiMessage> msgs;
-    if (params.size() == 4)
-        msgs = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true);
-    else
-        msgs = pidentifidb->GetPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()), true, boost::lexical_cast<int>(params[4].get_str()));
-
-    return msgVectorToJSONArray(msgs, true, false);
-}
-
 Value getpaths(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 4 || params.size() > 5)
@@ -281,20 +264,17 @@ Value getpaths(const Array& params, bool fHelp)
     return Value(paths);
 }
 
-Value getsavedpath(const Array& params, bool fHelp)
+Value getpathlength(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "getsavedpath <id1_type> <id1> <id2_type> <id2>\n"
-            "Returns an array of msgs that connect id1 and id2 with given predicates and optional max search depth.");
+            "getpathlength <id1_type> <id1> <id2_type> <id2>\n"
+            "Returns the length of trust path from id1 to id2.");
 
     Array msgsJSON;
-    vector<CIdentifiMessage> msgs = pidentifidb->GetSavedPath(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
-    for (vector<CIdentifiMessage>::iterator it = msgs.begin(); it != msgs.end(); ++it) {
-        msgsJSON.push_back(it->GetJSON());
-    }
+    int i = pidentifidb->GetTrustDistance(make_pair(params[0].get_str(), params[1].get_str()), make_pair(params[2].get_str(), params[3].get_str()));
 
-    return msgsJSON;
+    return i;
 }
 
 Value search(const Array& params, bool fHelp)
@@ -508,7 +488,7 @@ Value generatetrustmap(const Array& params, bool fHelp) {
     }
     int searchDepth = 3;
     if (params.size() == 3) searchDepth = boost::lexical_cast<int>(params[2].get_str());
-    return pidentifidb->GenerateTrustMap(id, searchDepth);
+    return pidentifidb->AddToTrustMapQueue(id, searchDepth);
 }
 
 

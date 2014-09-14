@@ -256,20 +256,12 @@ BOOST_AUTO_TEST_CASE(create_and_delete_simple_trust_path) {
     string msgHash;
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email abc@example.com email def@example.com -1"));
-    msgHash = r.get_str();
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
-    BOOST_CHECK(r.get_array().empty());
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email abc@example.com email def@example.com 1"));
-    msgHash = r.get_str();
-    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep email abc@example.com email def@example.com"));
-    BOOST_CHECK_EQUAL(r.get_str(), msgHash);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance email abc@example.com email def@example.com"));
+    BOOST_CHECK_EQUAL(r.get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC(string("deletemsg ") + msgHash));
-    BOOST_CHECK_EQUAL(CallRPC("gettruststep email abc@example.com email def@example.com").get_str().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email def@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email abc@example.com email def@example.com").get_int(), 0);
 }
     
 BOOST_AUTO_TEST_CASE(create_and_delete_longer_trust_path) {
@@ -279,18 +271,10 @@ BOOST_AUTO_TEST_CASE(create_and_delete_longer_trust_path) {
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email cba@example.com email def@example.com 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email def@example.com email fed@example.com 1"));
     msgHash = r.get_str();
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email cba@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
 
     BOOST_CHECK_NO_THROW(r=CallRPC(string("deletemsg ") + msgHash));
-    BOOST_CHECK_EQUAL(CallRPC("gettruststep email abc@example.com email fed@example.com").get_str().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_EQUAL(CallRPC("gettruststep email cba@example.com email fed@example.com").get_str().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email cba@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email abc@example.com email fed@example.com").get_int(), 0);
+    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email cba@example.com email fed@example.com").get_int(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(negate_trust_rating) {
@@ -300,17 +284,6 @@ BOOST_AUTO_TEST_CASE(negate_trust_rating) {
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email cba@example.com email def@example.com 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email def@example.com email fed@example.com 1"));
     msgHash = r.get_str();
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email cba@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("saverating email def@example.com email fed@example.com -1"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email abc@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email cba@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email def@example.com email fed@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(message_priority_by_author_and_signer_trust) {
@@ -349,19 +322,10 @@ BOOST_AUTO_TEST_CASE(message_priority_by_author_and_signer_trust) {
 
 BOOST_AUTO_TEST_CASE(trust_steps) {
     Value r;
-    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep p1 nobody1 p2 nobody2"));
-    BOOST_CHECK(r.get_str().empty());
-    BOOST_CHECK_NO_THROW(r=CallRPC("gettruststep keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
-    BOOST_CHECK(!r.get_str().empty());
-    
-    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath p1 nobody1 p2 nobody2"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getsavedpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As email james@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email james@example.com keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance p1 nobody1 p2 nobody2"));
+    BOOST_CHECK_EQUAL(r.get_int(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
+    BOOST_CHECK(!r.get_int() != 0);
 }
 
 BOOST_AUTO_TEST_CASE(trust_path_via_ratings_and_connections) {
@@ -371,40 +335,22 @@ BOOST_AUTO_TEST_CASE(trust_path_via_ratings_and_connections) {
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email carl@example.com email david@example.com 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email david@example.com email bob@example.com 1"));
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath p1 nobody1 p2 nobody2"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email bob@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 1);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email carl@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 2);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com email david@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 3);
     BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email james@example.com email david@example.com url http://example.com/david"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saveconnection email james@example.com url http://example.com/david account user@bitcoin-otc.com"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com account user@bitcoin-otc.com 5"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 5);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email alice@example.com account user@bitcoin-otc.com 5"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 5);
 }
 
 BOOST_AUTO_TEST_CASE(trust_paths_should_be_one_way) {
     Value r;
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email david@example.com email emil@example.com 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email emil@example.com email fred@example.com 1"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email emil@example.com email david@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email fred@example.com email david@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath email fred@example.com email bob@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(no_trust_path_from_untrusted_signers_messages) {
     Value r;
     int i = CallRPC("getmsgcount").get_int();
     BOOST_CHECK_NO_THROW(r=CallRPC("savemsgfromdata {\"signature\":{\"pubKey\":\"MjK1zpuvL1RpRwe7AUJ7yTyayunzitqKGXkZm7JtgzagZDzQbZodcRE58cABTkFEXg8koXhbcefSaRkTzRxbHvCY\",\"signature\":\"AN1rKvtcLMRvLxNLY4DrV7zFeVVLfYczXZH4ZY7MJDcUB8yk2qf2MtLbvb3TuyTycXU57ThW7PusciNL14Q4myry1Nqub6Eio\"},\"signedData\":{\"author\":[[\"mbox\",\"mailto:alice@example.com\"]],\"comment\":\"thanks\",\"maxRating\":100,\"minRating\":-100,\"rating\":100,\"recipient\":[[\"mbox\",\"mailto:dick@example.com\"]],\"timestamp\":1,\"type\":\"review\"}}"));
-    BOOST_CHECK_NO_THROW(r=CallRPC("getpath mbox mailto:alice@example.com mbox mailto:dick@example.com"));
-    BOOST_CHECK_EQUAL(r.get_array().size(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance mbox mailto:alice@example.com mbox mailto:dick@example.com"));
+    BOOST_CHECK_EQUAL(r.get_int(), 0);
     BOOST_CHECK_EQUAL(CallRPC("getmsgcount").get_int(), i + 1);
 }
 

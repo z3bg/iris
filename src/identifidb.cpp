@@ -234,10 +234,8 @@ void CIdentifiDB::Initialize() {
     sql << "StartPredicate      NVARCHAR(255)   NOT NULL,";
     sql << "EndID               NVARCHAR(255)   NOT NULL,";
     sql << "EndPredicate        NVARCHAR(255)   NOT NULL,";
-    sql << "NextStep            NVARCHAR(45)    NOT NULL,";
     sql << "Distance            INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(StartID, StartPredicate, EndID, EndPredicate, NextStep, Distance),";
-    sql << "FOREIGN KEY(NextStep)           REFERENCES Messages(Hash));";
+    sql << "PRIMARY KEY(StartID, StartPredicate, EndID, EndPredicate, Distance))";
     query(sql.str().c_str());
 
     sql.str("");
@@ -273,13 +271,13 @@ void CIdentifiDB::Initialize() {
     CheckDefaultTrustPathablePredicates();
     CheckDefaultKey();
     CheckDefaultTrustList();
-    SearchForPathForMyKeys();
+    GenerateMyTrustMaps();
 }
 
-void CIdentifiDB::SearchForPathForMyKeys() {
+void CIdentifiDB::GenerateMyTrustMaps() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDsFromDB();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
-        GenerateTrustMap(make_pair("keyID", keyID));
+        AddToTrustMapQueue(make_pair("keyID", keyID));
     }
 }
 
@@ -904,7 +902,6 @@ void CIdentifiDB::DropMessage(string strMessageHash) {
     ostringstream sql;
     
     CIdentifiMessage msg = GetMessageByHash(strMessageHash);
-    DeleteTrustPathsByMessage(strMessageHash);
 
     sql.str("");
     sql << "DELETE FROM MessageIdentifiers WHERE MessageHash = @hash;";
@@ -921,152 +918,6 @@ void CIdentifiDB::DropMessage(string strMessageHash) {
     }
 
     UpdateIsLatest(msg);
-
-    sqlite3_finalize(statement);
-}
-
-void CIdentifiDB::DeleteTrustPathsByMessage(string strMessageHash) {
-    sqlite3_stmt *statement;
-    ostringstream sql, deleteTrustPathSql;
-
-    string_pair start = make_pair("identifi_msg", strMessageHash);
-
-    // find endpoints for trustpaths that go through this msg
-    sql.str("");
-    sql << "SELECT tp.EndPredicate, tp.EndID, FROM TrustPaths AS tp ";
-    sql << "WHERE tp.StartPredicate = @startpred AND tp.StartID = @id ";
-
-    vector<string_pair> endpoints;
-    
-    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        while (true) {
-            sqlite3_bind_text(statement, 1, start.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
-            int result = sqlite3_step(statement);
-            if (result == SQLITE_ROW) {
-                string endPred = string((char*)sqlite3_column_text(statement, 0));
-                string endId = string((char*)sqlite3_column_text(statement, 1));
-                endpoints.push_back(make_pair(endPred, endId));
-            } else { 
-                break;
-            }
-        }
-    }
-    
-    // identifiers in this msg can also be trustpath endpoints
-    sql.str("");
-    sql << "SELECT Predicate, Identifier FROM MessageIdentifiers WHERE MessageHash = ?";
-    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        while (true) {
-            sqlite3_bind_text(statement, 1, strMessageHash.c_str(), -1, SQLITE_TRANSIENT);
-            int result = sqlite3_step(statement);
-            if (result == SQLITE_ROW) {
-                string endPred = string((char*)sqlite3_column_text(statement, 0));
-                string endId = string((char*)sqlite3_column_text(statement, 1));
-                endpoints.push_back(make_pair(endPred, endId));
-            } else { 
-                break;
-            }
-        }
-    }
-
-    // Iterate over trust steps and delete them
-    sql.str("");
-    sql << "SELECT tp.StartPredicate, tp.StartID, tp.NextStep FROM TrustPaths AS tp ";
-    sql << "WHERE tp.EndPredicate = @endpred AND tp.EndID = @endId ";
-    sql << "AND tp.StartPredicate = @startpred AND tp.StartID = @startid ";
-
-    deleteTrustPathSql.str("");
-    deleteTrustPathSql << "DELETE FROM TrustPaths WHERE ";
-    deleteTrustPathSql << "StartPredicate = ? AND StartID = ? AND ";
-    deleteTrustPathSql << "EndPredicate = ? AND EndID = ? AND NextStep = ?";
-
-    string_pair current = start;
-    string nextStep = current.second;
-
-    BOOST_FOREACH(string_pair endpoint, endpoints) {
-        while (true) {
-            if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 2, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 3, current.first.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 4, current.second.c_str(), -1, SQLITE_TRANSIENT);
-
-                int result = sqlite3_step(statement);
-                if (result == SQLITE_ROW) {
-                    string startPred = string((char*)sqlite3_column_text(statement, 0));
-                    string startID = string((char*)sqlite3_column_text(statement, 1));
-                    nextStep = string((char*)sqlite3_column_text(statement, 2));
-
-                    if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                        sqlite3_bind_text(statement, 1, startPred.c_str(), -1, SQLITE_TRANSIENT);
-                        sqlite3_bind_text(statement, 2, startID.c_str(), -1, SQLITE_TRANSIENT);
-                        sqlite3_bind_text(statement, 3, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-                        sqlite3_bind_text(statement, 4, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-                        sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-                        sqlite3_step(statement);
-                    }
-
-                    bool startsFromOurKey = (current.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), current.second) != myPubKeyIDs.end());
-                    if (startsFromOurKey) {
-                        UpdateMessagePriorities(endpoint);
-                    }
-
-                    if (nextStep == current.second) break;
-
-                    current.first = "identifi_msg";
-                    current.second = nextStep;
-                } else {
-                    break;
-                }
-            }
-        }
-    }
-    
-    // Delete trustpaths backwards
-    sql.str("");
-    sql << "SELECT tp.StartPredicate, tp.StartID FROM TrustPaths AS tp ";
-    sql << "WHERE tp.EndPredicate = @endpred AND tp.EndID = @endid AND tp.NextStep = @nextstep ";
-
-    current = start;
-
-    BOOST_FOREACH(string_pair endpoint, endpoints) {
-        deque<string> deleteQueue;
-        deleteQueue.push_front(strMessageHash);
-        while (!deleteQueue.empty()) {
-            nextStep = deleteQueue.front();
-            while (true) {
-                if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                    sqlite3_bind_text(statement, 1, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(statement, 2, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-                    sqlite3_bind_text(statement, 3, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-
-                    int result = sqlite3_step(statement);
-                    if (result == SQLITE_ROW) {
-                        current.first = string((char*)sqlite3_column_text(statement, 0));
-                        current.second = string((char*)sqlite3_column_text(statement, 1));
-
-                        if(sqlite3_prepare_v2(db, deleteTrustPathSql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                            sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
-                            sqlite3_bind_text(statement, 2, current.second.c_str(), -1, SQLITE_TRANSIENT);
-                            sqlite3_bind_text(statement, 3, endpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-                            sqlite3_bind_text(statement, 4, endpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-                            sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-                            sqlite3_step(statement);
-                        } 
-
-                        bool startsFromOurKey = (current.first == "keyID" && find(myPubKeyIDs.begin(), myPubKeyIDs.end(), current.second) != myPubKeyIDs.end());
-                        if (startsFromOurKey) {
-                            UpdateMessagePriorities(endpoint);
-                        }
-
-                        if (current.first == "identifi_msg") deleteQueue.push_back(current.second);
-                    } else break;
-                } else break;
-            }
-            deleteQueue.pop_front();
-        }
-    }
 
     sqlite3_finalize(statement);
 }
@@ -1160,7 +1011,7 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
     }
 }
 
-bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
+bool CIdentifiDB::AddToTrustMapQueue(string_pair id, int searchDepth) {
     if (generateTrustMapSet.find(id) == generateTrustMapSet.end()) {
         trustMapQueueItem i;
         i.id = id;
@@ -1168,6 +1019,59 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
         generateTrustMapQueue.push(i);
         generateTrustMapSet.insert(id);
     }
+    return true;
+}
+
+bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
+    sqlite3_stmt *statement;
+    ostringstream sql;
+
+    sql.str("DELETE FROM TrustPaths WHERE StartPredicate = ? AND StartID = ?");
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
+        int result = sqlite3_step(statement);
+    } else cout << sqlite3_errmsg(db) << "\n";
+
+    sql.str("");
+    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string) AS ";
+    sql << "(";
+    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, "; 
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
+    sql << "FROM Messages AS m "; 
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Predicate = @id1pred AND id1.Identifier = @id1 ";
+
+    sql << "UNION ALL "; 
+
+    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, "; 
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
+    sql << "FROM Messages AS m "; 
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
+    sql << ") "; 
+    sql << "INSERT OR REPLACE INTO TrustPaths (StartPredicate, StartID, EndPredicate, EndID, Distance) SELECT @id1pred, @id1, pr2val, id2val, distance FROM transitive_closure "; 
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(statement, 3, searchDepth);
+
+        while (true) {
+            int result = sqlite3_step(statement);
+            if (result != SQLITE_ROW)
+                break;
+        }
+    } else cout << sqlite3_errmsg(db) << "\n";
+    
+    sqlite3_finalize(statement);
     return true;
 }
 
@@ -1209,9 +1113,9 @@ int CIdentifiDB::GetPriority(CIdentifiMessage &msg) {
                 nShortestPathToSignature = 1;
                 break;            
             }
-            int nPath = GetSavedPath(make_pair(keyType, myPubKeyID), make_pair(keyType, signerPubKeyID)).size();
-            if (nPath > 0 && nPath < nShortestPathToSignature)
-                nShortestPathToSignature = nPath + 1;
+            int distance = GetTrustDistance(make_pair(keyType, myPubKeyID), make_pair(keyType, signerPubKeyID));
+            if (distance > 0 && distance < nShortestPathToSignature)
+                nShortestPathToSignature = distance + 1;
         }
     }
 
@@ -1228,9 +1132,9 @@ int CIdentifiDB::GetPriority(CIdentifiMessage &msg) {
                     isMyMessage = true;
                     break;            
                 }
-                int nPath = GetSavedPath(make_pair(keyType, myPubKeyID), author).size();
-                if (nPath > 0 && nPath < nShortestPathToAuthor)
-                    nShortestPathToAuthor = nPath + 1;
+                int distance = GetTrustDistance(make_pair(keyType, myPubKeyID), author);
+                if (distance > 0 && distance < nShortestPathToAuthor)
+                    nShortestPathToAuthor = distance + 1;
             }
         }
         int nMessagesFromAuthor = GetMessageCountByAuthor(author);
@@ -1248,48 +1152,6 @@ int CIdentifiDB::GetPriority(CIdentifiMessage &msg) {
         return 5 / nShortestPathToSignature;
     else
         return nPriority / MAX_PRIORITY;
-}
-
-void CIdentifiDB::DeletePreviousTrustPaths(vector<string_pair> &authors, vector<string_pair> &recipients) {
-    sqlite3_stmt *statement;
-    ostringstream sql;
-
-    sql.str("");
-    sql << "SELECT p.Hash FROM Messages AS p ";
-    sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
-    sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
-    sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
-    sql << "INNER JOIN TrustPaths AS tp ON tp.NextStep = p.Hash ";
-    sql << "WHERE author.Predicate = ? AND author.Identifier = ? AND recipient.Predicate = ? AND recipient.Identifier = ?";
-
-    set<string> msgHashes;
-
-    BOOST_FOREACH(string_pair author, authors) {
-        BOOST_FOREACH(string_pair recipient, recipients) {
-            if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-                sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 2, author.second.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 3, recipient.first.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(statement, 4, recipient.second.c_str(), -1, SQLITE_TRANSIENT);
-                int result;
-                do {
-                    result = sqlite3_step(statement);
-                    if(result == SQLITE_ROW)
-                    {
-                        string msgHash = string((char*)sqlite3_column_text(statement, 0));
-                        msgHashes.insert(msgHash);
-                    }
-                } while (result == SQLITE_ROW);
-            }
-        }
-    }
-
-    BOOST_FOREACH(string msgHash, msgHashes) {
-        DeleteTrustPathsByMessage(msgHash);
-    }
-
-    sqlite3_finalize(statement);
 }
 
 string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
@@ -1317,10 +1179,6 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
     vector<string_pair> recipients = msg.GetRecipients();
     BOOST_FOREACH (string_pair recipient, recipients) {
         SaveMessageRecipient(msgHash, recipient);
-    }
-
-    if (!msg.IsPositive()) {
-        DeletePreviousTrustPaths(authors, recipients);
     }
 
     CSignature sig = msg.GetSignature();
@@ -1490,7 +1348,7 @@ void CIdentifiDB::SaveMessageTrustPaths(CIdentifiMessage &msg) {
     vector<string_pair> recipients = msg.GetRecipients();
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
-            SaveTrustStep(author, recipient, msg.GetHashStr(), 1);
+            SaveTrustPath(author, recipient, 1);
         }
     }
 }
@@ -1698,7 +1556,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiMessage &msg, vector<string> trusted
         return true;
     }
     BOOST_FOREACH (string key, trustedKeyIDs) {
-        if (GetSavedPath(make_pair("keyID", key), make_pair("keyID", strSignerKeyID)).size() > 0) {
+        if (GetTrustDistance(make_pair("keyID", key), make_pair("keyID", strSignerKeyID)) > 0) {
             return true;
         }
     }
@@ -1706,53 +1564,7 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiMessage &msg, vector<string> trusted
     return false;
 }
 
-vector<CIdentifiMessage> CIdentifiDB::GetSavedPath(string_pair start, string_pair end, int searchDepth) {
-    vector<CIdentifiMessage> path;
-
-    if (start == end || (end.first == "" && end.second == ""))
-        return path;
-
-    sqlite3_stmt *statement;
-    ostringstream sql;
-
-    string_pair current = start;
-    string nextStep;
-
-    sql.str("");
-    sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
-    sql << "WHERE tp.StartPredicate = @startPred ";
-    sql << "AND tp.StartID = @startid ";
-    sql << "AND tp.EndPredicate = @endPred ";
-    sql << "AND tp.EndID = @endid ";
-
-    while (true) {
-        if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, current.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, current.second.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
-
-            int result = sqlite3_step(statement);
-            if(result == SQLITE_ROW)
-            {
-                nextStep = string((char*)sqlite3_column_text(statement, 0));
-                if (nextStep == current.second) break;
-                path.push_back(GetMessageByHash(nextStep));
-
-                current.first = "identifi_msg";
-                current.second = nextStep;
-            } else {
-                //path.clear();
-                break;
-            }
-        }
-    }
-
-    sqlite3_finalize(statement);
-    return path;
-}
-
-void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextStep, int distance) {
+void CIdentifiDB::SaveTrustPath(string_pair start, string_pair end, int distance) {
     if (start == end) return;
 
     sqlite3_stmt *statement;
@@ -1760,7 +1572,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
 
     sql.str("");
     sql << "SELECT COUNT(1) FROM TrustPaths WHERE ";
-    sql << "StartPredicate = ? AND StartID = ? AND EndPredicate = ? AND EndID = ? AND NextStep = ? ";
+    sql << "StartPredicate = ? AND StartID = ? AND EndPredicate = ? AND EndID = ? ";
     sql << "AND Distance <= ?";
 
     bool exists = false;
@@ -1769,8 +1581,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
         sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement, 6, distance);
+        sqlite3_bind_int(statement, 5, distance);
         int sqliteReturnCode = sqlite3_step(statement);
         if (sqliteReturnCode == SQLITE_ROW)
             exists = sqlite3_column_int(statement, 0);
@@ -1784,8 +1595,8 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO TrustPaths ";
-    sql << "(StartPredicate, StartID, EndPredicate, EndID, NextStep, Distance) ";
-    sql << "VALUES (@startpred, @startID, @endpred, @endID, @nextstep, @distance)";
+    sql << "(StartPredicate, StartID, EndPredicate, EndID, Distance) ";
+    sql << "VALUES (@startpred, @startID, @endpred, @endID, @distance)";
 
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1793,8 +1604,7 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
             sqlite3_bind_text(statement, 2, start.second.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 3, end.first.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 4, end.second.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 5, nextStep.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(statement, 6, distance);
+            sqlite3_bind_int(statement, 5, distance);
             sqliteReturnCode = sqlite3_step(statement);
         } else
               cout << sqlite3_errmsg(db) << "\n";
@@ -1808,25 +1618,14 @@ void CIdentifiDB::SaveTrustStep(string_pair start, string_pair end, string nextS
     sqlite3_finalize(statement);
 }
 
-vector<CIdentifiMessage> CIdentifiDB::GetPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
-    vector<CIdentifiMessage> path = GetSavedPath(start, end, searchDepth);
-    if (path.empty()) {
-        if (savePath && (end.first == "" && end.second == ""))
-            GenerateTrustMap(start);
-        else
-            path = SearchForPath(start, end, savePath, searchDepth);
-    }
-    return path;
-}
-
-string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string> end) {
+int CIdentifiDB::GetTrustDistance(pair<string, string> start, pair<string, string> end) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    string nextStep;
+    int distance = -1;
 
     sql.str("");
-    sql << "SELECT tp.NextStep FROM TrustPaths AS tp ";
+    sql << "SELECT tp.Distance FROM TrustPaths AS tp ";
     sql << "WHERE tp.StartPredicate = @startpred ";
     sql << "AND tp.StartID = @startid ";
     sql << "AND tp.EndPredicate = @endpred ";
@@ -1841,12 +1640,12 @@ string CIdentifiDB::GetTrustStep(pair<string, string> start, pair<string, string
         int result = sqlite3_step(statement);
         if(result == SQLITE_ROW)
         {
-            nextStep = string((char*)sqlite3_column_text(statement, 0));
+            distance = sqlite3_column_int(statement, 0);
         }
     } else cout << sqlite3_errmsg(db) << "\n";
     sqlite3_finalize(statement);
 
-    return nextStep;
+    return distance;
 }
 
 vector<string> CIdentifiDB::GetPaths(string_pair start, string_pair end, int searchDepth) {
@@ -1900,141 +1699,6 @@ vector<string> CIdentifiDB::GetPaths(string_pair start, string_pair end, int sea
     
     sqlite3_finalize(statement);
     return paths;
-}
-
-void CIdentifiDB::BacktrackAndSavePath(vector<CIdentifiMessage> &path, string_pair &identifier, string_pair &start, string_pair &end, CIdentifiMessage &currentMessage, bool &pathFound, bool &savePath, map<uint256, CIdentifiMessage> &previousMessages, int &currentDistanceFromStart) {
-    if (pathFound || savePath) {
-        if (pathFound)
-            path.push_back(currentMessage);
-
-        CIdentifiMessage msgIter = currentMessage;
-        int depth = 0;
-        while (previousMessages.find(msgIter.GetHash()) != previousMessages.end()) {
-            if (savePath) {
-                string msgIterHash = EncodeBase58(msgIter.GetHash());
-                string previousMessageHash = EncodeBase58(previousMessages.at(msgIter.GetHash()).GetHash());
-                SaveTrustStep(make_pair("identifi_msg", previousMessageHash), identifier, msgIterHash, currentDistanceFromStart - depth);
-            }
-            msgIter = previousMessages.at(msgIter.GetHash());
-            if (pathFound)
-                path.insert(path.begin(), msgIter);
-            depth++;
-        }
-        if (savePath) {
-            string msgHash = msgIter.GetHashStr();
-            SaveTrustStep(start, identifier, msgHash, currentDistanceFromStart);
-        }
-    }
-}
-
-void CIdentifiDB::AddIdentifierToSearchQueue(string_pair &identifier, deque<SearchQueueMessage> &searchQueue, map<uint256, CIdentifiMessage> &previousMessages, vector<uint256> &visitedMessages, map<uint256, int> &msgDistanceFromStart, int &currentDistanceFromStart, CIdentifiMessage &currentMessage) {
-    vector<CIdentifiMessage> allMessages;
-    vector<CIdentifiMessage> authors2 = GetMessagesByAuthor(identifier, 0, 0, true, true, make_pair("",""), 0, "", true);
-    vector<CIdentifiMessage> recipients2 = GetMessagesByRecipient(identifier, 0, 0, true, true, make_pair("",""), 0, "", true);
-    allMessages.insert(allMessages.end(), authors2.begin(), authors2.end());
-    allMessages.insert(allMessages.end(), recipients2.begin(), recipients2.end());
-
-    BOOST_FOREACH(CIdentifiMessage p, authors2) {
-        SearchQueueMessage sqp;
-        sqp.msg = p;
-        sqp.matchedByAuthor = true;
-        sqp.matchedByIdentifier = identifier;
-        searchQueue.push_back(sqp);
-    }
-
-    BOOST_FOREACH(CIdentifiMessage p, recipients2) {
-        SearchQueueMessage sqp;
-        sqp.msg = p;
-        sqp.matchedByAuthor = false;
-        sqp.matchedByIdentifier = identifier;
-        searchQueue.push_back(sqp);
-    }
-
-    BOOST_FOREACH (CIdentifiMessage p, allMessages) {
-        if (previousMessages.find(p.GetHash()) == previousMessages.end()
-            && find(visitedMessages.begin(), visitedMessages.end(), p.GetHash()) == visitedMessages.end())
-            previousMessages[p.GetHash()] = currentMessage;
-        if (msgDistanceFromStart.find(p.GetHash()) == msgDistanceFromStart.end()
-            && find(visitedMessages.begin(), visitedMessages.end(), p.GetHash()) == visitedMessages.end()) {
-            msgDistanceFromStart[p.GetHash()] = currentDistanceFromStart + 1;
-        }
-    }
-}
-
-// Breadth-first search for the shortest trust paths to all known msgs, starting from id1
-vector<CIdentifiMessage> CIdentifiDB::SearchForPath(string_pair start, string_pair end, bool savePath, int searchDepth) {
-    deque<SearchQueueMessage> searchQueue;
-    map<uint256, CIdentifiMessage> previousMessages;
-    map<uint256, int> msgDistanceFromStart;
-    int currentDistanceFromStart = 1;
-    vector<uint256> visitedMessages;
-    vector<CIdentifiMessage> path;
-
-    if (start == end)
-        return path;
-
-    bool generateTrustMap = false;
-    if (savePath && (end.first == "" && end.second == ""))
-        generateTrustMap = true;
-
-    if (!generateTrustMap) {
-        vector<CIdentifiMessage> endMessages = GetMessagesByIdentifier(end, 1, 0, true, true, make_pair("",""), 0, "", true);
-        if (endMessages.empty())
-            return path; // Return if the end ID is not involved in any msgs
-    }
-
-    vector<CIdentifiMessage> msgsToQueue = GetMessagesByAuthor(start, 0, 0, true, true, make_pair("",""), 0, "", true);
-    BOOST_FOREACH(CIdentifiMessage p, msgsToQueue) {
-        SearchQueueMessage sqp;
-        sqp.msg = p;
-        sqp.matchedByAuthor = true;
-        sqp.matchedByIdentifier = start;
-        searchQueue.push_back(sqp);
-    }
-
-    while (!searchQueue.empty() && !ShutdownRequested()) {
-        CIdentifiMessage currentMessage = searchQueue.front().msg;
-        bool matchedByAuthor = searchQueue.front().matchedByAuthor;
-        string_pair matchedByIdentifier = searchQueue.front().matchedByIdentifier;
-        searchQueue.pop_front();
-        if (find(visitedMessages.begin(), visitedMessages.end(), currentMessage.GetHash()) != visitedMessages.end())
-            continue;
-        else
-            visitedMessages.push_back(currentMessage.GetHash());
-
-        if (!currentMessage.IsPositive() || !HasTrustedSigner(currentMessage, myPubKeyIDs))
-            continue;
-
-        if (msgDistanceFromStart.find(currentMessage.GetHash()) != msgDistanceFromStart.end())
-            currentDistanceFromStart = msgDistanceFromStart[currentMessage.GetHash()];
-
-        if (currentDistanceFromStart > searchDepth)
-            return path;
-
-        vector<string_pair> allIdentifiers = currentMessage.GetRecipients();
-        if (matchedByAuthor) {
-            vector<string_pair> authors = currentMessage.GetAuthors();
-            allIdentifiers.insert(allIdentifiers.end(), authors.begin(), authors.end());            
-        }
-
-        BOOST_FOREACH (string_pair identifier, allIdentifiers) {
-            if (identifier == matchedByIdentifier)
-                continue;
-
-            bool pathFound = path.empty()
-                    && (identifier.first.empty() || end.first.empty() || identifier.first == end.first)
-                    && identifier.second == end.second;
-
-            BacktrackAndSavePath(path, identifier, start, end, currentMessage, pathFound, savePath, previousMessages, currentDistanceFromStart); 
-
-            if (pathFound && !generateTrustMap)
-                return path;
-            else
-                AddIdentifierToSearchQueue(identifier, searchQueue, previousMessages, visitedMessages, msgDistanceFromStart, currentDistanceFromStart, currentMessage); 
-        }
-    }
-
-    return path;
 }
 
 CIdentifiMessage CIdentifiDB::GetMessageByHash(string hash) {
@@ -2486,7 +2150,7 @@ void CIdentifiDB::DBWorker() {
         else {
             string_pair id = generateTrustMapQueue.front().id;
             int searchDepth = generateTrustMapQueue.front().searchDepth;
-            SearchForPath(id, make_pair("",""), true, searchDepth);
+            GenerateTrustMap(id, searchDepth);
             generateTrustMapSet.erase(generateTrustMapQueue.front().id);
             generateTrustMapQueue.pop();
         }
