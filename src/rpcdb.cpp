@@ -486,7 +486,7 @@ Value generatetrustmap(const Array& params, bool fHelp) {
     } else { 
         id = make_pair(params[0].get_str(), params[1].get_str());
     }
-    int searchDepth = 3;
+    int searchDepth = GetArg("-generatetrustmapdepth", 4);
     if (params.size() == 3) searchDepth = boost::lexical_cast<int>(params[2].get_str());
     return pidentifidb->AddToTrustMapQueue(id, searchDepth);
 }

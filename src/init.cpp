@@ -264,6 +264,7 @@ std::string HelpMessage()
         "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n" +
         "  -dbmaxsize=<n>         " + _("Set database maximum size in megabytes (default: 200)") + "\n" +
         "  -saveuntrustedmsgs=<n> " + _("Save msgs that are not connected to your WoT (default: 1)") + "\n" +
+        "  -generatetrustmapdepth=<n> " + _("Default trustmap generation depth (default: 4)") + "\n" +
         "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n" +
         "  -proxy=<ip:port>       " + _("Connect through socks proxy") + "\n" +
         "  -socks=<n>             " + _("Select the version of socks proxy to use (4-5, default: 5)") + "\n" +

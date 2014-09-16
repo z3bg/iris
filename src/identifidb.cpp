@@ -277,7 +277,7 @@ void CIdentifiDB::Initialize() {
 void CIdentifiDB::GenerateMyTrustMaps() {
     vector<string> myPubKeyIDs = GetMyPubKeyIDsFromDB();
     BOOST_FOREACH (string keyID, myPubKeyIDs) {
-        AddToTrustMapQueue(make_pair("keyID", keyID));
+        AddToTrustMapQueue(make_pair("keyID", keyID), GetArg("-generatetrustmapdepth", 4));
     }
 }
 

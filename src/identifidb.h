@@ -73,8 +73,8 @@ public:
     string GetCachedName(string_pair id);
     string GetCachedEmail(string_pair id);
     int GetTrustMapSize(string_pair id);
-    bool AddToTrustMapQueue(string_pair id, int searchDepth = 2);
-    bool GenerateTrustMap(string_pair id, int searchDepth = 2);
+    bool AddToTrustMapQueue(string_pair id, int searchDepth);
+    bool GenerateTrustMap(string_pair id, int searchDepth);
     
     // Integrated from CAddrDB
     bool Write(const CAddrMan& addr);
