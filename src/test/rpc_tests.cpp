@@ -210,6 +210,8 @@ BOOST_AUTO_TEST_CASE(setup_for_overview_test) {
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email carl@example.com email alice@example.com 1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email dean@example.com email alice@example.com 0"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("generatetrustmap email alice@example.com"));
+    this_thread::sleep(posix_time::milliseconds(1500));
 }
 
 BOOST_AUTO_TEST_CASE(overview) {
@@ -257,11 +259,14 @@ BOOST_AUTO_TEST_CASE(create_and_delete_simple_trust_path) {
 
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email abc@example.com email def@example.com -1"));
     BOOST_CHECK_NO_THROW(r=CallRPC("saverating email abc@example.com email def@example.com 1"));
+    msgHash = r.get_str();
     BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance email abc@example.com email def@example.com"));
     BOOST_CHECK_EQUAL(r.get_int(), 1);
 
     BOOST_CHECK_NO_THROW(r=CallRPC(string("deletemsg ") + msgHash));
-    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email abc@example.com email def@example.com").get_int(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("generatetrustmap email abc@example.com"));
+    this_thread::sleep(posix_time::milliseconds(1500));
+    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email abc@example.com email def@example.com").get_int(), -1);
 }
     
 BOOST_AUTO_TEST_CASE(create_and_delete_longer_trust_path) {
@@ -273,8 +278,10 @@ BOOST_AUTO_TEST_CASE(create_and_delete_longer_trust_path) {
     msgHash = r.get_str();
 
     BOOST_CHECK_NO_THROW(r=CallRPC(string("deletemsg ") + msgHash));
-    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email abc@example.com email fed@example.com").get_int(), 0);
-    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email cba@example.com email fed@example.com").get_int(), 0);
+    BOOST_CHECK_NO_THROW(r=CallRPC("generatetrustmap email abc@example.com"));
+    this_thread::sleep(posix_time::milliseconds(1500));
+    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email abc@example.com email fed@example.com").get_int(), -1);
+    BOOST_CHECK_EQUAL(CallRPC("gettrustdistance email cba@example.com email fed@example.com").get_int(), -1);
 }
 
 BOOST_AUTO_TEST_CASE(negate_trust_rating) {
@@ -302,6 +309,8 @@ BOOST_AUTO_TEST_CASE(message_priority_by_author_and_signer_trust) {
     firstMessage = r.get_array().front().get_obj();
     BOOST_CHECK_EQUAL(find_value(firstMessage, "priority").get_int(), 50);
     CallRPC("deletemsg " + msgHash);
+    CallRPC("generatetrustmap");
+    this_thread::sleep(posix_time::milliseconds(1500));
     BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
     BOOST_CHECK_EQUAL(r.get_array().size(), 1);
     firstMessage = r.get_array().front().get_obj();
@@ -323,9 +332,9 @@ BOOST_AUTO_TEST_CASE(message_priority_by_author_and_signer_trust) {
 BOOST_AUTO_TEST_CASE(trust_steps) {
     Value r;
     BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance p1 nobody1 p2 nobody2"));
-    BOOST_CHECK_EQUAL(r.get_int(), 0);
+    BOOST_CHECK_EQUAL(r.get_int(), -1);
     BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance keyID 1Jzbz2SsqnFpSrADASRywQEwZGZEY6y3As keyID 1CevLPhmqURncVPniRtGVAFzu4dM6KMwRr"));
-    BOOST_CHECK(!r.get_int() != 0);
+    BOOST_CHECK(!r.get_int() != -1);
 }
 
 BOOST_AUTO_TEST_CASE(trust_path_via_ratings_and_connections) {
@@ -350,7 +359,7 @@ BOOST_AUTO_TEST_CASE(no_trust_path_from_untrusted_signers_messages) {
     int i = CallRPC("getmsgcount").get_int();
     BOOST_CHECK_NO_THROW(r=CallRPC("savemsgfromdata {\"signature\":{\"pubKey\":\"MjK1zpuvL1RpRwe7AUJ7yTyayunzitqKGXkZm7JtgzagZDzQbZodcRE58cABTkFEXg8koXhbcefSaRkTzRxbHvCY\",\"signature\":\"AN1rKvtcLMRvLxNLY4DrV7zFeVVLfYczXZH4ZY7MJDcUB8yk2qf2MtLbvb3TuyTycXU57ThW7PusciNL14Q4myry1Nqub6Eio\"},\"signedData\":{\"author\":[[\"mbox\",\"mailto:alice@example.com\"]],\"comment\":\"thanks\",\"maxRating\":100,\"minRating\":-100,\"rating\":100,\"recipient\":[[\"mbox\",\"mailto:dick@example.com\"]],\"timestamp\":1,\"type\":\"review\"}}"));
     BOOST_CHECK_NO_THROW(r=CallRPC("gettrustdistance mbox mailto:alice@example.com mbox mailto:dick@example.com"));
-    BOOST_CHECK_EQUAL(r.get_int(), 0);
+    BOOST_CHECK_EQUAL(r.get_int(), -1);
     BOOST_CHECK_EQUAL(CallRPC("getmsgcount").get_int(), i + 1);
 }
 
