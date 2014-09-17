@@ -526,8 +526,11 @@ string CIdentifiDB::GetName(string_pair id, bool cachedOnly) {
         nameTypes.push_back("name");
         nameTypes.push_back("nickname");
         vector<LinkedID> linkedIDs = GetLinkedIdentifiers(id, nameTypes, 1);
-        if (linkedIDs.size() == 1) {
-            name = linkedIDs.front().id.second;
+        BOOST_FOREACH(LinkedID linkedID, linkedIDs) {
+            if (linkedID.confirmations > linkedID.refutations) {
+                name = linkedIDs.front().id.second;
+                break;
+            }
         }
     }
 
@@ -663,14 +666,14 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 results.push_back(id);
                 if (startID.first != "name" && startID.first != "nickname") { 
                     if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
-                        if (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname")) {
+                        if (id.confirmations > id.refutations && (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname"))) {
                             mostConfirmedName = make_pair(type, value);
                             mostNameConfirmations = id.confirmations;
                         }
                     }
                 }
                 if (startID.first != "email") {
-                    if (type == "email" && id.confirmations >= mostEmailConfirmations) {
+                    if (type == "email" && id.confirmations > id.refutations && id.confirmations >= mostEmailConfirmations) {
                         mostConfirmedEmail = value;
                         mostEmailConfirmations = id.confirmations;
                     }
@@ -683,10 +686,8 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         }
     }
 
-    if (!mostConfirmedName.second.empty())
-        UpdateCachedName(startID, mostConfirmedName.second);
-    if (!mostConfirmedEmail.empty())
-        UpdateCachedEmail(startID, mostConfirmedEmail);
+    UpdateCachedName(startID, mostConfirmedName.second);
+    UpdateCachedEmail(startID, mostConfirmedEmail);
 
     sqlite3_finalize(statement);
     return results;
@@ -696,18 +697,27 @@ void CIdentifiDB::UpdateCachedValue(string valueType, string_pair startID, strin
     sqlite3_stmt *statement;
 
     const char* sql;
-    if (valueType == "name")
-        sql = "INSERT OR REPLACE INTO CachedNames (Predicate, Identifier, CachedName) VALUES (?,?,?);";
-    else
-        sql = "INSERT OR REPLACE INTO CachedEmails (Predicate, Identifier, CachedEmail) VALUES (?,?,?);";
-        
+    if (valueType == "name") {
+        if (value.empty())
+            sql = "DELETE FROM CachedNames WHERE Predicate = ? AND Identifier = ?";
+        else
+            sql = "INSERT OR REPLACE INTO CachedNames (Predicate, Identifier, CachedName) VALUES (?,?,?);";
+    } else {
+        if (value.empty())
+            sql = "DELETE FROM CachedEmails WHERE Predicate = ? AND Identifier = ?";
+        else
+            sql = "INSERT OR REPLACE INTO CachedEmails (Predicate, Identifier, CachedEmail) VALUES (?,?,?);";
+    }
+
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
             sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 3, value.c_str(), -1, SQLITE_TRANSIENT);
+            if (!value.empty())
+                sqlite3_bind_text(statement, 3, value.c_str(), -1, SQLITE_TRANSIENT);
             sqlite3_step(statement);
-        }
+            sqliteReturnCode = sqlite3_reset(statement);
+        } else cout << sqlite3_errmsg(db) << "\n";
     )
 
     sqlite3_finalize(statement);
@@ -918,6 +928,7 @@ void CIdentifiDB::DropMessage(string strMessageHash) {
     }
 
     UpdateIsLatest(msg);
+    GenerateMyTrustMaps();
 
     sqlite3_finalize(statement);
 }
@@ -1030,7 +1041,7 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
-        int result = sqlite3_step(statement);
+        sqlite3_step(statement);
     } else cout << sqlite3_errmsg(db) << "\n";
 
     sql.str("");
@@ -2065,7 +2076,11 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "WHERE p.Predicate = 'rating' ";
     sql << "AND p.IsLatest = 1 ";
     sql << "AND pi.Predicate = @type AND pi.Identifier = @value ";
-    AddMessageFilterSQLWhere(sql, viewpoint);
+    
+    if (useViewpoint) {
+        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred) ";
+        sql << "OR (author.Predicate = @type AND author.Identifier = @value)) ";
+    }
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
@@ -2081,7 +2096,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
 
         sqlite3_bind_text(statement, 1+n, id.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2+n, id.second.c_str(), -1, SQLITE_TRANSIENT);
-    }
+    } else cout << sqlite3_errmsg(db) << "\n"; 
 
     if (sqlite3_step(statement) == SQLITE_ROW) {
         overview.authoredPositive = sqlite3_column_int(statement, 0);
@@ -2126,6 +2141,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
     }
     if (useViewpoint) {
         sql << "INNER JOIN MessageIdentifiers AS author ON (author.MessageHash = p.Hash AND author.IsRecipient = 0) ";
+        sql << "INNER JOIN TrustPathablePredicates AS authorTpp ON author.Predicate = authorTpp.Value ";
         sql << "LEFT JOIN TrustPaths AS tp ON ";
         sql << "(tp.StartID = @viewpointID AND ";
         sql << "tp.StartPredicate = @viewpointPred AND ";
