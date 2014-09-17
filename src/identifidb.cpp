@@ -666,7 +666,8 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 results.push_back(id);
                 if (startID.first != "name" && startID.first != "nickname") { 
                     if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
-                        if (id.confirmations > id.refutations && (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname"))) {
+                        if ((id.refutations == 0 || id.confirmations > id.refutations)
+                            && (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname"))) {
                             mostConfirmedName = make_pair(type, value);
                             mostNameConfirmations = id.confirmations;
                         }
