@@ -225,8 +225,7 @@ void CIdentifiDB::Initialize() {
     sql << "FOREIGN KEY(MessageHash)     REFERENCES Messages(Hash));";
     query(sql.str().c_str());
     query("CREATE INDEX IF NOT EXISTS PIIndex ON MessageIdentifiers(MessageHash)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_pred ON MessageIdentifiers(Predicate)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_id ON MessageIdentifiers(Identifier)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_pred ON MessageIdentifiers(Predicate, Identifier)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
@@ -840,51 +839,54 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByRecipient(string_pair recipie
     return GetMessagesByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true, viewpoint, maxDistance, msgType, latestOnly);
 }
 
-vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly, string_pair viewpoint, int maxDistance) {
-    vector<string_pair> results;
+vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly, string_pair viewpoint, int maxDistance) {
+    vector<SearchResult> results;
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
 
     sqlite3_stmt *statement;
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT Predicate, Identifier FROM MessageIdentifiers AS pi ";
+    sql << "SELECT DISTINCT pred, id, IFNULL(CachedName,''), IFNULL(CachedEmail,'') FROM (";
+
+    sql << "SELECT DISTINCT Predicate AS pred, Identifier AS id FROM MessageIdentifiers ";
+    sql << "WHERE ";
+    sql << "id LIKE '%' || @query || '%' ";
+    if (!query.first.empty())
+        sql << "AND pred = @pred ";
+    sql << ") ";
+
     if (useViewpoint) {
-        sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicate = Predicate AND tp.EndID = Identifier ";
+        sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicate = pred AND tp.EndID = id ";
         sql << "AND tp.StartPredicate = @viewPredicate AND tp.StartID = @viewID ";
     }
-    sql << "WHERE ";
-    sql << "Identifier LIKE '%' || @query || '%' ";
-
-    if (!query.first.empty())
-      sql << "AND Predicate = @pred ";
+    sql << "LEFT JOIN CachedNames AS cn ON cn.Predicate = pred AND cn.Identifier = id ";
+    sql << "LEFT JOIN CachedEmails AS ce ON ce.Predicate = pred AND ce.Identifier = id ";
 
     if (useViewpoint)
-        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC ";
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, id ASC ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
-        if (useViewpoint) {
-            sqlite3_bind_text(statement, 1, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-            n = 2;
-        }
         if (!query.first.empty()) {
-            sqlite3_bind_text(statement, 1+n, query.second.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2+n, query.first.c_str(), -1, SQLITE_TRANSIENT);
-            if (limit) {
-                sqlite3_bind_int(statement, 3+n, limit);
-                sqlite3_bind_int(statement, 4+n, offset);
-            }
+            sqlite3_bind_text(statement, 1, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, query.first.c_str(), -1, SQLITE_TRANSIENT);
+            n += 2;
         } else {
-            sqlite3_bind_text(statement, 1+n, query.second.c_str(), -1, SQLITE_TRANSIENT);
-            if (limit) {
-                sqlite3_bind_int(statement, 2+n, limit);
-                sqlite3_bind_int(statement, 3+n, offset);
-            }
+            sqlite3_bind_text(statement, 1, query.second.c_str(), -1, SQLITE_TRANSIENT);
+            n += 1;
+        }
+        if (useViewpoint) {
+            sqlite3_bind_text(statement, 1+n, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2+n, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            n += 2;
+        }
+        if (limit) {
+            sqlite3_bind_int(statement, 1+n, limit);
+            sqlite3_bind_int(statement, 2+n, offset);
         }
 
         int result = 0;
@@ -895,14 +897,20 @@ vector<string_pair> CIdentifiDB::SearchForID(string_pair query, int limit, int o
             {
                 string type = (char*)sqlite3_column_text(statement, 0);
                 string value = (char*)sqlite3_column_text(statement, 1);
-                results.push_back(make_pair(type, value));
+                string name = (char*)sqlite3_column_text(statement, 2);
+                string email = (char*)sqlite3_column_text(statement, 3);
+                SearchResult r;
+                r.id = make_pair(type,value);
+                r.name = name;
+                r.email = email;
+                results.push_back(r);
             }
             else
             {
                 break;  
             }
         }
-    }
+    } else cout << sqlite3_errmsg(db) << "\n";
     
     sqlite3_finalize(statement);
     return results;

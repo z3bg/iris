@@ -302,14 +302,14 @@ Value search(const Array& params, bool fHelp)
         viewpoint = make_pair(viewpointType, viewpointValue);
     }
 
-    vector<string_pair> results = pidentifidb->SearchForID(query, limit, offset, false, viewpoint);
+    vector<SearchResult> results = pidentifidb->SearchForID(query, limit, offset, false, viewpoint);
 
-    BOOST_FOREACH(string_pair result, results) {
-        string email = pidentifidb->GetCachedEmail(result);
+    BOOST_FOREACH(SearchResult r, results) {
         Object o;
-        o.push_back(Pair("type",result.first));
-        o.push_back(Pair("value",result.second));
-        o.push_back(Pair("email",email));
+        o.push_back(Pair("type",r.id.first));
+        o.push_back(Pair("value",r.id.second));
+        o.push_back(Pair("name",r.name));
+        o.push_back(Pair("email",r.email));
         resultsJSON.push_back(o);
     }
 
