@@ -847,7 +847,7 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT pred, id, IFNULL(CachedName,''), IFNULL(CachedEmail,'') FROM (";
+    sql << "SELECT DISTINCT pred, id, IFNULL(CachedName,''), IFNULL(CachedEmail,CASE WHEN pred = 'email' THEN id ELSE '' END) FROM (";
 
     sql << "SELECT DISTINCT Predicate AS pred, Identifier AS id FROM MessageIdentifiers ";
     sql << "WHERE ";
