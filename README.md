@@ -70,7 +70,9 @@ Possible applications
 Building
 --------
 
-    sudo apt-get install build-essential libssl-dev libboost-all-dev libsqlite3-dev libminiupnpc-dev
+    sudo apt-get install build-essential libssl-dev libboost-all-dev libminiupnpc-dev
+
+You'll also need sqlite3 version 3.8.3 or later: http://www.sqlite.org/download.html
 
     git clone git://github.com/identifi/identifi.git
     cd ./identifi/src
