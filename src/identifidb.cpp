@@ -574,8 +574,140 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
 
     sqlite3_finalize(statement);
     return value;
+} 
+
+vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit, int offset, string_pair viewpoint, int maxDistance) {
+    vector<LinkedID> results;
+
+    sqlite3_stmt *statement;
+    vector<CIdentifiMessage> msgs;
+    ostringstream sql;
+    sql.str("");
+
+    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string, confirmations, refutations) AS ";
+    sql << "( ";
+    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, ";
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Messages AS p ";
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
+    
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    string msgType;
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+
+    sql << "WHERE p.Predicate IN ('confirm_connection', 'refute_connection') AND id1.Predicate = @pred AND id1.Identifier = @id ";
+    AddMessageFilterSQLWhere(sql, viewpoint);
+    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+
+    sql << "UNION ALL ";
+
+    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, ";
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Messages AS p ";
+    sql << "JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
+    sql << "JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
+    sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
+    
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+    
+    sql << "WHERE p.Predicate IN ('confirm_connection','refute_connections') AND tc.distance < 10 ";
+    AddMessageFilterSQLWhere(sql, viewpoint);
+    sql << "AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::'))";
+    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+    sql << ") ";
+    sql << "SELECT pr2val, id2val, SUM(confirmations) AS c, SUM(refutations) AS r FROM transitive_closure ";
+    sql << "WHERE 1 ";
+    
+    if (!searchedPredicates.empty()) {
+        vector<string> questionMarks(searchedPredicates.size(), "?");
+        sql << "AND pr2val IN (" << algorithm::join(questionMarks, ", ") << ") ";
+    }
+
+    sql << "GROUP BY pr2val, id2val ";
+    sql << "ORDER BY c - r DESC, r ASC ";
+    
+    if (limit > 0) {
+        sql << "LIMIT " << limit;
+        sql << " OFFSET " << offset;
+    }
+
+    int mostNameConfirmations = 0, mostEmailConfirmations = 0;
+    string_pair mostConfirmedName;
+    string mostConfirmedEmail;
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        int n = 0;
+        if (useViewpoint) {
+            n = 2;
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n = 3;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        }
+
+        sqlite3_bind_text(statement, 1+n, startID.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2+n, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (!searchedPredicates.empty()) {
+            for (unsigned int i = 0; i < searchedPredicates.size(); i++) {
+                sqlite3_bind_text(statement, i + 3 + n, searchedPredicates.at(i).c_str(), -1, SQLITE_TRANSIENT);
+            }
+        }
+
+        int result = 0;
+        while(true)
+        {
+            result = sqlite3_step(statement);
+            if(result == SQLITE_ROW)
+            {
+                LinkedID id;
+                string type = (char*)sqlite3_column_text(statement, 0);
+                string value = (char*)sqlite3_column_text(statement, 1);
+                id.id = make_pair(type, value);
+                id.confirmations = sqlite3_column_int(statement, 2);
+                id.refutations = sqlite3_column_int(statement, 3);
+                results.push_back(id);
+                if (startID.first != "name" && startID.first != "nickname") { 
+                    if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
+                        if ((id.refutations == 0 || id.confirmations > id.refutations)
+                            && (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname"))) {
+                            mostConfirmedName = make_pair(type, value);
+                            mostNameConfirmations = id.confirmations;
+                        }
+                    }
+                }
+                if (startID.first != "email") {
+                    if (type == "email" && id.confirmations > id.refutations && id.confirmations >= mostEmailConfirmations) {
+                        mostConfirmedEmail = value;
+                        mostEmailConfirmations = id.confirmations;
+                    }
+                }
+            }
+            else
+            {
+                break;  
+            }
+        }
+    } else cout << sqlite3_errmsg(db) << "\n";
+
+    UpdateCachedName(startID, mostConfirmedName.second);
+    UpdateCachedEmail(startID, mostConfirmedEmail);
+
+    sqlite3_finalize(statement);
+    return results;
 }
 
+
+/*
 // "Find all 'names' or a 'nicknames' linked to this identifier". Empty searchedPredicates catches all.
 vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit, int offset, string_pair viewpoint, int maxDistance) {
     vector<LinkedID> results;
@@ -691,7 +823,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     sqlite3_finalize(statement);
     return results;
-}
+}*/
 
 void CIdentifiDB::UpdateCachedValue(string valueType, string_pair startID, string value) {
     sqlite3_stmt *statement;
