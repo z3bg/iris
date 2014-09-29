@@ -877,16 +877,51 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
+    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string, confirmations, refutations) AS ";
+    sql << "( ";
+    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, ";
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Messages AS p ";
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 ";
+    
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+
+    sql << "WHERE p.Predicate IN ('confirm_connection', 'refute_connection') AND id1.Predicate = @pred AND id1.Identifier = @id ";
+    AddMessageFilterSQLWhere(sql, viewpoint);
+    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+
+    sql << "UNION ALL ";
+
+    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, ";
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Messages AS p ";
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 ";
+    sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
+    
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+    
+    sql << "WHERE p.Predicate IN ('confirm_connection','refute_connections') AND tc.distance < 10 ";
+    AddMessageFilterSQLWhere(sql, viewpoint);
+    sql << "AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) ";
+    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+    sql << ") ";
     sql << "SELECT DISTINCT p.* FROM Messages AS p ";
 
-    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     bool filterMessageType = !msgType.empty();
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    if (trustPathablePredicatesOnly) {
-        sql << "INNER JOIN TrustPathablePredicates AS tpp ON tpp.Value = pi.Predicate ";
-    }
+    sql << "INNER JOIN TrustPathablePredicates AS tpp ON tpp.Value = pi.Predicate ";
+    sql << "INNER JOIN transitive_closure AS tc ON tc.pr2val = pi.Predicate AND tc.id2val = pi.Identifier ";
     sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
@@ -899,13 +934,14 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
         sql << "pi.IsRecipient = 1 AND ";
     else
         sql << "pi.IsRecipient = 0 AND ";
-    if (!author.first.empty())
-        sql << "pi.Predicate = @predValue AND ";
+    //if (!author.first.empty())
+    //    sql << "pi.Predicate = @predValue AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     if (latestOnly)
         sql << "p.IsLatest = 1 AND ";
-    sql << "pi.Identifier = @idValue ";
+    //sql << "pi.Identifier = @idValue ";
+    sql << "1 ";
     AddMessageFilterSQLWhere(sql, viewpoint);
     sql << "ORDER BY p.Created DESC ";
     if (limit)
@@ -922,23 +958,17 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
                 sqlite3_bind_int(statement, 3, maxDistance);
             }
         }
+        sqlite3_bind_text(statement, 1+n, author.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2+n, author.second.c_str(), -1, SQLITE_TRANSIENT);
+        n += 2;
         if (filterMessageType) {
             sqlite3_bind_text(statement, 1+n, msgType.c_str(), -1, SQLITE_TRANSIENT);
             n++;
         }
-        if (!author.first.empty()) {
-            sqlite3_bind_text(statement, 1+n, author.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2+n, author.second.c_str(), -1, SQLITE_TRANSIENT);
-            if (limit) {
-                sqlite3_bind_int(statement, 3+n, limit);
-                sqlite3_bind_int(statement, 4+n, offset);
-            }
-        } else {
-            sqlite3_bind_text(statement, 1+n, author.second.c_str(), -1, SQLITE_TRANSIENT); 
-            if (limit) {
-                sqlite3_bind_int(statement, 2+n, limit);
-                sqlite3_bind_int(statement, 3+n, offset);
-            }
+        if (limit) {
+            sqlite3_bind_int(statement, 1+n, limit);
+            sqlite3_bind_int(statement, 2+n, offset);
+            n += 2;
         }
 
         int result = 0;
@@ -956,9 +986,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
             }
         }
     } else {
-        printf("DB Error: %s\n", sqlite3_errmsg(db));
+        cout << sqlite3_errmsg(db) << "\n";
     }
-    
+
     sqlite3_finalize(statement);
     return msgs;
 }
