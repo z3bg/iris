@@ -592,7 +592,6 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
-    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
     
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
@@ -614,6 +613,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
     sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = tc.pr1val ";
     
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
     
