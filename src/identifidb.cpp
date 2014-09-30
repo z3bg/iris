@@ -224,7 +224,7 @@ void CIdentifiDB::Initialize() {
     sql << "PRIMARY KEY(MessageHash, Predicate, Identifier, IsRecipient),";
     sql << "FOREIGN KEY(MessageHash)     REFERENCES Messages(Hash));";
     query(sql.str().c_str());
-    query("CREATE INDEX IF NOT EXISTS PIIndex ON MessageIdentifiers(MessageHash)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex ON MessageIdentifiers(MessageHash, IsRecipient)");
     query("CREATE INDEX IF NOT EXISTS PIIndex_pred ON MessageIdentifiers(Predicate, Identifier)");
 
     sql.str("");
@@ -2218,14 +2218,52 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     IDOverview overview;
 
     sqlite3_stmt *statement;
+    string msgType = "";
 
     ostringstream sql;
     sql.str("");
+    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string, confirmations, refutations) AS ";
+    sql << "( ";
+    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, ";
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Messages AS p ";
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 ";
+    
+    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+
+    sql << "WHERE p.Predicate IN ('confirm_connection', 'refute_connection') AND id1.Predicate = @type AND id1.Identifier = @value ";
+    AddMessageFilterSQLWhere(sql, viewpoint);
+    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+
+    sql << "UNION ALL ";
+
+    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, ";
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "FROM Messages AS p ";
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 ";
+    sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
+    
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+    
+    sql << "WHERE p.Predicate IN ('confirm_connection','refute_connections') AND tc.distance < 10 ";
+    AddMessageFilterSQLWhere(sql, viewpoint);
+    sql << "AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) ";
+    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+    sql << ") ";
+
     sql << "SELECT ";
     sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     sql << "SUM(CASE WHEN pi.IsRecipient = 0 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
-    bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     if (!useViewpoint) {
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
@@ -2241,18 +2279,22 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "MIN(p.Created) ";
     sql << "FROM Messages AS p ";
 
-    string msgType = "";
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
+    sql << "INNER JOIN TrustPathablePredicates AS tpp ON tpp.Value = pi.Predicate ";
+    sql << "INNER JOIN transitive_closure AS tc ON tc.pr2val = pi.Predicate AND tc.id2val = pi.Identifier ";
     sql << "WHERE p.Predicate = 'rating' ";
     sql << "AND p.IsLatest = 1 ";
-    sql << "AND pi.Predicate = @type AND pi.Identifier = @value ";
+
+    AddMessageFilterSQLWhere(sql, viewpoint);
     
     if (useViewpoint) {
         sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred) ";
         sql << "OR (author.Predicate = @type AND author.Identifier = @value)) ";
     }
+
+    sql << "GROUP BY tc.pr2val, tc.id2val ";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
