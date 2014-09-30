@@ -31,6 +31,7 @@ struct LinkedID {
     string_pair id;
     int confirmations;
     int refutations;
+    int distance;
 };
 
 struct IDOverview {

@@ -622,7 +622,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::'))";
     sql << "GROUP BY id2.Predicate, id2.Identifier ";
     sql << ") ";
-    sql << "SELECT pr2val, id2val, SUM(confirmations) AS c, SUM(refutations) AS r FROM transitive_closure ";
+    sql << "SELECT pr2val, id2val, SUM(confirmations) AS c, SUM(refutations) AS r, MIN(distance) AS d FROM transitive_closure ";
     sql << "WHERE 1 ";
     
     if (!searchedPredicates.empty()) {
@@ -631,7 +631,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     }
 
     sql << "GROUP BY pr2val, id2val ";
-    sql << "ORDER BY c - r DESC, r ASC ";
+    sql << "ORDER BY d ASC, c - r DESC, r ASC ";
     
     if (limit > 0) {
         sql << "LIMIT " << limit;
@@ -675,6 +675,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 id.id = make_pair(type, value);
                 id.confirmations = sqlite3_column_int(statement, 2);
                 id.refutations = sqlite3_column_int(statement, 3);
+                id.distance = sqlite3_column_int(statement, 4);
                 results.push_back(id);
                 if (startID.first != "name" && startID.first != "nickname") { 
                     if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {

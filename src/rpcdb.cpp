@@ -534,6 +534,7 @@ Value getconnections(const Array& params, bool fHelp) {
         id.push_back(Pair("value", result.id.second));
         id.push_back(Pair("confirmations", result.confirmations));
         id.push_back(Pair("refutations", result.refutations));
+        id.push_back(Pair("distance", result.distance));
         resultsJSON.push_back(id);
     }
     return resultsJSON;
