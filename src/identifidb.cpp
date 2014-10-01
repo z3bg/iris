@@ -876,6 +876,7 @@ CIdentifiMessage CIdentifiDB::GetMessageFromStatement(sqlite3_stmt *statement) {
 vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool byRecipient, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiMessage> msgs;
+    string emptyMsgType = "";
     ostringstream sql;
     sql.str("");
     sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string, confirmations, refutations) AS ";
@@ -890,7 +891,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 ";
     
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
-    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, emptyMsgType);
 
     sql << "WHERE p.Predicate IN ('confirm_connection', 'refute_connection') AND id1.Predicate = @pred AND id1.Identifier = @id ";
     AddMessageFilterSQLWhere(sql, viewpoint);
@@ -908,7 +909,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 ";
     sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
     
-    AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
+    AddMessageFilterSQL(sql, viewpoint, maxDistance, emptyMsgType);
     
     sql << "WHERE p.Predicate IN ('confirm_connection','refute_connections') AND tc.distance < 10 ";
     AddMessageFilterSQLWhere(sql, viewpoint);
