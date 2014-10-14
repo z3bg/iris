@@ -201,7 +201,7 @@ void CIdentifiDB::Initialize() {
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME        NOT NULL,";
-    sql << "Predicate           INTEGER         NOT NULL,";
+    sql << "Type                INTEGER         NOT NULL,";
     sql << "Rating              INTEGER         DEFAULT 0 NOT NULL,";
     sql << "MinRating           INTEGER         DEFAULT 0 NOT NULL,";
     sql << "MaxRating           INTEGER         DEFAULT 0 NOT NULL,";
@@ -216,37 +216,37 @@ void CIdentifiDB::Initialize() {
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS MessageIdentifiers (";
     sql << "MessageHash         NVARCHAR(45)    NOT NULL,";
-    sql << "Predicate           NVARCHAR(255)   NOT NULL,";
+    sql << "Type                NVARCHAR(255)   NOT NULL,";
     sql << "Identifier          NVARCHAR(255)   NOT NULL,";
     sql << "IsRecipient         BOOL            NOT NULL,";
-    sql << "PRIMARY KEY(MessageHash, Predicate, Identifier, IsRecipient),";
+    sql << "PRIMARY KEY(MessageHash, Type, Identifier, IsRecipient),";
     sql << "FOREIGN KEY(MessageHash)     REFERENCES Messages(Hash));";
     query(sql.str().c_str());
     query("CREATE INDEX IF NOT EXISTS PIIndex ON MessageIdentifiers(MessageHash, IsRecipient)");
-    query("CREATE INDEX IF NOT EXISTS PIIndex_pred ON MessageIdentifiers(Predicate, Identifier)");
+    query("CREATE INDEX IF NOT EXISTS PIIndex_type ON MessageIdentifiers(Type, Identifier)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS TrustDistances (";
     sql << "StartID             NVARCHAR(255)   NOT NULL,";
-    sql << "StartPredicate      NVARCHAR(255)   NOT NULL,";
+    sql << "StartType           NVARCHAR(255)   NOT NULL,";
     sql << "EndID               NVARCHAR(255)   NOT NULL,";
-    sql << "EndPredicate        NVARCHAR(255)   NOT NULL,";
+    sql << "EndType             NVARCHAR(255)   NOT NULL,";
     sql << "Distance            INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(StartID, StartPredicate, EndID, EndPredicate))";
+    sql << "PRIMARY KEY(StartID, StartType, EndID, EndType))";
     query(sql.str().c_str());
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Identities (";
     sql << "IdentityID                INTEGER         NOT NULL,";
-    sql << "Predicate                 NVARCHAR(255)   NOT NULL,";
+    sql << "Type                      NVARCHAR(255)   NOT NULL,";
     sql << "Identifier                NVARCHAR(255)   NOT NULL,";
-    sql << "ViewpointPredicate        NVARCHAR(255)   NOT NULL,";
+    sql << "ViewpointType             NVARCHAR(255)   NOT NULL,";
     sql << "ViewpointID               NVARCHAR(255)   NOT NULL,";
     sql << "Confirmations             INTEGER         NOT NULL,";
     sql << "Refutations               INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(IdentityID, Predicate, Identifier, ViewpointPredicate, ViewpointID))";
+    sql << "PRIMARY KEY(IdentityID, Type, Identifier, ViewpointType, ViewpointID))";
     query(sql.str().c_str());
-    query("CREATE INDEX IF NOT EXISTS IdentitiesIndex_viewpoint ON Identities(ViewpointPredicate, ViewpointID, IdentityID)");
+    query("CREATE INDEX IF NOT EXISTS IdentitiesIndex_viewpoint ON Identities(ViewpointType, ViewpointID, IdentityID)");
 
     sql.str("");
     sql << "CREATE TABLE IF NOT EXISTS Keys (";
@@ -311,10 +311,10 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByIdentifier(string_pair identi
     sql << "WHERE ";
 
     if (filterMessageType)
-        sql << "p.Predicate = @msgType AND ";
+        sql << "p.Type = @msgType AND ";
 
     if (!identifier.first.empty())
-        sql << "pi.Predicate = @predValue AND ";
+        sql << "pi.Type = @idType AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     if (latestOnly)
@@ -399,23 +399,23 @@ vector<CIdentifiMessage> CIdentifiDB::GetConnectingMessages(string_pair id1, str
     sql << "ON (LinkedID1.MessageHash = p.Hash AND LinkedID1.IsRecipient = 1) ";
     sql << "INNER JOIN MessageIdentifiers AS LinkedID2 ";
     sql << "ON (LinkedID2.MessageHash = p.Hash AND LinkedID2.IsRecipient = 1 ";
-    sql << "AND NOT (LinkedID1.Identifier = LinkedID2.Identifier AND LinkedID1.Predicate = LinkedID2.Predicate)) ";
-    sql << "WHERE LinkedID1.Predicate = @id1type AND LinkedID1.Identifier = @id1value AND ";
-    sql << "LinkedID2.Predicate = @id2type AND LinkedID2.Identifier = @id2value ";
+    sql << "AND NOT (LinkedID1.Identifier = LinkedID2.Identifier AND LinkedID1.Type = LinkedID2.Type)) ";
+    sql << "WHERE LinkedID1.Type = @id1type AND LinkedID1.Identifier = @id1value AND ";
+    sql << "LinkedID2.Type = @id2type AND LinkedID2.Identifier = @id2value ";
     AddMessageFilterSQLWhere(sql, viewpoint);
 
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "AND p.Predicate != @msgType ";
+            sql << "AND p.Type != @msgType ";
         } else {
-            sql << "AND p.Predicate = @msgType ";
+            sql << "AND p.Type = @msgType ";
         }
     }
 
     if (!showUnpublished)
         sql << "AND p.Published = 1 ";
 
-    sql << "GROUP BY LinkAuthor.Predicate, LinkAuthor.Identifier ";
+    sql << "GROUP BY LinkAuthor.Type, LinkAuthor.Identifier ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -548,11 +548,11 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
 
     sql << "SELECT Identifier FROM Identities ";
     if (valueType == "name") {
-        sql << "WHERE Predicate IN ('name','nickname') ";
+        sql << "WHERE Type IN ('name','nickname') ";
     } else {
-        sql << "WHERE Predicate = 'email' ";
+        sql << "WHERE Type = 'email' ";
     }
-    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Predicate = ? AND Identifier = ?)";
+    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?)";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -569,7 +569,7 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     return value;
 } 
 
-vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit, int offset, string_pair viewpoint, int maxDistance) {
+vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<string> searchedTypes, int limit, int offset, string_pair viewpoint, int maxDistance) {
     vector<LinkedID> results;
 
     sqlite3_stmt *statement;
@@ -579,7 +579,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     sql.str("");
     sql << "DELETE FROM Identities WHERE IdentityID = ";
-    sql << "(SELECT IdentityID FROM Identities WHERE Identifier = ? AND Predicate = ? AND ViewpointPredicate = ? AND ViewpointID = ?)";
+    sql << "(SELECT IdentityID FROM Identities WHERE Identifier = ? AND Type = ? AND ViewpointType = ? AND ViewpointID = ?)";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -591,49 +591,49 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     sql.str("");
 
-    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string, confirmations, refutations) AS ";
+    sql << "WITH RECURSIVE transitive_closure(id1type, id1val, id2type, id2val, distance, path_string, confirmations, refutations) AS ";
     sql << "( ";
-    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, ";
-    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
-    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
-    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "SELECT id1.Type, id1.Identifier, id2.Type, id2.Identifier, 1 AS distance, ";
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Type,':','::'),replace(id1.Identifier,':','::'),replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Type = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Type = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
-    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) ";
     
     string msgType;
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
-    sql << "WHERE p.Predicate IN ('confirm_connection', 'refute_connection') AND id1.Predicate = @pred AND id1.Identifier = @id ";
+    sql << "WHERE p.Type IN ('confirm_connection', 'refute_connection') AND id1.Type = @type AND id1.Identifier = @id ";
     AddMessageFilterSQLWhere(sql, viewpoint);
-    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+    sql << "GROUP BY id2.Type, id2.Identifier ";
 
     sql << "UNION ALL ";
 
-    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, ";
-    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
-    sql << "SUM(CASE WHEN p.Predicate = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
-    sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
+    sql << "SELECT tc.id1type, tc.id1val, id2.Type, id2.Identifier, tc.distance + 1, ";
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) AS path_string, ";
+    sql << "SUM(CASE WHEN p.Type = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
+    sql << "SUM(CASE WHEN p.Type = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Messages AS p ";
     sql << "JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
-    sql << "JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
-    sql << "JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
-    sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = tc.pr1val ";
+    sql << "JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Type ";
+    sql << "JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) ";
+    sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Type = tc.id2type AND id1.Identifier = tc.id2val ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = tc.id1type ";
     
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
     
-    sql << "WHERE p.Predicate IN ('confirm_connection','refute_connections') AND tc.distance < 10 ";
+    sql << "WHERE p.Type IN ('confirm_connection','refute_connections') AND tc.distance < 10 ";
     AddMessageFilterSQLWhere(sql, viewpoint);
-    sql << "AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::'))";
-    sql << "GROUP BY id2.Predicate, id2.Identifier ";
+    sql << "AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Type,':','::'),replace(id2.Identifier,':','::'))";
+    sql << "GROUP BY id2.Type, id2.Identifier ";
     sql << ") ";
 
     int identityID = lexical_cast<int>(query("SELECT IFNULL(MAX(IdentityID), 0) + 1 FROM Identities")[0][0]);
     sql << "INSERT INTO Identities ";
-    sql << "SELECT " << identityID << ", pr2val, id2val, @viewpointPred, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
-    sql << "GROUP BY pr2val, id2val ";
-    sql << "UNION SELECT " << identityID << ", @pred, @id, @viewpointPred, @viewpointID, 1, 1 ";
+    sql << "SELECT " << identityID << ", id2type, id2val, @viewpointPred, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
+    sql << "GROUP BY id2type, id2val ";
+    sql << "UNION SELECT " << identityID << ", @type, @id, @viewpointPred, @viewpointID, 1, 1 ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 2;
@@ -653,9 +653,9 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         sqlite3_bind_text(statement, 1+n, startID.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2+n, startID.second.c_str(), -1, SQLITE_TRANSIENT);
 
-        if (!searchedPredicates.empty()) {
-            for (unsigned int i = 0; i < searchedPredicates.size(); i++) {
-                sqlite3_bind_text(statement, i + 3 + n, searchedPredicates.at(i).c_str(), -1, SQLITE_TRANSIENT);
+        if (!searchedTypes.empty()) {
+            for (unsigned int i = 0; i < searchedTypes.size(); i++) {
+                sqlite3_bind_text(statement, i + 3 + n, searchedTypes.at(i).c_str(), -1, SQLITE_TRANSIENT);
             }
         }
 
@@ -663,7 +663,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     } else cout << sqlite3_errmsg(db) << "\n";
 
     sql.str("");
-    sql << "SELECT Predicate, Identifier, Confirmations AS c, Refutations AS r, 1 FROM Identities WHERE NOT (Predicate = @searchedpred AND Identifier = @searchedid) AND IdentityID = (SELECT MAX(IdentityID) FROM Identities) ";
+    sql << "SELECT Type, Identifier, Confirmations AS c, Refutations AS r, 1 FROM Identities WHERE NOT (Type = @searchedtype AND Identifier = @searchedid) AND IdentityID = (SELECT MAX(IdentityID) FROM Identities) ";
     sql << "ORDER BY c-r DESC ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -707,10 +707,10 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql.str("");
     sql << "SELECT DISTINCT p.* FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Predicate ";
-    sql << "INNER JOIN Identities AS i ON (i.Predicate = pi.Predicate AND i.Identifier = pi.Identifier AND i.IdentityID = ";
-    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointPredicate = @viewpointPred AND ViewpointID = @viewpointID ";
-    sql << "AND Predicate = @pred AND Identifier = @id)) ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Type ";
+    sql << "INNER JOIN Identities AS i ON (i.Type = pi.Type AND i.Identifier = pi.Identifier AND i.IdentityID = ";
+    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointType = @viewpointPred AND ViewpointID = @viewpointID ";
+    sql << "AND Type = @type AND Identifier = @id)) ";
 
     bool filterMessageType = !msgType.empty();
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
@@ -718,9 +718,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "p.Predicate != @msgType AND ";
+            sql << "p.Type != @msgType AND ";
         } else {
-            sql << "p.Predicate = @msgType AND ";
+            sql << "p.Type = @msgType AND ";
         }
     }
     if (byRecipient)
@@ -794,32 +794,32 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT pred, id, IFNULL(Name.Identifier,''), IFNULL(Email.Identifier,CASE WHEN pred = 'email' THEN id ELSE '' END) FROM (";
+    sql << "SELECT DISTINCT idtype, idvalue, IFNULL(Name.Identifier,''), IFNULL(Email.Identifier,CASE WHEN idtype = 'email' THEN idvalue ELSE '' END) FROM (";
 
-    sql << "SELECT DISTINCT Predicate AS pred, Identifier AS id FROM MessageIdentifiers ";
+    sql << "SELECT DISTINCT mi.Type AS idtype, mi.Identifier AS idvalue FROM MessageIdentifiers AS mi ";
     sql << "WHERE ";
-    sql << "id LIKE '%' || @query || '%' ";
+    sql << "mi.Identifier LIKE '%' || @query || '%' ";
     if (!query.first.empty())
-        sql << "AND pred = @pred ";
+        sql << "AND mi.Type = @type ";
     sql << ") ";
 
     if (useViewpoint) {
-        sql << "LEFT JOIN TrustDistances AS tp ON tp.EndPredicate = pred AND tp.EndID = id ";
-        sql << "AND tp.StartPredicate = @viewPredicate AND tp.StartID = @viewID ";
+        sql << "LEFT JOIN TrustDistances AS tp ON tp.EndType = idtype AND tp.EndID = idvalue ";
+        sql << "AND tp.StartType = @viewType AND tp.StartID = @viewID ";
     }
 
-    sql << "LEFT JOIN UniqueIdentifierTypes AS UID ON UID.Value = pred ";
-    sql << "LEFT JOIN Identities AS ThisIdentity ON ThisIdentity.Predicate = pred AND ThisIdentity.Identifier = id ";
-    sql << "LEFT JOIN Identities AS Email ON Email.Predicate = 'email' AND Email.IdentityID = ThisIdentity.IdentityID ";
-    sql << "LEFT JOIN Identities AS Name ON Name.Predicate IN ('name', 'nickname') AND Name.IdentityID = ThisIdentity.IdentityID ";
+    sql << "LEFT JOIN UniqueIdentifierTypes AS UID ON UID.Value = idtype ";
+    sql << "LEFT JOIN Identities AS ThisIdentity ON ThisIdentity.Type = idtype AND ThisIdentity.Identifier = idvalue ";
+    sql << "LEFT JOIN Identities AS Email ON Email.Type = 'email' AND Email.IdentityID = ThisIdentity.IdentityID ";
+    sql << "LEFT JOIN Identities AS Name ON Name.Type IN ('name', 'nickname') AND Name.IdentityID = ThisIdentity.IdentityID ";
 
-    //sql << "LEFT JOIN CachedNames AS cn ON cn.Predicate = pred AND cn.Identifier = id ";
-    //sql << "LEFT JOIN CachedEmails AS ce ON ce.Predicate = pred AND ce.Identifier = id ";
+    //sql << "LEFT JOIN CachedNames AS cn ON cn.Type = type AND cn.Identifier = id ";
+    //sql << "LEFT JOIN CachedEmails AS ce ON ce.Type = type AND ce.Identifier = id ";
 
-    sql << "GROUP BY IFNULL(ThisIdentity.IdentityID, id) ";
+    sql << "GROUP BY IFNULL(ThisIdentity.IdentityID, PRINTF('%s%s',idtype,idvalue)) ";
 
     if (useViewpoint)
-        sql << "ORDER BY UID.Value IS NOT NULL DESC, CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, id ASC ";
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, UID.Value IS NOT NULL DESC, idvalue ASC ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
@@ -926,7 +926,7 @@ void CIdentifiDB::SaveMessageAuthorOrRecipient(string msgHash, string_pair ident
 
     sql << "SELECT * FROM MessageIdentifiers ";
     sql << "WHERE MessageHash = @msghash ";
-    sql << "AND Predicate = @predicate ";
+    sql << "AND Type = @type ";
     sql << "AND Identifier = @idid ";
     sql << "AND IsRecipient = @isrecipient";
 
@@ -938,8 +938,8 @@ void CIdentifiDB::SaveMessageAuthorOrRecipient(string msgHash, string_pair ident
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
         sql.str("");
-        sql << "INSERT OR IGNORE INTO MessageIdentifiers (MessageHash, Predicate, Identifier, IsRecipient) ";
-        sql << "VALUES (@msghash, @predicateid, @identifierid, @isRecipient);";
+        sql << "INSERT OR IGNORE INTO MessageIdentifiers (MessageHash, Type, Identifier, IsRecipient) ";
+        sql << "VALUES (@msghash, @typeid, @identifierid, @isRecipient);";
         
         RETRY_IF_DB_FULL(
             if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -969,8 +969,8 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
 
     sql.str("");
     sql << "SELECT COUNT(1) FROM ";
-    sql << "(SELECT DISTINCT tp.EndPredicate, tp.EndID FROM TrustDistances AS tp ";
-    sql << "WHERE tp.StartPredicate = @type AND tp.StartID = @value)";
+    sql << "(SELECT DISTINCT tp.EndType, tp.EndID FROM TrustDistances AS tp ";
+    sql << "WHERE tp.StartType = @type AND tp.StartID = @value)";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1001,7 +1001,7 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    sql.str("DELETE FROM TrustDistances WHERE StartPredicate = ? AND StartID = ?");
+    sql.str("DELETE FROM TrustDistances WHERE StartType = ? AND StartID = ?");
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -1009,30 +1009,30 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     } else cout << sqlite3_errmsg(db) << "\n";
 
     sql.str("");
-    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string) AS ";
+    sql << "WITH RECURSIVE transitive_closure(id1type, id1val, id2type, id2val, distance, path_string) AS ";
     sql << "(";
-    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, "; 
-    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
+    sql << "SELECT id1.Type, id1.Identifier, id2.Type, id2.Identifier, 1 AS distance, "; 
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Type,':','::'),replace(id1.Identifier,':','::'),replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
-    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
-    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Predicate = @id1pred AND id1.Identifier = @id1 ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Type ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Type ";
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Type = @id1type AND id1.Identifier = @id1 ";
 
     sql << "UNION ALL "; 
 
-    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, "; 
-    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
+    sql << "SELECT tc.id1type, tc.id1val, id2.Type, id2.Identifier, tc.distance + 1, "; 
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
-    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
-    sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
-    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Type ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Type ";
+    sql << "JOIN transitive_closure AS tc ON id1.Type = tc.id2type AND id1.Identifier = tc.id2val "; 
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) "; 
     sql << ") "; 
-    sql << "INSERT OR REPLACE INTO TrustDistances (StartPredicate, StartID, EndPredicate, EndID, Distance) SELECT @id1pred, @id1, pr2val, id2val, distance FROM transitive_closure "; 
+    sql << "INSERT OR REPLACE INTO TrustDistances (StartType, StartID, EndType, EndID, Distance) SELECT @id1type, @id1, id2type, id2val, distance FROM transitive_closure "; 
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1056,7 +1056,7 @@ int CIdentifiDB::GetMessageCountByAuthor(string_pair author) {
     ostringstream sql;
     sql.str("");
     sql << "SELECT COUNT(1) FROM MessageIdentifiers ";
-    sql << "WHERE Predicate = @type AND Identifier = @value AND IsRecipient = 0";
+    sql << "WHERE Type = @type AND Identifier = @value AND IsRecipient = 0";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, author.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1147,7 +1147,7 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
         sql << "WHERE Hash IN ";
         sql << "(SELECT author.MessageHash FROM MessageIdentifiers AS author ";
         sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = author.MessageHash ";
-        sql << "WHERE aPred.TrustPathable = 1 AND pred.Value = @type ";
+        sql << "WHERE aPred.TrustPathable = 1 AND type.Value = @type ";
         sql << "AND id.Value = @value AND IsRecipient = 0)";
         */
     }
@@ -1162,9 +1162,9 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO Messages ";
-    sql << "(Hash, SignedData, Created, Predicate, Rating, ";
+    sql << "(Hash, SignedData, Created, Type, Rating, ";
     sql << "MaxRating, MinRating, Published, Priority, SignerPubKey, Signature) ";
-    sql << "VALUES (@id, @data, @timestamp, @predicateid, @rating, ";
+    sql << "VALUES (@id, @data, @timestamp, @typeid, @rating, ";
     sql << "@maxRating, @minRating, @published, @priority, @signerPubKeyID, @signature);";
 
     RETRY_IF_DB_FULL(
@@ -1227,10 +1227,10 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     sql << "SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Predicate ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Predicate ";
-    sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
-    sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Type ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Type ";
+    sql << "WHERE p.Type = ? AND author.Type = ? AND author.Identifier = ? ";
+    sql << "AND recipient.Type = ? AND recipient.Identifier = ? ";
     sql << "AND p.IsLatest = 1 AND p.Created < @newMessageCreated AND (@newMessageCreated - p.Created) < @minMessageInterval ";
 
     vector<string_pair> authors = msg.GetAuthors();
@@ -1268,10 +1268,10 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
         sql << "WHERE Hash IN (SELECT p.Hash FROM Messages AS p ";
         sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
         sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-        sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Predicate ";
-        sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Predicate ";
-        sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
-        sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
+        sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Type ";
+        sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Type ";
+        sql << "WHERE p.Type = ? AND author.Type = ? AND author.Identifier = ? ";
+        sql << "AND recipient.Type = ? AND recipient.Identifier = ? ";
         sql << "AND p.IsLatest = 1) ";
 
         BOOST_FOREACH(string_pair author, authors) {
@@ -1294,10 +1294,10 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     sql << "WHERE Hash IN (SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Predicate ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Predicate ";
-    sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
-    sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Type ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Type ";
+    sql << "WHERE p.Type = ? AND author.Type = ? AND author.Identifier = ? ";
+    sql << "AND recipient.Type = ? AND recipient.Identifier = ? ";
     sql << "ORDER BY p.Created DESC, p.Hash DESC LIMIT 1) ";
 
     BOOST_FOREACH(string_pair author, authors) {
@@ -1547,7 +1547,7 @@ void CIdentifiDB::SaveTrustDistance(string_pair start, string_pair end, int dist
 
     sql.str("");
     sql << "SELECT COUNT(1) FROM TrustDistances WHERE ";
-    sql << "StartPredicate = ? AND StartID = ? AND EndPredicate = ? AND EndID = ? ";
+    sql << "StartType = ? AND StartID = ? AND EndType = ? AND EndID = ? ";
     sql << "AND Distance <= ?";
 
     bool exists = false;
@@ -1570,8 +1570,8 @@ void CIdentifiDB::SaveTrustDistance(string_pair start, string_pair end, int dist
 
     sql.str("");
     sql << "INSERT OR REPLACE INTO TrustDistances ";
-    sql << "(StartPredicate, StartID, EndPredicate, EndID, Distance) ";
-    sql << "VALUES (@startpred, @startID, @endpred, @endID, @distance)";
+    sql << "(StartType, StartID, EndType, EndID, Distance) ";
+    sql << "VALUES (@starttype, @startID, @endtype, @endID, @distance)";
 
     RETRY_IF_DB_FULL(
         if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1601,9 +1601,9 @@ int CIdentifiDB::GetTrustDistance(pair<string, string> start, pair<string, strin
 
     sql.str("");
     sql << "SELECT tp.Distance FROM TrustDistances AS tp ";
-    sql << "WHERE tp.StartPredicate = @startpred ";
+    sql << "WHERE tp.StartType = @starttype ";
     sql << "AND tp.StartID = @startid ";
-    sql << "AND tp.EndPredicate = @endpred ";
+    sql << "AND tp.EndType = @endtype ";
     sql << "AND tp.EndID = @endid ";  
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1630,31 +1630,31 @@ vector<string> CIdentifiDB::GetPaths(string_pair start, string_pair end, int sea
     vector<string> paths;
 
     sql.str("");
-    sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string) AS ";
+    sql << "WITH RECURSIVE transitive_closure(id1type, id1val, id2type, id2val, distance, path_string) AS ";
     sql << "(";
-    sql << "SELECT id1.Predicate, id1.Identifier, id2.Predicate, id2.Identifier, 1 AS distance, "; 
-    sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
+    sql << "SELECT id1.Type, id1.Identifier, id2.Type, id2.Identifier, 1 AS distance, "; 
+    sql << "printf('%s:%s:%s:%s:',replace(id1.Type,':','::'),replace(id1.Identifier,':','::'),replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
-    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
-    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Predicate = ? AND id1.Identifier = ? ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Type ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Type ";
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Type = ? AND id1.Identifier = ? ";
 
     sql << "UNION ALL "; 
 
-    sql << "SELECT tc.pr1val, tc.id1val, id2.Predicate, id2.Identifier, tc.distance + 1, "; 
-    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
+    sql << "SELECT tc.id1type, tc.id1val, id2.Type, id2.Identifier, tc.distance + 1, "; 
+    sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
-    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
-    sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
-    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Type ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) "; 
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Type ";
+    sql << "JOIN transitive_closure AS tc ON id1.Type = tc.id2type AND id1.Identifier = tc.id2val "; 
+    sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Type,':','::'),replace(id2.Identifier,':','::')) "; 
     sql << ") "; 
     sql << "SELECT DISTINCT path_string FROM transitive_closure "; 
-    sql << "WHERE pr2val = ? AND id2val = ? ";
+    sql << "WHERE id2type = ? AND id2val = ? ";
     sql << "ORDER BY distance ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1731,9 +1731,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetLatestMessages(int limit, int offset, b
 
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "AND p.Predicate != @msgType ";
+            sql << "AND p.Type != @msgType ";
         } else {
-            sql << "AND p.Predicate = @msgType ";
+            sql << "AND p.Type = @msgType ";
         }
     }
 
@@ -1798,9 +1798,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesAfterTimestamp(time_t timestamp
 
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "AND p.Predicate != @msgType ";
+            sql << "AND p.Type != @msgType ";
         } else {
-            sql << "AND p.Predicate = @msgType ";
+            sql << "AND p.Type = @msgType ";
         }
     }
     AddMessageFilterSQLWhere(sql, viewpoint);
@@ -1863,9 +1863,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesAfterMessage(string msgHash, in
     sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "p.Predicate != @msgType AND ";
+            sql << "p.Type != @msgType AND ";
         } else {
-            sql << "p.Predicate = @msgType AND ";
+            sql << "p.Type = @msgType AND ";
         }
     }
     sql << "((Created = @timestamp AND Hash > @msghash) OR ";
@@ -1934,9 +1934,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesBeforeMessage(string msgHash, i
     sql << "WHERE ";
     if (filterMessageType) {
         if (msgType[0] == '!') {
-            sql << "p.Predicate != @msgType AND ";
+            sql << "p.Type != @msgType AND ";
         } else {
-            sql << "p.Predicate = @msgType AND ";
+            sql << "p.Type = @msgType AND ";
         }
     }
     sql << "((Created = @timestamp AND Hash > @msghash) OR ";
@@ -2026,29 +2026,29 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     } else {
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 AND ";
-        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 AND ";
-        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 AND  ";
-        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) THEN 1 ELSE 0 END), ";
     }
     sql << "MIN(p.Created) ";
     sql << "FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Predicate ";
-    sql << "INNER JOIN Identities AS i ON pi.Predicate = i.Predicate AND pi.Identifier = i.Identifier AND i.IdentityID = ";
-    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointID = @viewpointID AND ViewpointPredicate = @viewpointPred ";
-    sql << "AND Predicate = @pred AND Identifier = @id) ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Type ";
+    sql << "INNER JOIN Identities AS i ON pi.Type = i.Type AND pi.Identifier = i.Identifier AND i.IdentityID = ";
+    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointID = @viewpointID AND ViewpointType = @viewpointPred ";
+    sql << "AND Type = @type AND Identifier = @id) ";
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
-    sql << "WHERE p.Predicate = 'rating' ";
+    sql << "WHERE p.Type = 'rating' ";
     sql << "AND p.IsLatest = 1 ";
 
     if (useViewpoint) {
-        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred) ";
-        sql << "OR (author.Predicate = @pred AND author.Identifier = @id)) ";
+        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred) ";
+        sql << "OR (author.Type = @type AND author.Identifier = @id)) ";
     }
 
-    sql << "GROUP BY pi.Identifier, pi.Predicate ";
+    sql << "GROUP BY pi.Identifier, pi.Type ";
     
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -2110,12 +2110,12 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
     }
     if (useViewpoint) {
         sql << "INNER JOIN MessageIdentifiers AS author ON (author.MessageHash = p.Hash AND author.IsRecipient = 0) ";
-        sql << "INNER JOIN UniqueIdentifierTypes AS authorTpp ON author.Predicate = authorTpp.Value ";
+        sql << "INNER JOIN UniqueIdentifierTypes AS authorTpp ON author.Type = authorTpp.Value ";
         sql << "LEFT JOIN TrustDistances AS tp ON ";
         sql << "(tp.StartID = @viewpointID AND ";
-        sql << "tp.StartPredicate = @viewpointPred AND ";
+        sql << "tp.StartType = @viewpointPred AND ";
         sql << "tp.EndID = author.Identifier AND ";
-        sql << "tp.EndPredicate = author.Predicate ";
+        sql << "tp.EndType = author.Type ";
         if (maxDistance > 0)
             sql << "AND tp.Distance <= @maxDistance";
         sql << ") ";
@@ -2125,7 +2125,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
 void CIdentifiDB::AddMessageFilterSQLWhere(ostringstream &sql, string_pair viewpoint) {
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     if (useViewpoint)
-        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Predicate = @viewpointPred)) ";
+        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) ";
 }
 
 void CIdentifiDB::DBWorker() {
