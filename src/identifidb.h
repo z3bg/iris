@@ -48,7 +48,7 @@ public:
     vector<string> GetPaths(string_pair start, string_pair end, int searchDepth);
     vector<SearchResult> SearchForID(string_pair query, int limit = 50, int offset = 0, bool uniqueIdentifierTypesOnly = false, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string SaveMessage(CIdentifiMessage &msg);
-    void SaveMessageTrustPaths(CIdentifiMessage &msg);
+    void SaveMessageTrustDistances(CIdentifiMessage &msg);
     void SetDefaultKey(string privKey);
     CKey GetDefaultKey();
     CKey GetDefaultKeyFromDB();
@@ -73,7 +73,7 @@ public:
     bool MakeFreeSpace(int nFreeBytesNeeded);
     void DropMessage(string strMessageHash);
     time_t GetLatestMessageTimestamp();
-    void SaveTrustPath(string_pair start, string_pair end, int distance);
+    void SaveTrustDistance(string_pair start, string_pair end, int distance);
     IDOverview GetIDOverview(string_pair id, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string GetName(string_pair id, bool cachedOnly = false);
     string GetCachedName(string_pair id);

@@ -226,7 +226,7 @@ void CIdentifiDB::Initialize() {
     query("CREATE INDEX IF NOT EXISTS PIIndex_pred ON MessageIdentifiers(Predicate, Identifier)");
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS TrustPaths (";
+    sql << "CREATE TABLE IF NOT EXISTS TrustDistances (";
     sql << "StartID             NVARCHAR(255)   NOT NULL,";
     sql << "StartPredicate      NVARCHAR(255)   NOT NULL,";
     sql << "EndID               NVARCHAR(255)   NOT NULL,";
@@ -315,8 +315,6 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByIdentifier(string_pair identi
 
     if (!identifier.first.empty())
         sql << "pi.Predicate = @predValue AND ";
-    else if (uniqueIdentifierTypesOnly)
-        sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
     if (latestOnly)
@@ -806,7 +804,7 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     sql << ") ";
 
     if (useViewpoint) {
-        sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicate = pred AND tp.EndID = id ";
+        sql << "LEFT JOIN TrustDistances AS tp ON tp.EndPredicate = pred AND tp.EndID = id ";
         sql << "AND tp.StartPredicate = @viewPredicate AND tp.StartID = @viewID ";
     }
 
@@ -968,7 +966,7 @@ int CIdentifiDB::GetTrustMapSize(string_pair id) {
 
     sql.str("");
     sql << "SELECT COUNT(1) FROM ";
-    sql << "(SELECT DISTINCT tp.EndPredicate, tp.EndID FROM TrustPaths AS tp ";
+    sql << "(SELECT DISTINCT tp.EndPredicate, tp.EndID FROM TrustDistances AS tp ";
     sql << "WHERE tp.StartPredicate = @type AND tp.StartID = @value)";
 
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -1000,7 +998,7 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     sqlite3_stmt *statement;
     ostringstream sql;
 
-    sql.str("DELETE FROM TrustPaths WHERE StartPredicate = ? AND StartID = ?");
+    sql.str("DELETE FROM TrustDistances WHERE StartPredicate = ? AND StartID = ?");
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, id.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -1031,7 +1029,7 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
     sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
     sql << ") "; 
-    sql << "INSERT OR REPLACE INTO TrustPaths (StartPredicate, StartID, EndPredicate, EndID, Distance) SELECT @id1pred, @id1, pr2val, id2val, distance FROM transitive_closure "; 
+    sql << "INSERT OR REPLACE INTO TrustDistances (StartPredicate, StartID, EndPredicate, EndID, Distance) SELECT @id1pred, @id1, pr2val, id2val, distance FROM transitive_closure "; 
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -1188,7 +1186,7 @@ string CIdentifiDB::SaveMessage(CIdentifiMessage &msg) {
 
     sqlite3_finalize(statement);
     UpdateIsLatest(msg);
-    SaveMessageTrustPaths(msg);
+    SaveMessageTrustDistances(msg);
 
     return msgHash;
 }
@@ -1315,14 +1313,14 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
 }
 
 
-void CIdentifiDB::SaveMessageTrustPaths(CIdentifiMessage &msg) {
+void CIdentifiDB::SaveMessageTrustDistances(CIdentifiMessage &msg) {
     if (!msg.IsPositive()) return;
     if (!HasTrustedSigner(msg, GetMyPubKeyIDs())) return;
     vector<string_pair> authors = msg.GetAuthors();
     vector<string_pair> recipients = msg.GetRecipients();
     BOOST_FOREACH(string_pair author, authors) {
         BOOST_FOREACH(string_pair recipient, recipients) {
-            SaveTrustPath(author, recipient, 1);
+            SaveTrustDistance(author, recipient, 1);
         }
     }
 }
@@ -1538,14 +1536,14 @@ bool CIdentifiDB::HasTrustedSigner(CIdentifiMessage &msg, vector<string> trusted
     return false;
 }
 
-void CIdentifiDB::SaveTrustPath(string_pair start, string_pair end, int distance) {
+void CIdentifiDB::SaveTrustDistance(string_pair start, string_pair end, int distance) {
     if (start == end) return;
 
     sqlite3_stmt *statement;
     ostringstream sql;
 
     sql.str("");
-    sql << "SELECT COUNT(1) FROM TrustPaths WHERE ";
+    sql << "SELECT COUNT(1) FROM TrustDistances WHERE ";
     sql << "StartPredicate = ? AND StartID = ? AND EndPredicate = ? AND EndID = ? ";
     sql << "AND Distance <= ?";
 
@@ -1568,7 +1566,7 @@ void CIdentifiDB::SaveTrustPath(string_pair start, string_pair end, int distance
     }
 
     sql.str("");
-    sql << "INSERT OR REPLACE INTO TrustPaths ";
+    sql << "INSERT OR REPLACE INTO TrustDistances ";
     sql << "(StartPredicate, StartID, EndPredicate, EndID, Distance) ";
     sql << "VALUES (@startpred, @startID, @endpred, @endID, @distance)";
 
@@ -1599,7 +1597,7 @@ int CIdentifiDB::GetTrustDistance(pair<string, string> start, pair<string, strin
     int distance = -1;
 
     sql.str("");
-    sql << "SELECT tp.Distance FROM TrustPaths AS tp ";
+    sql << "SELECT tp.Distance FROM TrustDistances AS tp ";
     sql << "WHERE tp.StartPredicate = @startpred ";
     sql << "AND tp.StartID = @startid ";
     sql << "AND tp.EndPredicate = @endpred ";
@@ -2110,7 +2108,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
     if (useViewpoint) {
         sql << "INNER JOIN MessageIdentifiers AS author ON (author.MessageHash = p.Hash AND author.IsRecipient = 0) ";
         sql << "INNER JOIN UniqueIdentifierTypes AS authorTpp ON author.Predicate = authorTpp.Value ";
-        sql << "LEFT JOIN TrustPaths AS tp ON ";
+        sql << "LEFT JOIN TrustDistances AS tp ON ";
         sql << "(tp.StartID = @viewpointID AND ";
         sql << "tp.StartPredicate = @viewpointPred AND ";
         sql << "tp.EndID = author.Identifier AND ";
