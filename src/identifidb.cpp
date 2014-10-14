@@ -794,7 +794,8 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT idtype, idvalue, IFNULL(Name.Identifier,''), IFNULL(Email.Identifier,CASE WHEN idtype = 'email' THEN idvalue ELSE '' END) FROM (";
+    sql << "SELECT DISTINCT idtype, idvalue, IFNULL(Name.Identifier,IFNULL(Nickname.Identifier,'')), ";
+    sql << "IFNULL(Email.Identifier,CASE WHEN idtype = 'email' THEN idvalue ELSE '' END) FROM (";
 
     sql << "SELECT DISTINCT mi.Type AS idtype, mi.Identifier AS idvalue FROM MessageIdentifiers AS mi ";
     sql << "WHERE ";
@@ -811,7 +812,8 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     sql << "LEFT JOIN UniqueIdentifierTypes AS UID ON UID.Value = idtype ";
     sql << "LEFT JOIN Identities AS ThisIdentity ON ThisIdentity.Type = idtype AND ThisIdentity.Identifier = idvalue ";
     sql << "LEFT JOIN Identities AS Email ON Email.Type = 'email' AND Email.IdentityID = ThisIdentity.IdentityID ";
-    sql << "LEFT JOIN Identities AS Name ON Name.Type IN ('name', 'nickname') AND Name.IdentityID = ThisIdentity.IdentityID ";
+    sql << "LEFT JOIN Identities AS Name ON Name.Type = 'name' AND Name.IdentityID = ThisIdentity.IdentityID ";
+    sql << "LEFT JOIN Identities AS Nickname ON Nickname.Type = 'nickname' AND Nickname.IdentityID = ThisIdentity.IdentityID ";
 
     //sql << "LEFT JOIN CachedNames AS cn ON cn.Type = type AND cn.Identifier = id ";
     //sql << "LEFT JOIN CachedEmails AS ce ON ce.Type = type AND ce.Identifier = id ";
