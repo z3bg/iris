@@ -244,7 +244,7 @@ void CIdentifiDB::Initialize() {
     sql << "ViewpointID               NVARCHAR(255)   NOT NULL,";
     sql << "Confirmations             INTEGER         NOT NULL,";
     sql << "Refutations               INTEGER         NOT NULL,";
-    sql << "PRIMARY KEY(Predicate, Identifier, ViewpointPredicate, ViewpointID))";
+    sql << "PRIMARY KEY(IdentityID, Predicate, Identifier, ViewpointPredicate, ViewpointID))";
     query(sql.str().c_str());
     query("CREATE INDEX IF NOT EXISTS IdentitiesIndex_viewpoint ON Identities(ViewpointPredicate, ViewpointID, IdentityID)");
 
@@ -260,22 +260,6 @@ void CIdentifiDB::Initialize() {
     sql << "PrivateKey          NVARCHAR(1000)  NOT NULL,";
     sql << "IsDefault           BOOL            NOT NULL DEFAULT 0,";
     sql << "FOREIGN KEY(PubKey)                 REFERENCES Keys(PubKey));";
-    query(sql.str().c_str());
-
-    sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS CachedNames (";
-    sql << "Predicate NVARCHAR(255) NOT NULL,";
-    sql << "Identifier NVARCHAR(255) NOT NULL,";
-    sql << "CachedName NVARCHAR(255) NOT NULL,";
-    sql << "PRIMARY KEY(Predicate, Identifier))";
-    query(sql.str().c_str());
-
-    sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS CachedEmails (";
-    sql << "Predicate NVARCHAR(255) NOT NULL,";
-    sql << "Identifier NVARCHAR(255) NOT NULL,";
-    sql << "CachedName NVARCHAR(255) NOT NULL,";
-    sql << "PRIMARY KEY(Predicate, Identifier))";
     query(sql.str().c_str());
 
     CheckDefaultTrustPathablePredicates();
@@ -564,13 +548,13 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     ostringstream sql;
     sql.str("");
 
+    sql << "SELECT Identifier FROM Identities ";
     if (valueType == "name") {
-        sql << "SELECT CachedName FROM CachedNames ";
-        sql << "WHERE Predicate = @type AND Identifier = @value";
+        sql << "WHERE Predicate IN ('name','nickname') ";
     } else {
-        sql << "SELECT CachedEmail FROM CachedEmails ";
-        sql << "WHERE Predicate = @type AND Identifier = @value";
+        sql << "WHERE Predicate = 'email' ";
     }
+    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Predicate = ? AND Identifier = ?)";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -581,7 +565,7 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
         if (result == SQLITE_ROW) {
             value = (char*)sqlite3_column_text(statement, 0);
         }
-    }
+    } else cout << sqlite3_errmsg(db) << "\n";
 
     sqlite3_finalize(statement);
     return value;
@@ -594,6 +578,19 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     bool useViewpoint = (viewpoint.first != "" && viewpoint.second != ""); 
+
+    sql.str("");
+    sql << "DELETE FROM Identities WHERE IdentityID = ";
+    sql << "(SELECT IdentityID FROM Identities WHERE Identifier = ? AND Predicate = ? AND ViewpointPredicate = ? AND ViewpointID = ?)";
+
+    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, startID.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+    } else cout << sqlite3_errmsg(db) << "\n";
+
     sql.str("");
 
     sql << "WITH RECURSIVE transitive_closure(pr1val, id1val, pr2val, id2val, distance, path_string, confirmations, refutations) AS ";
@@ -635,7 +632,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << ") ";
 
     int identityID = lexical_cast<int>(query("SELECT IFNULL(MAX(IdentityID), 0) + 1 FROM Identities")[0][0]);
-    sql << "INSERT OR REPLACE INTO Identities ";
+    sql << "INSERT INTO Identities ";
     sql << "SELECT " << identityID << ", pr2val, id2val, @viewpointPred, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
     sql << "GROUP BY pr2val, id2val ";
     sql << "UNION SELECT " << identityID << ", @pred, @id, @viewpointPred, @viewpointID, 1, 1 ";
@@ -671,9 +668,6 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "SELECT Predicate, Identifier, Confirmations AS c, Refutations AS r, 1 FROM Identities WHERE NOT (Predicate = @searchedpred AND Identifier = @searchedid) AND IdentityID = (SELECT MAX(IdentityID) FROM Identities) ";
     sql << "ORDER BY c-r DESC ";
 
-    int mostNameConfirmations = 0, mostEmailConfirmations = 0;
-    string mostConfirmedEmail;
-    string_pair mostConfirmedName;
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -688,70 +682,14 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
                 id.refutations = sqlite3_column_int(statement, 3);
                 id.distance = sqlite3_column_int(statement, 4);
                 results.push_back(id);
-                if (startID.first != "name" && startID.first != "nickname") {
-                    if (type == "name" || (mostConfirmedName.second.empty() && type == "nickname")) {
-                        if ((id.refutations == 0 || id.confirmations > id.refutations)
-                            && (id.confirmations >= mostNameConfirmations || (type == "name" && mostConfirmedName.first == "nickname"))) {
-                            mostConfirmedName = make_pair(type, value);
-                            mostNameConfirmations = id.confirmations;
-                        }
-                    }
-                }
-                if (startID.first != "email") {
-                    if (type == "email" && id.confirmations > id.refutations && id.confirmations >= mostEmailConfirmations) {
-                        mostConfirmedEmail = value;
-                        mostEmailConfirmations = id.confirmations;
-                    }
-                }
             } else {
                 break;  
             }
         }
     } else cout << sqlite3_errmsg(db) << "\n";
 
-    UpdateCachedName(startID, mostConfirmedName.second);
-    UpdateCachedEmail(startID, mostConfirmedEmail);
-
     sqlite3_finalize(statement);
     return results;
-}
-
-void CIdentifiDB::UpdateCachedValue(string valueType, string_pair startID, string value) {
-    sqlite3_stmt *statement;
-
-    const char* sql;
-    if (valueType == "name") {
-        if (value.empty())
-            sql = "DELETE FROM CachedNames WHERE Predicate = ? AND Identifier = ?";
-        else
-            sql = "INSERT OR REPLACE INTO CachedNames (Predicate, Identifier, CachedName) VALUES (?,?,?);";
-    } else {
-        if (value.empty())
-            sql = "DELETE FROM CachedEmails WHERE Predicate = ? AND Identifier = ?";
-        else
-            sql = "INSERT OR REPLACE INTO CachedEmails (Predicate, Identifier, CachedEmail) VALUES (?,?,?);";
-    }
-
-    RETRY_IF_DB_FULL(
-        if(sqlite3_prepare_v2(db, sql, -1, &statement, 0) == SQLITE_OK) {
-            sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
-            if (!value.empty())
-                sqlite3_bind_text(statement, 3, value.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(statement);
-            sqliteReturnCode = sqlite3_reset(statement);
-        } else cout << sqlite3_errmsg(db) << "\n";
-    )
-
-    sqlite3_finalize(statement);
-}
-
-void CIdentifiDB::UpdateCachedName(string_pair startID, string name) {
-    UpdateCachedValue("name", startID, name);
-}
-
-void CIdentifiDB::UpdateCachedEmail(string_pair startID, string name) {
-    UpdateCachedValue("email", startID, name);
 }
 
 CIdentifiMessage CIdentifiDB::GetMessageFromStatement(sqlite3_stmt *statement) {
@@ -858,7 +796,7 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT pred, id, IFNULL(CachedName,''), IFNULL(CachedEmail,CASE WHEN pred = 'email' THEN id ELSE '' END) FROM (";
+    sql << "SELECT DISTINCT pred, id, IFNULL(Name.Identifier,''), IFNULL(Email.Identifier,CASE WHEN pred = 'email' THEN id ELSE '' END) FROM (";
 
     sql << "SELECT DISTINCT Predicate AS pred, Identifier AS id FROM MessageIdentifiers ";
     sql << "WHERE ";
@@ -871,8 +809,13 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
         sql << "LEFT JOIN TrustPaths AS tp ON tp.EndPredicate = pred AND tp.EndID = id ";
         sql << "AND tp.StartPredicate = @viewPredicate AND tp.StartID = @viewID ";
     }
-    sql << "LEFT JOIN CachedNames AS cn ON cn.Predicate = pred AND cn.Identifier = id ";
-    sql << "LEFT JOIN CachedEmails AS ce ON ce.Predicate = pred AND ce.Identifier = id ";
+
+    sql << "LEFT JOIN Identities AS ThisIdentity ON ThisIdentity.Predicate = pred AND ThisIdentity.Identifier = id ";
+    sql << "LEFT JOIN Identities AS Email ON Email.Predicate = 'email' AND Email.IdentityID = ThisIdentity.IdentityID ";
+    sql << "LEFT JOIN Identities AS Name ON Name.Predicate IN ('name', 'nickname') AND Name.IdentityID = ThisIdentity.IdentityID ";
+
+    //sql << "LEFT JOIN CachedNames AS cn ON cn.Predicate = pred AND cn.Identifier = id ";
+    //sql << "LEFT JOIN CachedEmails AS ce ON ce.Predicate = pred AND ce.Identifier = id ";
 
     if (useViewpoint)
         sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, id ASC ";

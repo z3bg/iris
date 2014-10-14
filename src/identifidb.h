@@ -109,9 +109,6 @@ private:
     void CheckDefaultTrustPathablePredicates();
     void GenerateMyTrustMaps();
     bool HasTrustedSigner(CIdentifiMessage &msg, vector<string> trustedKeyIDs);
-    void UpdateCachedValue(string valueType, string_pair startID, string value);
-    void UpdateCachedName(string_pair startID, string name);
-    void UpdateCachedEmail(string_pair startID, string name);
     string GetCachedValue(string valueType, string_pair id);
     void AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint, int maxDistance, string &msgType);
     void AddMessageFilterSQLWhere(ostringstream &sql, string_pair viewpoint); 
