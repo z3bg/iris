@@ -808,6 +808,7 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
         sql << "AND tp.StartPredicate = @viewPredicate AND tp.StartID = @viewID ";
     }
 
+    sql << "LEFT JOIN UniqueIdentifierTypes AS UID ON UID.Value = pred ";
     sql << "LEFT JOIN Identities AS ThisIdentity ON ThisIdentity.Predicate = pred AND ThisIdentity.Identifier = id ";
     sql << "LEFT JOIN Identities AS Email ON Email.Predicate = 'email' AND Email.IdentityID = ThisIdentity.IdentityID ";
     sql << "LEFT JOIN Identities AS Name ON Name.Predicate IN ('name', 'nickname') AND Name.IdentityID = ThisIdentity.IdentityID ";
@@ -815,8 +816,10 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     //sql << "LEFT JOIN CachedNames AS cn ON cn.Predicate = pred AND cn.Identifier = id ";
     //sql << "LEFT JOIN CachedEmails AS ce ON ce.Predicate = pred AND ce.Identifier = id ";
 
+    sql << "GROUP BY IFNULL(ThisIdentity.IdentityID, id) ";
+
     if (useViewpoint)
-        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, id ASC ";
+        sql << "ORDER BY UID.Value IS NOT NULL DESC, CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, id ASC ";
 
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
