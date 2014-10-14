@@ -98,22 +98,22 @@ void CIdentifiDB::SetMaxSize(int sqliteMaxSize) {
     query(sql.str().c_str())[0][0];
 }
 
-void CIdentifiDB::CheckDefaultTrustPathablePredicates() {
-    vector<vector<string> > result = query("SELECT COUNT(1) FROM TrustPathablePredicates");
+void CIdentifiDB::CheckDefaultUniqueIdentifierTypes() {
+    vector<vector<string> > result = query("SELECT COUNT(1) FROM UniqueIdentifierTypes");
     if (lexical_cast<int>(result[0][0]) < 1) {
-        query("INSERT INTO TrustPathablePredicates VALUES ('mbox')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('email')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('account')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('url')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('tel')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('keyID')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('base58pubkey')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('bitcoin_address')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('bitcoin')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('identifi_msg')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('twitter')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('facebook')");
-        query("INSERT INTO TrustPathablePredicates VALUES ('google_oauth2')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('mbox')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('email')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('account')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('url')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('tel')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('keyID')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('base58pubkey')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('bitcoin_address')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('bitcoin')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('identifi_msg')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('twitter')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('facebook')");
+        query("INSERT INTO UniqueIdentifierTypes VALUES ('google_oauth2')");
     }
 }
 
@@ -191,7 +191,7 @@ void CIdentifiDB::Initialize() {
     ostringstream sql;
 
     sql.str("");
-    sql << "CREATE TABLE IF NOT EXISTS TrustPathablePredicates (";
+    sql << "CREATE TABLE IF NOT EXISTS UniqueIdentifierTypes (";
     sql << "Value               NVARCHAR(255)   PRIMARY KEY";
     sql << ");";
     query(sql.str().c_str());
@@ -262,7 +262,7 @@ void CIdentifiDB::Initialize() {
     sql << "FOREIGN KEY(PubKey)                 REFERENCES Keys(PubKey));";
     query(sql.str().c_str());
 
-    CheckDefaultTrustPathablePredicates();
+    CheckDefaultUniqueIdentifierTypes();
     CheckDefaultKey();
     CheckDefaultTrustList();
     GenerateMyTrustMaps();
@@ -296,7 +296,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesBySigner(string_pair keyID) {
     return msgs;
 }
 
-vector<CIdentifiMessage> CIdentifiDB::GetMessagesByIdentifier(string_pair identifier, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
+vector<CIdentifiMessage> CIdentifiDB::GetMessagesByIdentifier(string_pair identifier, int limit, int offset, bool uniqueIdentifierTypesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
@@ -315,7 +315,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByIdentifier(string_pair identi
 
     if (!identifier.first.empty())
         sql << "pi.Predicate = @predValue AND ";
-    else if (trustPathablePredicatesOnly)
+    else if (uniqueIdentifierTypesOnly)
         sql << "pred.TrustPathable = 1 AND ";
     if (!showUnpublished)
         sql << "p.Published = 1 AND ";
@@ -618,10 +618,10 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "SUM(CASE WHEN p.Predicate = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Messages AS p ";
     sql << "JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
-    sql << "JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) ";
     sql << "JOIN transitive_closure AS tc ON tc.confirmations > tc.refutations AND id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val ";
-    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = tc.pr1val ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = tc.pr1val ";
     
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
     
@@ -701,7 +701,7 @@ CIdentifiMessage CIdentifiDB::GetMessageFromStatement(sqlite3_stmt *statement) {
     return msg;
 }
 
-vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool byRecipient, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
+vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair author, int limit, int offset, bool uniqueIdentifierTypesOnly, bool showUnpublished, bool byRecipient, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
     sqlite3_stmt *statement;
     vector<CIdentifiMessage> msgs;
     string emptyMsgType = "";
@@ -709,7 +709,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql.str("");
     sql << "SELECT DISTINCT p.* FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN TrustPathablePredicates AS tpp ON tpp.Value = pi.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Predicate ";
     sql << "INNER JOIN Identities AS i ON (i.Predicate = pi.Predicate AND i.Identifier = pi.Identifier AND i.IdentityID = ";
     sql << "(SELECT IdentityID FROM Identities WHERE ViewpointPredicate = @viewpointPred AND ViewpointID = @viewpointID ";
     sql << "AND Predicate = @pred AND Identifier = @id)) ";
@@ -780,15 +780,15 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     return msgs;
 }
 
-vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthor(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
-    return GetMessagesByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, false, viewpoint, maxDistance, msgType, latestOnly);
+vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthor(string_pair recipient, int limit, int offset, bool uniqueIdentifierTypesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
+    return GetMessagesByAuthorOrRecipient(recipient, limit, offset, uniqueIdentifierTypesOnly, showUnpublished, false, viewpoint, maxDistance, msgType, latestOnly);
 }
 
-vector<CIdentifiMessage> CIdentifiDB::GetMessagesByRecipient(string_pair recipient, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
-    return GetMessagesByAuthorOrRecipient(recipient, limit, offset, trustPathablePredicatesOnly, showUnpublished, true, viewpoint, maxDistance, msgType, latestOnly);
+vector<CIdentifiMessage> CIdentifiDB::GetMessagesByRecipient(string_pair recipient, int limit, int offset, bool uniqueIdentifierTypesOnly, bool showUnpublished, string_pair viewpoint, int maxDistance, string msgType, bool latestOnly) {
+    return GetMessagesByAuthorOrRecipient(recipient, limit, offset, uniqueIdentifierTypesOnly, showUnpublished, true, viewpoint, maxDistance, msgType, latestOnly);
 }
 
-vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool trustPathablePredicatesOnly, string_pair viewpoint, int maxDistance) {
+vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool uniqueIdentifierTypesOnly, string_pair viewpoint, int maxDistance) {
     vector<SearchResult> results;
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
 
@@ -1014,9 +1014,9 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
     sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Predicate = @id1pred AND id1.Identifier = @id1 ";
 
     sql << "UNION ALL "; 
@@ -1025,9 +1025,9 @@ bool CIdentifiDB::GenerateTrustMap(string_pair id, int searchDepth) {
     sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
     sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
     sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
     sql << ") "; 
@@ -1226,8 +1226,8 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     sql << "SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
-    sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Predicate ";
     sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
     sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
     sql << "AND p.IsLatest = 1 AND p.Created < @newMessageCreated AND (@newMessageCreated - p.Created) < @minMessageInterval ";
@@ -1267,8 +1267,8 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
         sql << "WHERE Hash IN (SELECT p.Hash FROM Messages AS p ";
         sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
         sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-        sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
-        sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
+        sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Predicate ";
+        sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Predicate ";
         sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
         sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
         sql << "AND p.IsLatest = 1) ";
@@ -1293,8 +1293,8 @@ void CIdentifiDB::UpdateIsLatest(CIdentifiMessage &msg) {
     sql << "WHERE Hash IN (SELECT p.Hash FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS author ON author.MessageHash = p.Hash AND author.IsRecipient = 0 ";
     sql << "INNER JOIN MessageIdentifiers AS recipient ON recipient.MessageHash = p.Hash AND recipient.IsRecipient = 1 ";
-    sql << "INNER JOIN TrustPathablePredicates AS ap ON ap.Value = author.Predicate ";
-    sql << "INNER JOIN TrustPathablePredicates AS rp ON rp.Value = recipient.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS ap ON ap.Value = author.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS rp ON rp.Value = recipient.Predicate ";
     sql << "WHERE p.Predicate = ? AND author.Predicate = ? AND author.Identifier = ? ";
     sql << "AND recipient.Predicate = ? AND recipient.Identifier = ? ";
     sql << "ORDER BY p.Created DESC, p.Hash DESC LIMIT 1) ";
@@ -1635,9 +1635,9 @@ vector<string> CIdentifiDB::GetPaths(string_pair start, string_pair end, int sea
     sql << "printf('%s:%s:%s:%s:',replace(id1.Predicate,':','::'),replace(id1.Identifier,':','::'),replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
     sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND id1.Predicate = ? AND id1.Identifier = ? ";
 
     sql << "UNION ALL "; 
@@ -1646,9 +1646,9 @@ vector<string> CIdentifiDB::GetPaths(string_pair start, string_pair end, int sea
     sql << "printf('%s%s:%s:',tc.path_string,replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) AS path_string "; 
     sql << "FROM Messages AS m "; 
     sql << "INNER JOIN MessageIdentifiers AS id1 ON m.Hash = id1.MessageHash AND id1.IsRecipient = 0 "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp1 ON tpp1.Value = id1.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp1 ON tpp1.Value = id1.Predicate ";
     sql << "INNER JOIN MessageIdentifiers AS id2 ON m.Hash = id2.MessageHash AND (id1.Predicate != id2.Predicate OR id1.Identifier != id2.Identifier) "; 
-    sql << "INNER JOIN TrustPathablePredicates AS tpp2 ON tpp2.Value = id2.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp2 ON tpp2.Value = id2.Predicate ";
     sql << "JOIN transitive_closure AS tc ON id1.Predicate = tc.pr2val AND id1.Identifier = tc.id2val "; 
     sql << "WHERE m.IsLatest AND m.Rating > (m.MinRating + m.MaxRating) / 2 AND tc.distance < ? AND tc.path_string NOT LIKE printf('%%%s:%s:%%',replace(id2.Predicate,':','::'),replace(id2.Identifier,':','::')) "; 
     sql << ") "; 
@@ -2034,7 +2034,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
     sql << "MIN(p.Created) ";
     sql << "FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
-    sql << "INNER JOIN TrustPathablePredicates AS tpp ON tpp.Value = pi.Predicate ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Predicate ";
     sql << "INNER JOIN Identities AS i ON pi.Predicate = i.Predicate AND pi.Identifier = i.Identifier AND i.IdentityID = ";
     sql << "(SELECT IdentityID FROM Identities WHERE ViewpointID = @viewpointID AND ViewpointPredicate = @viewpointPred ";
     sql << "AND Predicate = @pred AND Identifier = @id) ";
@@ -2109,7 +2109,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
     }
     if (useViewpoint) {
         sql << "INNER JOIN MessageIdentifiers AS author ON (author.MessageHash = p.Hash AND author.IsRecipient = 0) ";
-        sql << "INNER JOIN TrustPathablePredicates AS authorTpp ON author.Predicate = authorTpp.Value ";
+        sql << "INNER JOIN UniqueIdentifierTypes AS authorTpp ON author.Predicate = authorTpp.Value ";
         sql << "LEFT JOIN TrustPaths AS tp ON ";
         sql << "(tp.StartID = @viewpointID AND ";
         sql << "tp.StartPredicate = @viewpointPred AND ";

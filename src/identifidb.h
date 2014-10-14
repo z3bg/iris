@@ -39,14 +39,14 @@ public:
     vector<CIdentifiMessage> GetMessagesAfterTimestamp(time_t timestamp, int limit = 500, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "");
     vector<CIdentifiMessage> GetMessagesAfterMessage(string msgHash, int limit = 500, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "");
     vector<CIdentifiMessage> GetMessagesBeforeMessage(string msgHash, int limit = 500, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "");
-    vector<CIdentifiMessage> GetMessagesByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
-    vector<CIdentifiMessage> GetMessagesByAuthor(string_pair author, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
-    vector<CIdentifiMessage> GetMessagesByRecipient(string_pair object, int limit = 0, int offset = 0, bool trustPathablePredicatesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
+    vector<CIdentifiMessage> GetMessagesByIdentifier(string_pair identifier, int limit = 0, int offset = 0, bool uniqueIdentifierTypesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
+    vector<CIdentifiMessage> GetMessagesByAuthor(string_pair author, int limit = 0, int offset = 0, bool uniqueIdentifierTypesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
+    vector<CIdentifiMessage> GetMessagesByRecipient(string_pair object, int limit = 0, int offset = 0, bool uniqueIdentifierTypesOnly = false, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
     vector<CIdentifiMessage> GetMessagesBySigner(string_pair keyID);
     vector<CIdentifiMessage> GetConnectingMessages(string_pair id1, string_pair id2, int limit = 0, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "");
     vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedPredicates, int limit = 0, int offset = 0, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     vector<string> GetPaths(string_pair start, string_pair end, int searchDepth);
-    vector<SearchResult> SearchForID(string_pair query, int limit = 50, int offset = 0, bool trustPathablePredicatesOnly = false, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
+    vector<SearchResult> SearchForID(string_pair query, int limit = 50, int offset = 0, bool uniqueIdentifierTypesOnly = false, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string SaveMessage(CIdentifiMessage &msg);
     void SaveMessageTrustPaths(CIdentifiMessage &msg);
     void SetDefaultKey(string privKey);
@@ -95,7 +95,7 @@ private:
     set<string_pair> generateTrustMapSet;
     vector<string> myPubKeyIDs;
     CIdentifiMessage GetMessageFromStatement(sqlite3_stmt *statement);
-    vector<CIdentifiMessage> GetMessagesByAuthorOrRecipient(string_pair author, int limit, int offset, bool trustPathablePredicatesOnly, bool showUnpublished, bool isRecipient, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
+    vector<CIdentifiMessage> GetMessagesByAuthorOrRecipient(string_pair author, int limit, int offset, bool uniqueIdentifierTypesOnly, bool showUnpublished, bool isRecipient, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "", bool latestOnly = false);
     boost::thread* dbWorker;
     void DBWorker();
     void SaveMessageAuthorOrRecipient(string msgHash, string_pair identifier, bool isRecipient);
@@ -106,7 +106,7 @@ private:
     void CheckDefaultKey();
     void CheckDefaultTrustList();
     void SetMaxSize(int sqliteMaxSize);
-    void CheckDefaultTrustPathablePredicates();
+    void CheckDefaultUniqueIdentifierTypes();
     void GenerateMyTrustMaps();
     bool HasTrustedSigner(CIdentifiMessage &msg, vector<string> trustedKeyIDs);
     string GetCachedValue(string valueType, string_pair id);
