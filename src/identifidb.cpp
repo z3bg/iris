@@ -201,7 +201,7 @@ void CIdentifiDB::Initialize() {
     sql << "Hash                NVARCHAR(45)    PRIMARY KEY,";
     sql << "SignedData          NVARCHAR(1000)  NOT NULL,";
     sql << "Created             DATETIME        NOT NULL,";
-    sql << "Type                INTEGER         NOT NULL,";
+    sql << "Type                NVARCHAR(255)    NOT NULL,";
     sql << "Rating              INTEGER         DEFAULT 0 NOT NULL,";
     sql << "MinRating           INTEGER         DEFAULT 0 NOT NULL,";
     sql << "MaxRating           INTEGER         DEFAULT 0 NOT NULL,";
