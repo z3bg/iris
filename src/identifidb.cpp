@@ -578,14 +578,14 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     bool useViewpoint = (viewpoint.first != "" && viewpoint.second != ""); 
 
     sql.str("");
-    sql << "DELETE FROM Identities WHERE IdentityID = ";
-    sql << "(SELECT IdentityID FROM Identities WHERE Identifier = ? AND Type = ? AND ViewpointType = ? AND ViewpointID = ?)";
+    sql << "DELETE FROM Identities WHERE IdentityID IN ";
+    sql << "(SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ? AND ViewpointType = ? AND ViewpointID = ?)";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
-        sqlite3_bind_text(statement, 1, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 3, startID.first.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 4, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 3, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 4, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(statement);
     } else cout << sqlite3_errmsg(db) << "\n";
 
