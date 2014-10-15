@@ -23,12 +23,6 @@ struct SearchQueueMessage {
     string_pair matchedByIdentifier;
 };
 
-struct SearchResult {
-    string_pair id;
-    string email;
-    string name;
-};
-
 class CIdentifiDB
 {
 public:
@@ -46,7 +40,7 @@ public:
     vector<CIdentifiMessage> GetConnectingMessages(string_pair id1, string_pair id2, int limit = 0, int offset = 0, bool showUnpublished = true, string_pair viewpoint = make_pair("",""), int maxDistance = 0, string msgType = "");
     vector<LinkedID> GetLinkedIdentifiers(string_pair startID, vector<string> searchedTypes, int limit = 0, int offset = 0, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     vector<string> GetPaths(string_pair start, string_pair end, int searchDepth);
-    vector<SearchResult> SearchForID(string_pair query, int limit = 50, int offset = 0, bool uniqueIdentifierTypesOnly = false, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
+    vector<vector<string_pair> > SearchForID(string_pair query, int limit = 50, int offset = 0, bool uniqueIdentifierTypesOnly = false, string_pair viewpoint = make_pair("",""), int maxDistance = 0);
     string SaveMessage(CIdentifiMessage &msg);
     void SaveMessageTrustDistances(CIdentifiMessage &msg);
     void SetDefaultKey(string privKey);

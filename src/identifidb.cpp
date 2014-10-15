@@ -786,16 +786,15 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByRecipient(string_pair recipie
     return GetMessagesByAuthorOrRecipient(recipient, limit, offset, uniqueIdentifierTypesOnly, showUnpublished, true, viewpoint, maxDistance, msgType, latestOnly);
 }
 
-vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool uniqueIdentifierTypesOnly, string_pair viewpoint, int maxDistance) {
-    vector<SearchResult> results;
+vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int limit, int offset, bool uniqueIdentifierTypesOnly, string_pair viewpoint, int maxDistance) {
+    vector<vector<string_pair> > results;
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
 
     sqlite3_stmt *statement;
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT idtype, idvalue, IFNULL(Name.Identifier,IFNULL(Nickname.Identifier,'')), ";
-    sql << "IFNULL(Email.Identifier,CASE WHEN idtype = 'email' THEN idvalue ELSE '' END) FROM (";
+    sql << "SELECT DISTINCT IFNULL(OtherIdentifiers.Type,idtype), IFNULL(OtherIdentifiers.Identifier,idvalue), IFNULL(ThisIdentifier.IdentityID,-1) FROM (";
 
     sql << "SELECT DISTINCT mi.Type AS idtype, mi.Identifier AS idvalue FROM MessageIdentifiers AS mi ";
     sql << "WHERE ";
@@ -810,23 +809,27 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
     }
 
     sql << "LEFT JOIN UniqueIdentifierTypes AS UID ON UID.Value = idtype ";
-    sql << "LEFT JOIN Identities AS ThisIdentity ON ThisIdentity.Type = idtype AND ThisIdentity.Identifier = idvalue ";
-    sql << "LEFT JOIN Identities AS Email ON Email.Type = 'email' AND Email.IdentityID = ThisIdentity.IdentityID ";
-    sql << "LEFT JOIN Identities AS Name ON Name.Type = 'name' AND Name.IdentityID = ThisIdentity.IdentityID ";
-    sql << "LEFT JOIN Identities AS Nickname ON Nickname.Type = 'nickname' AND Nickname.IdentityID = ThisIdentity.IdentityID ";
+    sql << "LEFT JOIN Identities AS ThisIdentifier ON ThisIdentifier.Type = idtype AND ThisIdentifier.Identifier = idvalue ";
+    if (useViewpoint)
+        sql << "AND ThisIdentifier.ViewpointType = @viewType AND ThisIdentifier.ViewpointID = @viewID ";
+    sql << "LEFT JOIN Identities AS OtherIdentifiers ON OtherIdentifiers.IdentityID = ThisIdentifier.IdentityID AND OtherIdentifiers.Confirmations >= OtherIdentifiers.Refutations ";
+    if (useViewpoint)
+        sql << "AND OtherIdentifiers.ViewpointType = @viewType AND OtherIdentifiers.ViewpointID = @viewID ";
 
     //sql << "LEFT JOIN CachedNames AS cn ON cn.Type = type AND cn.Identifier = id ";
     //sql << "LEFT JOIN CachedEmails AS ce ON ce.Type = type AND ce.Identifier = id ";
 
-    sql << "GROUP BY IFNULL(ThisIdentity.IdentityID, PRINTF('%s%s',idtype,idvalue)) ";
+    //sql << "GROUP BY IFNULL(ThisIdentifier.IdentityID, PRINTF('%s%s',idtype,idvalue)) ";
 
     if (useViewpoint)
-        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, UID.Value IS NOT NULL DESC, idvalue ASC ";
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, OtherIdentifiers.Type IS NOT NULL DESC, UID.Value IS NOT NULL DESC, idvalue ASC ";
 
+    /*
     if (limit)
         sql << "LIMIT @limit OFFSET @offset";
+*/
 
-    if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 0;
         if (!query.first.empty()) {
             sqlite3_bind_text(statement, 1, query.second.c_str(), -1, SQLITE_TRANSIENT);
@@ -846,24 +849,27 @@ vector<SearchResult> CIdentifiDB::SearchForID(string_pair query, int limit, int 
             sqlite3_bind_int(statement, 2+n, offset);
         }
 
+        int count = 0;
         int result = 0;
-        while(true)
-        {
+        int previousIdentityID = -1;
+        vector<string_pair> identity;
+        while(limit == 0 || count < limit) {
             result = sqlite3_step(statement);
-            if(result == SQLITE_ROW)
-            {
+            if (result == SQLITE_ROW) {
                 string type = (char*)sqlite3_column_text(statement, 0);
                 string value = (char*)sqlite3_column_text(statement, 1);
-                string name = (char*)sqlite3_column_text(statement, 2);
-                string email = (char*)sqlite3_column_text(statement, 3);
-                SearchResult r;
-                r.id = make_pair(type,value);
-                r.name = name;
-                r.email = email;
-                results.push_back(r);
-            }
-            else
-            {
+                int identityID = sqlite3_column_int(statement, 2);
+                string_pair id = make_pair(type,value);
+                if (!identity.empty() && (identityID != previousIdentityID || identityID == -1)) {
+                    results.push_back(identity);
+                    identity.clear();
+                    count++;
+                }
+                identity.push_back(id);
+                previousIdentityID = identityID;
+            } else {
+                if (!identity.empty())
+                    results.push_back(identity);
                 break;  
             }
         }
