@@ -794,13 +794,19 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT IFNULL(OtherIdentifiers.Type,idtype), IFNULL(OtherIdentifiers.Identifier,idvalue), IFNULL(ThisIdentifier.IdentityID,-1) FROM (";
+    sql << "SELECT DISTINCT IFNULL(OtherIdentifiers.Type,idtype), IFNULL(OtherIdentifiers.Identifier,idvalue), iid FROM (";
 
-    sql << "SELECT DISTINCT mi.Type AS idtype, mi.Identifier AS idvalue FROM MessageIdentifiers AS mi ";
+    sql << "SELECT DISTINCT mi.Type AS idtype, mi.Identifier AS idvalue, -1 AS iid FROM MessageIdentifiers AS mi ";
     sql << "WHERE ";
     sql << "mi.Identifier LIKE '%' || @query || '%' ";
     if (!query.first.empty())
         sql << "AND mi.Type = @type ";
+    sql << "UNION ";
+    sql << "SELECT DISTINCT ii.Type AS idtype, ii.Identifier AS idvalue, ii.IdentityID AS iid FROM Identities AS ii ";
+    sql << "WHERE ";
+    sql << "ii.Identifier LIKE '%' || @query || '%' ";
+    if (!query.first.empty())
+        sql << "AND ii.Type = @type ";
     sql << ") ";
 
     if (useViewpoint) {
@@ -809,10 +815,7 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     }
 
     sql << "LEFT JOIN UniqueIdentifierTypes AS UID ON UID.Value = idtype ";
-    sql << "LEFT JOIN Identities AS ThisIdentifier ON ThisIdentifier.Type = idtype AND ThisIdentifier.Identifier = idvalue ";
-    if (useViewpoint)
-        sql << "AND ThisIdentifier.ViewpointType = @viewType AND ThisIdentifier.ViewpointID = @viewID ";
-    sql << "LEFT JOIN Identities AS OtherIdentifiers ON OtherIdentifiers.IdentityID = ThisIdentifier.IdentityID AND OtherIdentifiers.Confirmations >= OtherIdentifiers.Refutations ";
+    sql << "LEFT JOIN Identities AS OtherIdentifiers ON OtherIdentifiers.IdentityID = iid AND OtherIdentifiers.Confirmations >= OtherIdentifiers.Refutations ";
     if (useViewpoint)
         sql << "AND OtherIdentifiers.ViewpointType = @viewType AND OtherIdentifiers.ViewpointID = @viewID ";
 
@@ -822,7 +825,7 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     //sql << "GROUP BY IFNULL(ThisIdentifier.IdentityID, PRINTF('%s%s',idtype,idvalue)) ";
 
     if (useViewpoint)
-        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, OtherIdentifiers.Type IS NOT NULL DESC, UID.Value IS NOT NULL DESC, idvalue ASC ";
+        sql << "ORDER BY iid DESC, CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, UID.Value IS NOT NULL DESC, idvalue ASC ";
 
     /*
     if (limit)
