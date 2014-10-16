@@ -350,7 +350,7 @@ Value overview(const Array& params, bool fHelp)
     overviewJSON.push_back(Pair("firstSeen", overview.firstSeen));
     overviewJSON.push_back(Pair("trustMapSize", trustMapSize));
 
-    string name = pidentifidb->GetName(id);
+    string name = pidentifidb->GetCachedName(id);
     overviewJSON.push_back(Pair("name", name));
     string email = pidentifidb->GetCachedEmail(id);
     overviewJSON.push_back(Pair("email", email));

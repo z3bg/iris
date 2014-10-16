@@ -664,11 +664,20 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     sql.str("");
     sql << "SELECT Type, Identifier, Confirmations AS c, Refutations AS r, 1 FROM Identities WHERE NOT (Type = @searchedtype AND Identifier = @searchedid) AND IdentityID = (SELECT MAX(IdentityID) FROM Identities) ";
+    if (!searchedTypes.empty()) {
+        vector<string> questionMarks(searchedTypes.size(), "?");
+        sql << "AND Type IN (" << algorithm::join(questionMarks, ", ") << ") ";
+    }
     sql << "ORDER BY c-r DESC ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, startID.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2, startID.second.c_str(), -1, SQLITE_TRANSIENT);
+        if (!searchedTypes.empty()) {
+              for (unsigned int i = 0; i < searchedTypes.size(); i++) {
+                  sqlite3_bind_text(statement, i + 3, searchedTypes.at(i).c_str(), -1, SQLITE_TRANSIENT);
+              }
+        }
         while(true) {
             int result = sqlite3_step(statement);
             if(result == SQLITE_ROW) {
