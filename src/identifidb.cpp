@@ -634,7 +634,9 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "SELECT " << identityID << ", id2type, id2val, @viewpointType, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
     sql << "GROUP BY id2type, id2val ";
     sql << "UNION SELECT " << identityID << ", @type, @id, @viewpointType, @viewpointID, 1, 1 ";
-    sql << "FROM UniqueIdentifierTypes AS ui WHERE ui.Value = @type ";
+    sql << "FROM MessageIdentifiers AS mi ";
+    sql << "INNER JOIN UniqueIdentifierTypes AS ui ON ui.Value = mi.Type ";
+    sql << "WHERE mi.Type = @type AND mi.Identifier = @id  ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 2;
