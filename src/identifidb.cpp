@@ -631,33 +631,27 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
     int identityID = lexical_cast<int>(query("SELECT IFNULL(MAX(IdentityID), 0) + 1 FROM Identities")[0][0]);
     sql << "INSERT INTO Identities ";
-    sql << "SELECT " << identityID << ", id2type, id2val, @viewpointPred, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
+    sql << "SELECT " << identityID << ", id2type, id2val, @viewpointType, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
     sql << "GROUP BY id2type, id2val ";
-    sql << "UNION SELECT " << identityID << ", @type, @id, @viewpointPred, @viewpointID, 1, 1 ";
+    sql << "UNION SELECT " << identityID << ", @type, @id, @viewpointType, @viewpointID, 1, 1 ";
+    sql << "FROM UniqueIdentifierTypes AS ui WHERE ui.Value = @type ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         int n = 2;
-        if (useViewpoint)
+        if (useViewpoint) {
+            sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 2, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            if (maxDistance > 0) {
+                n++;
+                sqlite3_bind_int(statement, 3, maxDistance);
+            }
+        } else { 
             n = 0;
-        sqlite3_bind_text(statement, 1+n, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2+n, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
-        if (maxDistance > 0) {
-            n++;
-            sqlite3_bind_int(statement, 3, maxDistance);
+            sqlite3_bind_text(statement, 3, viewpoint.first.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(statement, 4, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
         }
-
-        if (useViewpoint)
-            n = 2;
-        else 
-            n = 0;
         sqlite3_bind_text(statement, 1+n, startID.first.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(statement, 2+n, startID.second.c_str(), -1, SQLITE_TRANSIENT);
-
-        if (!searchedTypes.empty()) {
-            for (unsigned int i = 0; i < searchedTypes.size(); i++) {
-                sqlite3_bind_text(statement, i + 3 + n, searchedTypes.at(i).c_str(), -1, SQLITE_TRANSIENT);
-            }
-        }
 
         sqlite3_step(statement);
     } else cout << sqlite3_errmsg(db) << "\n";
@@ -668,6 +662,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         vector<string> questionMarks(searchedTypes.size(), "?");
         sql << "AND Type IN (" << algorithm::join(questionMarks, ", ") << ") ";
     }
+    sql << "GROUP BY Type, Identifier ";
     sql << "ORDER BY c-r DESC ";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
@@ -718,7 +713,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
     sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Type ";
     sql << "LEFT JOIN Identities AS i ON (i.Type = pi.Type AND i.Identifier = pi.Identifier AND i.IdentityID = ";
-    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointType = @viewpointPred AND ViewpointID = @viewpointID ";
+    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointType = @viewpointType AND ViewpointID = @viewpointID ";
     sql << "AND Type = @type AND Identifier = @id)) ";
 
     bool filterMessageType = !msgType.empty();
@@ -819,6 +814,7 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     sql << "ii.Identifier LIKE '%' || @query || '%' ";
     if (!query.first.empty())
         sql << "AND ii.Type = @type ";
+    sql << "AND ViewpointType = @viewType AND ViewpointID = @viewID ";
     sql << ") ";
 
     if (useViewpoint) {
@@ -2049,25 +2045,25 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 THEN 1 ELSE 0 END), ";
     } else {
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating > (p.MinRating + p.MaxRating) / 2 AND ";
-        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointType)) THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating == (p.MinRating + p.MaxRating) / 2 AND ";
-        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointType)) THEN 1 ELSE 0 END), ";
         sql << "SUM(CASE WHEN pi.IsRecipient = 1 AND p.Rating < (p.MinRating + p.MaxRating) / 2 AND  ";
-        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) THEN 1 ELSE 0 END), ";
+        sql << "(tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointType)) THEN 1 ELSE 0 END), ";
     }
     sql << "MIN(p.Created) ";
     sql << "FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
     sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Type ";
     sql << "INNER JOIN Identities AS i ON pi.Type = i.Type AND pi.Identifier = i.Identifier AND i.IdentityID = ";
-    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointID = @viewpointID AND ViewpointType = @viewpointPred ";
+    sql << "(SELECT IdentityID FROM Identities WHERE ViewpointID = @viewpointID AND ViewpointType = @viewpointType ";
     sql << "AND Type = @type AND Identifier = @id) ";
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
     sql << "WHERE p.Type = 'rating' ";
     sql << "AND p.IsLatest = 1 ";
 
     if (useViewpoint) {
-        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred) ";
+        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointType) ";
         sql << "OR (author.Type = @type AND author.Identifier = @id)) ";
     }
 
@@ -2136,7 +2132,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
         sql << "INNER JOIN UniqueIdentifierTypes AS authorTpp ON author.Type = authorTpp.Value ";
         sql << "LEFT JOIN TrustDistances AS tp ON ";
         sql << "(tp.StartID = @viewpointID AND ";
-        sql << "tp.StartType = @viewpointPred AND ";
+        sql << "tp.StartType = @viewpointType AND ";
         sql << "tp.EndID = author.Identifier AND ";
         sql << "tp.EndType = author.Type ";
         if (maxDistance > 0)
@@ -2148,7 +2144,7 @@ void CIdentifiDB::AddMessageFilterSQL(ostringstream &sql, string_pair viewpoint,
 void CIdentifiDB::AddMessageFilterSQLWhere(ostringstream &sql, string_pair viewpoint) {
     bool useViewpoint = (!viewpoint.first.empty() && !viewpoint.second.empty());
     if (useViewpoint)
-        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointPred)) ";
+        sql << "AND (tp.StartID IS NOT NULL OR (author.Identifier = @viewpointID AND author.Type = @viewpointType)) ";
 }
 
 void CIdentifiDB::DBWorker() {
