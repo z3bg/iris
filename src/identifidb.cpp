@@ -552,7 +552,7 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     } else {
         sql << "WHERE Type = 'email' ";
     }
-    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?)";
+    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ? AND Confirmations > Refutations)";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
