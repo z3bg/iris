@@ -708,7 +708,7 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     sql << "SELECT DISTINCT p.* FROM Messages AS p ";
     sql << "INNER JOIN MessageIdentifiers AS pi ON pi.MessageHash = p.Hash ";
     sql << "INNER JOIN UniqueIdentifierTypes AS tpp ON tpp.Value = pi.Type ";
-    sql << "INNER JOIN Identities AS i ON (i.Type = pi.Type AND i.Identifier = pi.Identifier AND i.IdentityID = ";
+    sql << "LEFT JOIN Identities AS i ON (i.Type = pi.Type AND i.Identifier = pi.Identifier AND i.IdentityID = ";
     sql << "(SELECT IdentityID FROM Identities WHERE ViewpointType = @viewpointPred AND ViewpointID = @viewpointID ";
     sql << "AND Type = @type AND Identifier = @id)) ";
 
@@ -716,6 +716,9 @@ vector<CIdentifiMessage> CIdentifiDB::GetMessagesByAuthorOrRecipient(string_pair
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
     sql << "WHERE ";
+
+    sql << "((pi.Type = @type AND pi.Identifier = @id) OR (pi.Type = i.Type AND pi.Identifier = i.Identifier)) AND ";
+
     if (filterMessageType) {
         if (msgType[0] == '!') {
             sql << "p.Type != @msgType AND ";
@@ -2059,7 +2062,7 @@ IDOverview CIdentifiDB::GetIDOverview(string_pair id, string_pair viewpoint, int
         sql << "OR (author.Type = @type AND author.Identifier = @id)) ";
     }
 
-    sql << "GROUP BY pi.Identifier, pi.Type ";
+    sql << "GROUP BY i.IdentityID ";
     
     if (sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, viewpoint.second.c_str(), -1, SQLITE_TRANSIENT);
