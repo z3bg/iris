@@ -552,7 +552,7 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     } else {
         sql << "WHERE Type = 'email' ";
     }
-    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?) and confirmations > refutations";
+    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?) and Confirmations > Refutations";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -835,7 +835,7 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     //sql << "GROUP BY IFNULL(ThisIdentifier.IdentityID, PRINTF('%s%s',idtype,idvalue)) ";
 
     if (useViewpoint)
-        sql << "ORDER BY iid DESC, CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, UID.Value IS NOT NULL DESC, idvalue ASC ";
+        sql << "ORDER BY CASE WHEN tp.Distance IS NULL THEN 1000 ELSE tp.Distance END ASC, iid >= 0 DESC, UID.Value IS NOT NULL DESC, idvalue ASC ";
 
     /*
     if (limit)
