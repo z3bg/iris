@@ -598,13 +598,13 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "SUM(CASE WHEN p.Type = 'confirm_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Confirmations, ";
     sql << "SUM(CASE WHEN p.Type = 'refute_connection' AND id2.IsRecipient THEN 1 ELSE 0 END) AS Refutations ";
     sql << "FROM Messages AS p ";
-    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash AND id1.IsRecipient = 1 ";
-    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = 1 AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) ";
+    sql << "INNER JOIN MessageIdentifiers AS id1 ON p.Hash = id1.MessageHash ";
+    sql << "INNER JOIN MessageIdentifiers AS id2 ON p.Hash = id2.MessageHash AND id2.IsRecipient = id1.IsRecipient AND (id1.Type != id2.Type OR id1.Identifier != id2.Identifier) ";
     
     string msgType;
     AddMessageFilterSQL(sql, viewpoint, maxDistance, msgType);
 
-    sql << "WHERE p.Type IN ('confirm_connection', 'refute_connection') AND id1.Type = @type AND id1.Identifier = @id ";
+    sql << "WHERE id1.Type = @type AND id1.Identifier = @id ";
     AddMessageFilterSQLWhere(sql, viewpoint);
     sql << "GROUP BY id2.Type, id2.Identifier ";
 
