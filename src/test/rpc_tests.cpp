@@ -134,17 +134,17 @@ BOOST_AUTO_TEST_CASE(getmsgbyhash_and_publish) {
 BOOST_AUTO_TEST_CASE(addsignature) {
     Value r;
     Object firstMessage, data, signedData;
-    BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor profile http://www.example.com/alice"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor mbox mailto:alice@example.com"));
     firstMessage = r.get_array().front().get_obj();
     data=find_value(firstMessage, "data").get_obj();
     BOOST_CHECK(!find_value(data, "signature").get_obj().empty());
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor profile http://www.example.com/alice 20 0 email alice@example.com 3 review"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor mbox mailto:alice@example.com 20 0 email alice@example.com 3 review"));
 
     BOOST_CHECK_THROW(r=CallRPC("addsignature H3EpyBikTvEJwffX5kj3FaDBL4Lub3ZzJz5JAGuYzRCs QuFEJZLioVcvzrGjfdm2QFsV7Nrmm8vdDMCmW9X2xgpZpYPKrTkZzXjQNjcvfjuu7GrxQKGiUZjXznLkULYjet3V invalidsignature"), runtime_error);
     // TODO: add correct signature: BOOST_CHECK_NO_THROW(r=CallRPC("addsignature H3EpyBikTvEJwffX5kj3FaDBL4Lub3ZzJz5JAGuYzRCs QuFEJZLioVcvzrGjfdm2QFsV7Nrmm8vdDMCmW9X2xgpZpYPKrTkZzXjQNjcvfjuu7GrxQKGiUZjXznLkULYjet3V AN1rKvt2BThjKHbzpNrgxrfRrssN3Fq6byGGaQL3GjjKsqnYgaCJmQqh5Pj5fDjd7UNTHTSY21Xncpe2NigZ2sZFR57brJnJZ"));
 
-    BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor profile http://www.example.com/alice"));
+    BOOST_CHECK_NO_THROW(r=CallRPC("getmsgsbyauthor mbox mailto:alice@example.com"));
     firstMessage = r.get_array().front().get_obj();
     data=find_value(firstMessage, "data").get_obj();
     BOOST_CHECK(!find_value(data, "signature").get_obj().empty());
