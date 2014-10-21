@@ -803,7 +803,7 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     vector<CIdentifiMessage> msgs;
     ostringstream sql;
     sql.str("");
-    sql << "SELECT DISTINCT IFNULL(OtherIdentifiers.Type,idtype), IFNULL(OtherIdentifiers.Identifier,idvalue), iid FROM (";
+    sql << "SELECT IFNULL(OtherIdentifiers.Type,idtype), IFNULL(OtherIdentifiers.Identifier,idvalue), MAX(iid) FROM (";
 
     sql << "SELECT DISTINCT mi.Type AS idtype, mi.Identifier AS idvalue, -1 AS iid FROM MessageIdentifiers AS mi ";
     sql << "WHERE ";
@@ -832,7 +832,7 @@ vector<vector<string_pair> > CIdentifiDB::SearchForID(string_pair query, int lim
     //sql << "LEFT JOIN CachedNames AS cn ON cn.Type = type AND cn.Identifier = id ";
     //sql << "LEFT JOIN CachedEmails AS ce ON ce.Type = type AND ce.Identifier = id ";
 
-    //sql << "GROUP BY IFNULL(ThisIdentifier.IdentityID, PRINTF('%s%s',idtype,idvalue)) ";
+    sql << "GROUP BY IFNULL(OtherIdentifiers.Type,idtype), IFNULL(OtherIdentifiers.Identifier,idvalue) ";
 
     if (useViewpoint)
         sql << "ORDER BY iid >= 0 DESC, IFNULL(tp.Distance,1000) ASC, CASE WHEN idvalue LIKE @query || '%' THEN 0 ELSE 1 END, UID.Value IS NOT NULL DESC, idvalue ASC ";
