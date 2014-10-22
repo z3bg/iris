@@ -552,7 +552,8 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     } else {
         sql << "WHERE Type = 'email' ";
     }
-    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?) AND (Confirmations > Refutations OR Refutations = 0)";
+    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?) AND (Confirmations > Refutations OR Refutations = 0) ";
+    sql << "ORDER BY CASE WHEN Type = 'name' THEN 1 ELSE 0 END DESC";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
@@ -633,7 +634,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
     sql << "INSERT INTO Identities ";
     sql << "SELECT " << identityID << ", id2type, id2val, @viewpointType, @viewpointID, SUM(confirmations), SUM(refutations) FROM transitive_closure ";
     sql << "GROUP BY id2type, id2val ";
-    sql << "UNION SELECT " << identityID << ", @type, @id, @viewpointType, @viewpointID, 1, 1 ";
+    sql << "UNION SELECT " << identityID << ", @type, @id, @viewpointType, @viewpointID, 1, 0 ";
     sql << "FROM MessageIdentifiers AS mi ";
     sql << "INNER JOIN UniqueIdentifierTypes AS ui ON ui.Value = mi.Type ";
     sql << "WHERE mi.Type = @type AND mi.Identifier = @id  ";
