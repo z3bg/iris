@@ -66,6 +66,7 @@ Possible applications
 - Uncensored and sockpuppet-resistant reviews and recommendations for products, restaurants etc.
 - Public messaging, automatically show or hide authors
 - Social network based routing protocols
+- Decentralized alternative to DNS - let your WoT decide which IP a name maps to
 
 Building
 --------
