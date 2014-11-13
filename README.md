@@ -85,7 +85,7 @@ Developing
 ----------
 Core functionality of the implementation is in identifidb.cpp, data.cpp and rpcdb.cpp.
 
-Get the daemon running with `./identifi -daemon`. Call the JSON-RPC with `./identifi rpccommand`. rrpc_tests.cpp shows how to use the RPC.
+Get the daemon running with `./identifi -daemon`. Call the JSON-RPC with `./identifi rpccommand`. Rpc_tests.cpp shows how to use the RPC.
 
 The program connects to seed nodes from DNS by default and requests for messages created after a certain timestamp. Identifi developers' ECDSA pubkey is included and trusted by default as an entry point to the WoT. You need to connect your own pubkey or other identifiers to the WoT if you want your messages prioritized over spam by other nodes.
 
