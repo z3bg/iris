@@ -590,6 +590,7 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
         sqlite3_step(statement);
     } else cout << sqlite3_errmsg(db) << "\n";
 
+    string countBefore = query("SELECT COUNT(1) FROM Identities")[0][0]; 
     sql.str("");
 
     sql << "WITH RECURSIVE transitive_closure(id1type, id1val, id2type, id2val, distance, path_string, confirmations, refutations) AS ";
@@ -658,6 +659,11 @@ vector<LinkedID> CIdentifiDB::GetLinkedIdentifiers(string_pair startID, vector<s
 
         sqlite3_step(statement);
     } else cout << sqlite3_errmsg(db) << "\n";
+
+    if (countBefore == query("SELECT COUNT(1) FROM Identities")[0][0]) {
+      sqlite3_finalize(statement);
+      return results;
+    }
 
     sql.str("");
     sql << "SELECT Type, Identifier, Confirmations AS c, Refutations AS r, 1 FROM Identities WHERE NOT (Type = @searchedtype AND Identifier = @searchedid) AND IdentityID = (SELECT MAX(IdentityID) FROM Identities) ";
