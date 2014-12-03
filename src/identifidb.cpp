@@ -552,8 +552,8 @@ string CIdentifiDB::GetCachedValue(string valueType, string_pair id) {
     } else {
         sql << "WHERE Type = 'email' ";
     }
-    sql << "AND IdentityID = (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?) AND (Confirmations > Refutations OR Refutations = 0) ";
-    sql << "ORDER BY CASE WHEN Type = 'name' THEN 1 ELSE 0 END DESC";
+    sql << "AND IdentityID IN (SELECT IdentityID FROM Identities WHERE Type = ? AND Identifier = ?) AND (Confirmations > Refutations OR Refutations = 0) ";
+    sql << "ORDER BY CASE WHEN Type = 'name' THEN 1 ELSE 0 END DESC, Confirmations DESC LIMIT 1";
 
     if(sqlite3_prepare_v2(db, sql.str().c_str(), -1, &statement, 0) == SQLITE_OK) {
         sqlite3_bind_text(statement, 1, id.first.c_str(), -1, SQLITE_TRANSIENT);
