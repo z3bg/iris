@@ -5,7 +5,7 @@ http://identifi.org
 
 IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Freenode
 
-Identifi & identifi-rails in action: http://identi.fi
+Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: http://identi.fi
 
 What
 ----
