@@ -7,6 +7,8 @@ IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Free
 
 Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: http://identi.fi
 
+**NOTE**: Identifi is being ported to Node.js: http://github.com/identifi/identifi-daemon
+
 What
 ----
 - "Address book where you can find anyone in the world"
