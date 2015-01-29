@@ -9,34 +9,31 @@ Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: htt
 
 What
 ----
-- Decentralized address book with ratings
-- Web of trust
+- "Address book where you can find anyone in the world"
+- Anyone can edit, add and verify contact details
+- Users can give each others eBay-style reviews and trust ratings
+- Filter all information by its author's position in your web of trust
+  - For example, only show the content created by your friends and the people they trust
+- Decentralized - data is stored and indexed on the devices of its users
 - API for integration with various trust or identity dependent applications
-- Anyone can add identifiers and make statements about their relations to others
-  - "user@example.com and http://facebook.com/user belong to the same owner"
-  - "alice@example.com and bob@example.com are friends"
-  - "alice@example.com is expired" - keep online identity up to date
-  - etc.
-- Anyone can add reviews with their identity
-  - "alice@example.com says: I successfully traded with bob@example.com"
-- Credibility of statements can be evaluated by their author's reputation (history, social connections, identity verifications, reviews etc.)
 
 Why
 ---
-- Prevent spam (by accepting messages only from trusted / socially connected senders)
-- Prevent astroturfing / sockpuppeting
+- Keep your contact details, payment addresses etc. up-to-date and verified
 - Makes it possible to trust people you have never met
   - Utilize your good reputation in various services and situations
   - Reduces risk of trade or loan, thus reducing price
-- Ubiquitous reputation as non-violent, cost-effective and decentralized justice
-  - Everyone can choose whose judgement or review to trust
-  - Incentive against antisocial behavior
-  - Incentive to restore trust by compensation and apology for misdeeds
+- Prevent spam (by accepting messages only from trusted / socially connected senders)
+- Prevent astroturfing / sockpuppeting
 - Facilitate gift economy / time banking
 - Distributed public messaging, with trust lists instead of centralized moderator power
 - Censorship-resistance
 - Open database, vs. proprietary information silos of reputation and online identity
   - No monopoly on credit ratings
+- Ubiquitous reputation as non-violent, cost-effective and decentralized justice
+  - Everyone can choose whose judgement or review to trust
+  - Incentive against antisocial behavior
+  - Incentive to restore trust by compensation and apology for misdeeds
 
 How
 ---
