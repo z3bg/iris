@@ -7,7 +7,7 @@ IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Free
 
 Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: http://identi.fi
 
-**NOTE**: Identifi is being ported to Node.js: http://github.com/identifi/identifi-daemon
+**NOTE**: This is a proof-of-concept implementation. The Node.js version will be more refined: http://github.com/identifi/identifi-daemon
 
 What
 ----
