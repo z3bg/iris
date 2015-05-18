@@ -141,6 +141,8 @@ Messages are digitally signed by the entity that verifies that the message origi
 
 Message encoding is UTF-8.
 
+**NOTE**: Moving to [JSON Web Signatures](https://tools.ietf.org/html/draft-ietf-jose-json-web-signature) in the Node.js version.
+
 
 Future considerations
 ---------------------
