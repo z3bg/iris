@@ -13,7 +13,7 @@ What
 ----
 - "Address book where you can find anyone in the world"
 - Anyone can edit, add and verify contact details
-- Users can give each others eBay-style reviews and trust ratings
+- Users can give each other eBay-style reviews and trust ratings
 - Filter all information by its author's position in your web of trust
   - For example, only show the content created by your friends and the people they trust
 - Decentralized - data is stored and indexed on the devices of its users
