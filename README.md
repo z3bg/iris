@@ -104,7 +104,9 @@ Identifi is released under the terms of the MIT license. See `COPYING` for more 
 Data format
 -----------
 
-Suggested data format for Identifi messages:
+NOTE: [Json web signatures](https://tools.ietf.org/html/draft-ietf-jose-json-web-signature-41) will be used in the [Node.js version](https://github.com/identifi/identifi-daemon).
+
+Current Identifi message format:
 
 ```
 {
