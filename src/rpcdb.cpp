@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <algorithm>
 #include "main.h"
 #include "identifirpc.h"
@@ -251,7 +252,7 @@ Value getpaths(const Array& params, bool fHelp)
         Array id;
         while (i != j) {
             string str = *i++;
-            replace_all(str, "::", ":");
+            boost::replace_all(str, "::", ":");
             id.push_back(Value(str));
             if (id.size() == 2) {
                 path.push_back(id);
