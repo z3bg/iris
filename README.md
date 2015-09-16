@@ -16,8 +16,8 @@ Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: htt
 
 What
 ----
-- "Address book where you can find anyone in the world"
-- Anyone can edit, add and verify contact details
+- Global address book
+- Anyone can edit and verify contact details
 - Users can give each other eBay-style reviews and trust ratings
 - Filter all information by its author's position in your web of trust
   - For example, only show the content created by your friends and the people they trust
