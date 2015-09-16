@@ -32,6 +32,7 @@ Why
   - Reduces risk of trade or loan, thus reducing price
 - Prevent spam (by accepting messages only from trusted / socially connected senders)
 - Prevent astroturfing / sockpuppeting
+- Provide identity verifications to people who lack official ID
 - Facilitate gift economy / time banking
 - Distributed public messaging, with trust lists instead of centralized moderator power
 - Censorship-resistance
