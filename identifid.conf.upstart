@@ -1,0 +1,11 @@
+description "identifid"
+
+start on runlevel [2345]
+stop on runlevel [!2345]
+
+setuid user 
+
+respawn
+respawn limit 1 60 # 1 times in 60 seconds
+
+exec /home/user/identifi/src/identifi -datadir=/home/user/.identifi
