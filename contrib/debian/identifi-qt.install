@@ -1,5 +1,0 @@
-identifi-qt usr/bin
-share/pixmaps/identifi32.xpm usr/share/pixmaps
-share/pixmaps/identifi80.xpm usr/share/pixmaps
-debian/identifi-qt.desktop usr/share/applications
-debian/identifi-qt.protocol usr/share/kde4/services/
