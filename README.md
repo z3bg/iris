@@ -10,8 +10,8 @@ Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: htt
 **NOTE**: This is a proof-of-concept implementation, not ready for production. The [Node.js version](https://github.com/identifi/identifi-daemon) will be more refined:
 - HTTP based networking and JSON serialization (incompatible with the old implementation)
 - https://github.com/identifi/identifi-daemon Provides a REST API and communicates with other nodes
-- https://github.com/identifi/identifi-cli/tree/develop Command line interface for using local or remote Identifi nodes
-- https://github.com/identifi/identifi-lib/tree/develop Library for talking to an Identifi node. Used by the previous.
+- https://github.com/identifi/identifi-cli Command line interface for using local or remote Identifi nodes
+- https://github.com/identifi/identifi-lib Library for talking to an Identifi node. Used by the previous.
 - https://github.com/identifi/identifi-js AngularJS interface. Currently proxies the old API via Express.
 
 What
