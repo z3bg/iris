@@ -7,7 +7,7 @@ IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Free
 
 Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: http://identi.fi
 
-**NOTE**: This is a proof-of-concept implementation, not ready for production. The Node.js version will be more refined:
+**NOTE**: This is a proof-of-concept implementation, not ready for production. The [Node.js version](https://github.com/identifi/identifi-daemon) will be more refined:
 - HTTP based networking and JSON serialization (incompatible with the old implementation)
 - https://github.com/identifi/identifi-daemon Provides a REST API and communicates with other nodes
 - https://github.com/identifi/identifi-cli/tree/develop Command line interface for using local or remote Identifi nodes
