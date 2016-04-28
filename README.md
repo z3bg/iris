@@ -5,10 +5,8 @@ http://identifi.org
 
 IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Freenode
 
-Identifi & [identifi-js](https://github.com/identifi/identifi-js) in action: http://identi.fi
+http://identi.fi
 
-**NOTE**: This is a proof-of-concept implementation, not ready for production. The [Node.js version](https://github.com/identifi/identifi-daemon) will be more refined:
-- HTTP based networking and JSON serialization (incompatible with the old implementation)
 - https://github.com/identifi/identifi-daemon Provides a REST API and communicates with other nodes
 - https://github.com/identifi/identifi-cli Command line interface for using local or remote Identifi nodes
 - https://github.com/identifi/identifi-lib Library for talking to an Identifi node. Used by the previous.
@@ -45,12 +43,11 @@ Why
 
 How
 ---
-- Prototype built on Bitcoin code to utilize existing crypto, network, CLI, etc. functions (but not blockchain)
 - Data package: [author identifiers, recipient identifiers, message][signatures]
   - Identified by content hash
   - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
 - Flood packages throughout the network
-  - Nodes maintain their own trust graphs which are updated as new messages arrive
+  - Nodes maintain their own trust indexes which are updated as new messages arrive
   - Message storage priority is based on its author's and signer's position in the node's web of trust
   - Later on, connections to other nodes can be prioritized by trust
 - Crawl initial data from existing social networks and review systems
