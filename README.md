@@ -56,7 +56,7 @@ How
 
 Possible applications
 ---------------------
-- Facial recognition and identifi-cation with Google glass or similar
+- Facial recognition and identifi-cation with a AR glasses
   - Thumbs up to the friendly bus driver, policeman or the stranger who helped you
 - Mywot.com-style browser plugin for website reviews
 - Bitcoin UIs, connect addresses to identities or vice versa
