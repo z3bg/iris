@@ -10,7 +10,9 @@ http://identi.fi
 - https://github.com/identifi/identifi-daemon Provides a REST API and communicates with other nodes
 - https://github.com/identifi/identifi-cli Command line interface for using local or remote Identifi nodes
 - https://github.com/identifi/identifi-lib Library for talking to an Identifi node. Used by the previous.
-- https://github.com/identifi/identifi-js AngularJS interface. Currently proxies the old API via Express.
+- https://github.com/identifi/identifi-angular AngularJS interface. Served by identifi-daemon at http://localhost:4944 if available.
+- https://github.com/identifi/identifi-node Node package that bundles all the previous.
+
 
 What
 ----
