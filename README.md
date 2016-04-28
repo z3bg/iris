@@ -13,6 +13,7 @@ http://identi.fi
 - https://github.com/identifi/identifi-angular AngularJS interface. Served by identifi-daemon at http://localhost:4944 if available.
 - https://github.com/identifi/identifi-node Node package that bundles all the previous.
 
+Todo list: https://trello.com/b/8qUutkmP/identifi
 
 What
 ----
