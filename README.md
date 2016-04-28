@@ -17,6 +17,7 @@ Todo list: https://trello.com/b/8qUutkmP/identifi
 
 What
 ----
+- Concept: https://medium.com/@mmalmi/learning-to-trust-strangers-167b652a654f
 - Global address book
 - Anyone can edit and verify contact details
 - Users can give each other eBay-style reviews and trust ratings
