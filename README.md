@@ -33,7 +33,7 @@ Why
   - Utilize your good reputation in various services and situations
   - Reduces risk of trade or loan, thus reducing price
 - Prevent spam (by accepting messages only from trusted / socially connected senders)
-- Prevent astroturfing / sockpuppeting
+- Prevent fake accounts used for commercial or propaganda purposes
 - Provide identity verifications to people who lack official ID
 - Facilitate gift economy / time banking
 - Distributed public messaging, with trust lists instead of centralized moderator power
