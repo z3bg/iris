@@ -53,7 +53,7 @@ How
 - Messages are stored and indexed locally in an SQL database
   - Nodes maintain their own trust indexes which are updated as new messages arrive
   - Message storage priority is based on its author's and signer's position in the node's web of trust
-  - Messages and indexes are globally stored on IPFS
+  - Messages and indexes are also globally stored on IPFS
     - Can be used in serverless mode
 - Crawl initial data from existing social networks and review systems
 
