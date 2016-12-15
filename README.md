@@ -7,7 +7,7 @@ IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Free
 
 http://identi.fi
 
-- https://github.com/identifi/identifi-daemon Provides a REST API and communicates with other nodes
+- https://github.com/identifi/identifi-daemon Provides a REST API and reads/writes data on [IPFS](https://github.com/ipfs/ipfs)
 - https://github.com/identifi/identifi-cli Command line interface for using local or remote Identifi nodes
 - https://github.com/identifi/identifi-lib Library for talking to an Identifi node. Used by the previous.
 - https://github.com/identifi/identifi-angular AngularJS interface. Served by identifi-daemon at http://localhost:4944 if available.
@@ -23,7 +23,7 @@ What
 - Users can give each other eBay-style reviews and trust ratings
 - Filter all information by its author's position in your web of trust
   - For example, only show the content created by your friends and the people they trust
-- Decentralized - data is stored and indexed on the devices of its users. Compares to a phone's address book or a local DNS cache.
+- Decentralized - data is stored and indexed on the devices of its users (on [IPFS](https://github.com/ipfs/ipfs)). Compares to a phone's address book or a local DNS cache.
 - API for integration with various trust or identity dependent applications
 
 Why
@@ -47,13 +47,14 @@ Why
 
 How
 ---
-- Data package: [author identifiers, recipient identifiers, message][signatures]
+- Identifi message: [author identifiers, recipient identifiers, message][signatures]
   - Identified by content hash
   - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
-- Flood packages throughout the network
+- Messages are stored and indexed locally in an SQL database
   - Nodes maintain their own trust indexes which are updated as new messages arrive
   - Message storage priority is based on its author's and signer's position in the node's web of trust
-  - Later on, connections to other nodes can be prioritized by trust
+  - Messages and indexes are globally stored on IPFS
+    - Can be used in serverless mode
 - Crawl initial data from existing social networks and review systems
 
 Possible applications
