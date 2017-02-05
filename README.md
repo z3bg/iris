@@ -55,6 +55,7 @@ How
   - Message storage priority is based on its author's and signer's position in the node's web of trust
   - Messages and indexes are also globally stored on IPFS
     - Can be used in serverless mode
+    - [btree](https://github.com/mmalmi/merkle-btree) indexes
 - Crawl initial data from existing social networks and review systems
 
 Possible applications
