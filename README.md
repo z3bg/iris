@@ -3,8 +3,6 @@ Identifi
 
 http://identifi.org
 
-IRC: [#identifi](https://webchat.freenode.net/?channels=identifi&uio=d4) on Freenode
-
 http://identi.fi
 
 - https://github.com/identifi/identifi-daemon Provides a REST API and reads/writes data on [IPFS](https://github.com/ipfs/ipfs)
