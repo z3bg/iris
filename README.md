@@ -48,6 +48,7 @@ How
 - Identifi message: [author identifiers, recipient identifiers, message][signatures]
   - Identified by content hash
   - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
+  - Encoded and signed as [JSON Web Tokens](https://jwt.io/)
 - Messages are stored and indexed locally in an SQL database
   - Nodes maintain their own trust indexes which are updated as new messages arrive
   - Message storage priority is based on its author's and signer's position in the node's web of trust
