@@ -29,7 +29,7 @@ Why
 - Keep your contact details, payment addresses etc. up-to-date and verified
 - Makes it possible to trust people you have never met
   - Utilize your good reputation in various services and situations
-  - Reduces risk of trade or loan, thus reducing price
+  - Reduces risk of trade or loan, thus reducing cost
 - Prevent spam (by accepting messages only from trusted / socially connected senders)
 - Prevent fake accounts used for commercial or propaganda purposes
 - Provide identity verifications to people who lack official ID
