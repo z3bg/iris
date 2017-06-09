@@ -1,10 +1,14 @@
 Identifi
 ========
 
-http://identifi.org
+Available at:
+* https://identi.fi
+* https://identifi.github.io/
+* https://ipfs.io/ipns/identi.fi/
+* https://ipfs.io/ipns/QmaiM39ABfBEkb1ajyZ9ebfJXYgfyDNNbUaVZSwezwwoDQ/
+* [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
 
-http://identi.fi
-
+Code:
 - https://github.com/identifi/identifi-daemon Provides a REST API and reads/writes data on [IPFS](https://github.com/ipfs/ipfs)
 - https://github.com/identifi/identifi-cli Command line interface for using local or remote Identifi nodes
 - https://github.com/identifi/identifi-lib Library for talking to an Identifi node. Used by the previous.
