@@ -6,7 +6,7 @@ Available at:
 * https://identifi.github.io/
 * https://ipfs.io/ipns/identi.fi/
 * https://ipfs.io/ipns/QmaiM39ABfBEkb1ajyZ9ebfJXYgfyDNNbUaVZSwezwwoDQ/
-* [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
+* [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh) ([mirror](https://github.com/identifi/identifi-angular/raw/master/dist.crx))
 
 Code:
 - https://github.com/identifi/identifi-daemon Provides a REST API and maintains identity & message indexes on [IPFS](https://github.com/ipfs/ipfs)
