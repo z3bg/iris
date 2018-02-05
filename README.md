@@ -10,7 +10,7 @@ Available at:
 
 Code:
 - https://github.com/identifi/identifi-daemon Maintains identity & message indexes on [IPFS](https://github.com/ipfs/ipfs)
-- https://github.com/identifi/identifi-cli Command line interface for using local or remote Identifi nodes
+- https://github.com/identifi/identifi-cli Command line interface to identifi-daemon and identifi-lib functions
 - https://github.com/identifi/identifi-lib Library for talking to an Identifi node. Used by the previous.
 - https://github.com/identifi/identifi-angular AngularJS interface. Served by identifi-daemon at http://localhost:4944 if available.
 - https://github.com/identifi/identifi-node Node package that bundles all the previous.
