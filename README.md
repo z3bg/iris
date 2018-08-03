@@ -9,11 +9,8 @@ Available at:
 * [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh) ([mirror](https://github.com/identifi/identifi-angular/raw/master/dist.crx))
 
 Code:
-- https://github.com/identifi/identifi-daemon Maintains identity & message indexes on [IPFS](https://github.com/ipfs/ipfs)
-- https://github.com/identifi/identifi-cli Command line interface to identifi-daemon and identifi-lib functions
 - https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes on IPFS
 - https://github.com/identifi/identifi-angular AngularJS interface, runs at https://identi.fi
-- https://github.com/identifi/identifi-node Node package that bundles all the previous.
 
 Todo list: https://trello.com/b/8qUutkmP/identifi
 
@@ -78,6 +75,12 @@ Possible applications
 - Public messaging, automatically show or hide authors
 - Social network based routing protocols
 - Decentralized alternative to DNS - let your WoT decide which IP a name maps to
+
+
+Contributing
+------------
+
+Please do **integrate** [identifi-lib](https://github.com/identifi/identifi-lib) with your existing application or with a test application and **create Github issues** for the bugs and other problems you may encounter. Your help is much appreciated!
 
 License
 -------
