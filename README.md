@@ -12,8 +12,6 @@ Code:
 - https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes on IPFS
 - https://github.com/identifi/identifi-angular AngularJS interface, runs at https://identi.fi
 
-Todo list: https://trello.com/b/8qUutkmP/identifi
-
 What
 ----
 - Concept: https://medium.com/@mmalmi/learning-to-trust-strangers-167b652a654f
