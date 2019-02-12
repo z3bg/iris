@@ -9,7 +9,7 @@ Available at:
 * [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh) ([mirror](https://github.com/identifi/identifi-angular/raw/master/dist.crx))
 
 Code:
-- https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes on IPFS
+- https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes
 - https://github.com/identifi/identifi-angular AngularJS interface, runs at https://identi.fi
 
 What
