@@ -11,7 +11,7 @@ Available at:
 
 Code:
 - https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes
-- https://github.com/identifi/identifi-angular AngularJS interface, runs at https://identi.fi
+- https://github.com/identifi/identifi-angular Angular UI for web, browser extensions and Electron app
 
 What
 ----
