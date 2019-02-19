@@ -21,7 +21,7 @@ What
 - Users can give each other eBay-style reviews and trust ratings
 - Filter all information by its author's position in your web of trust
   - For example, only show the content created by your friends and the people they trust
-- Decentralized - data is stored and indexed on the devices of its users (on [IPFS](https://github.com/ipfs/ipfs)). Compares to a phone's address book or a local DNS cache.
+- Decentralized - data is stored and indexed on the devices of its users. Compares to a phone's address book or a local DNS cache.
 - API for integration with various trust or identity dependent applications
 
 Why
