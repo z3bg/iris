@@ -6,7 +6,8 @@ Available at:
 * https://identifi.github.io/
 * https://ipfs.io/ipns/identi.fi/
 * https://ipfs.io/ipns/QmaiM39ABfBEkb1ajyZ9ebfJXYgfyDNNbUaVZSwezwwoDQ/
-* [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh) ([mirror](https://github.com/identifi/identifi-angular/raw/master/dist.crx))
+* [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
+* [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/identifi/)
 
 Code:
 - https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes
