@@ -2,9 +2,9 @@ Iris
 ========
 
 Available at:
-* https://iris.cx
-* https://iris.to
-* https://irislib.github.io
+* [iris.cx](https://iris.cx)
+* [iris.to](https://iris.to)
+* [irislib.github.io](https://irislib.github.io)
 * [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
 * [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/identifi/)
 
