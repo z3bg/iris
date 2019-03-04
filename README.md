@@ -2,10 +2,9 @@ Identifi
 ========
 
 Available at:
-* https://identi.fi
-* https://identifi.github.io/
-* https://ipfs.io/ipns/identi.fi/
-* https://ipfs.io/ipns/QmaiM39ABfBEkb1ajyZ9ebfJXYgfyDNNbUaVZSwezwwoDQ/
+* https://iris.cx
+* https://iris.to
+* https://irislib.github.io
 * [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
 * [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/identifi/)
 
