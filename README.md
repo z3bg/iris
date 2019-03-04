@@ -9,8 +9,8 @@ Available at:
 * [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/identifi/)
 
 Code:
-- https://github.com/identifi/identifi-lib Library for reading and writing Identifi messages and indexes
-- https://github.com/identifi/identifi-angular Angular UI for web, browser extensions and Electron app
+- https://github.com/irislib/iris-lib Library for reading and writing Iris messages and indexes
+- https://github.com/irislib/iris-angular Angular UI for web, browser extensions and Electron app
 
 What
 ----
@@ -44,27 +44,20 @@ Why
 
 How
 ---
-- Identifi message: [author identifiers, recipient identifiers, message][signatures]
+- Iris message: {signedData: {author, recipient, comment, ...}, sig}
   - Identified by content hash
   - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
-  - Encoded and signed as [JSON Web Tokens](https://jwt.io/)
-- Messages are stored and indexed locally in an SQL database
-  - Nodes maintain their own trust indexes which are updated as new messages arrive
-  - Message storage priority is based on its author's and signer's position in the node's web of trust
-  - Messages and indexes are also globally stored on IPFS
-    - Can be used in serverless mode
-    - [btree](https://github.com/mmalmi/merkle-btree) indexes
 - Crawl initial data from existing social networks and review systems
 
 Possible applications
 ---------------------
-- Facial recognition and identifi-cation with a AR glasses
+- Facial recognition and identification with a AR glasses
   - Thumbs up to the friendly bus driver, policeman or the stranger who helped you
 - Mywot.com-style browser plugin for website reviews
 - Bitcoin UIs, connect addresses to identities or vice versa
 - Email plugin
   - Generate trusted senders list from email history
-  - Require new senders to be on identifi - send automatic response if not
+  - Require new senders to be on Iris - send automatic response if not
 - Decentralized marketplaces, P2P trade and finance
   - Check escrow or trader reputation
   - Airbnb, eBay, Uber, LocalBitcoins etc.
@@ -78,9 +71,9 @@ Possible applications
 Contributing
 ------------
 
-Please do **integrate** [identifi-lib](https://github.com/identifi/identifi-lib) with your existing application or with a test application and **create Github issues** for the bugs and other problems you may encounter. Your help is much appreciated!
+Please do **integrate** [iris-lib](https://github.com/irislib/iris-lib) with your existing application or with a test application and **create Github issues** for the bugs and other problems you may encounter. Your help is much appreciated!
 
 License
 -------
 
-Identifi is released under the terms of the MIT license. See `COPYING` for more information or see http://opensource.org/licenses/MIT.
+Iris is released under the terms of the MIT license. See `COPYING` for more information or see http://opensource.org/licenses/MIT.
