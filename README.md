@@ -1,5 +1,4 @@
-Iris
-========
+# Iris
 
 Available at:
 * [iris.cx](https://iris.cx)
@@ -12,68 +11,45 @@ Code:
 - https://github.com/irislib/iris-lib Library for reading and writing Iris messages and indexes
 - https://github.com/irislib/iris-angular Angular UI for web, browser extensions and Electron app
 
-What
-----
-- Concept: https://medium.com/@mmalmi/learning-to-trust-strangers-167b652a654f
-- Global address book
-- Anyone can edit and verify contact details
-- Users can give each other eBay-style reviews and trust ratings
-- Filter all information by its author's position in your web of trust
-  - For example, only show the content created by your friends and the people they trust
-- Decentralized - data is stored and indexed on the devices of its users. Compares to a phone's address book or a local DNS cache.
-- API for integration with various trust or identity dependent applications
+> Want social media where you decide what gets into your feed, not some obscure algorithm? Something that can't be censored by authoritarian governments? No big tech companies that decide what you can post, what gets visibility and who gets to have an account? Yet no harassing troll accounts, spam or ads? Something that works locally even if ISPs are unavailable in an emergency situation?
 
-Why
----
-- Keep your contact details, payment addresses etc. up-to-date and verified
-- Makes it possible to trust people you have never met
-  - Utilize your good reputation in various services and situations
-  - Reduces risk of trade or loan, thus reducing cost
-- Prevent spam (by accepting messages only from trusted / socially connected senders)
-- Prevent fake accounts used for commercial or propaganda purposes
-- Provide identity verifications to people who lack official ID
-- Facilitate gift economy / time banking
-- Distributed public messaging, with trust lists instead of centralized moderator power
-- Censorship-resistance
-- Open database, vs. proprietary information silos of reputation and online identity
-  - No monopoly on credit ratings
-- Ubiquitous reputation as non-violent, cost-effective and decentralized justice
-  - Everyone can choose whose judgement or review to trust
-  - Incentive against antisocial behavior
-  - Incentive to restore trust by compensation and apology for misdeeds
+Here comes Iris. Iris is a social networking application that stores and indexes everything on the devices of its users and connects directly with peers who run the application - no corporate gatekeepers needed.
 
-How
----
-- Iris message: {signedData: {author, recipient, comment, ...}, sig}
-  - Identified by content hash
-  - Signed by the entity which verified that the message originates from the named author. Thus, all end users need not to have a crypto key of their own.
-- Crawl initial data from existing social networks and review systems
+## Public messaging
+Interface-wise, Iris is not too different from some existing social media. You can post texts, photos, videos, audio or other types of files into your feed. At the time of writing this, all content on Iris is public.
 
-Possible applications
----------------------
-- Facial recognition and identification with a AR glasses
-  - Thumbs up to the friendly bus driver, policeman or the stranger who helped you
-- Mywot.com-style browser plugin for website reviews
-- Bitcoin UIs, connect addresses to identities or vice versa
-- Email plugin
-  - Generate trusted senders list from email history
-  - Require new senders to be on Iris - send automatic response if not
-- Decentralized marketplaces, P2P trade and finance
-  - Check escrow or trader reputation
-  - Airbnb, eBay, Uber, LocalBitcoins etc.
-  - Time banking, gift economy
-- Uncensored and sockpuppet-resistant reviews and recommendations for products, restaurants etc.
-- Public messaging, automatically show or hide authors
-- Social network based routing protocols
-- Decentralized alternative to DNS - let your WoT decide which IP a name maps to
+## Web of trust
+You can create new Iris accounts (technically: cryptographic keypairs) at will, without asking for anyone's permission, but only the users whose web of trust upvoted your account will see its posts.
 
+When you upvote someone, they become your 1st degree contact. The accounts they upvoted become 2nd degree contacts. Then there are 3rd degree contacts and so on. This is the web of trust, which can be used to filter all content on Iris. Hiding users by downvoting is also possible.
 
-Contributing
-------------
+This way we can avoid spam and other unwanted content without giving power to central moderators.
+You can also add to your contacts list and rate people and organisations who are not yet on Iris.
+A decentralised web of trust, unlike certain big brother systems, could be a strong positive social force as envisioned in the blog post Learning to Trust Strangers. (Iris is evolved from thereby mentioned Identifi.)
 
-Please do **integrate** [iris-lib](https://github.com/irislib/iris-lib) with your existing application or with a test application and **create Github issues** for the bugs and other problems you may encounter. Your help is much appreciated!
+## Identity verifications
+Keep your contact details up-to-date and ask for verifications from peers or specialised verifiers trusted by your WoT. Use your Iris account for online authentication or identification on services that support it.
 
-License
--------
+If you lose access to your account (keypair), just create a new one and link it to your existing identity by asking for verifications from your web of trust.
+
+## Importing content from existing sources
+An Iris message is digitally signed by the entity that verified its origin. In other words: message author and signer can be different entities, and only the signer needs to be on Iris.
+For example, a crawler can import and sign other people's messages from Twitter. Only the users who trust the crawler will see the messages.
+
+Importing content from existing sources helps overcome the network effect. It solves the chicken and egg problem, making Iris a useful medium even with no initial user base.
+
+## Improving decentralisation
+Currently the weak point of Iris's decentralisation is the list of initial peers, which could easily be blocked by governments or ISPs. By default, the application connects to IPFS default peers and a couple GUN peers. You can always add peers manually on the settings page, but that is cumbersome for the average user.
+
+We already have a multicast module prototype for GUN which can find peers on the same local area network. Bluetooth modules are not yet implemented, but will enable a network of peers that need to meet each other only occasionally.
+
+On the wide area network level, trusted contacts could exchange network addresses privately to avoid having them blocked or tracked. WebRTC's NAT traversal capabilities can enable direct connections between typical network endpoint users, but you still need a firewall-opened/port-forwarded rendez-vous node for them, and in some cases a relay node.
+
+## How to help
+If you like the idea, please create an Iris account and share your profile link on your existing social networks!
+
+If you are a developer and want to help, contributions to the browser application and the underlying iris-lib are very much appreciated. If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
+
+## License
 
 Iris is released under the terms of the MIT license. See `COPYING` for more information or see http://opensource.org/licenses/MIT.
