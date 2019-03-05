@@ -36,6 +36,7 @@ If you lose access to your account (keypair), just create a new one and link it 
 
 ## Importing content from existing sources
 An Iris message is digitally signed by the entity that verified its origin. In other words: message author and signer can be different entities, and only the signer needs to be on Iris.
+
 For example, a crawler can import and sign other people's messages from Twitter. Only the users who trust the crawler will see the messages.
 
 Importing content from existing sources helps overcome the network effect. It solves the chicken and egg problem, making Iris a useful medium even with no initial user base.
@@ -50,7 +51,9 @@ On the wide area network level, trusted contacts could exchange network addresse
 ## How to help
 If you like the idea, please [create an Iris account](https://iris.to) and **share your profile link on your existing social networks**!
 
-If you are a developer and want to help, contributions to the browser application and the underlying iris-lib are very much appreciated. If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
+If you are a developer and want to help, contributions to the browser application and the underlying iris-lib are very much appreciated.
+
+If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
 
 ## License
 
