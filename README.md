@@ -27,7 +27,7 @@ When you upvote someone, they become your 1st degree contact. The accounts they 
 
 **This way we can avoid spam and other unwanted content without giving power to central moderators.**
 You can also add to your contacts list and rate people and organisations who are not yet on Iris.
-A decentralised web of trust, unlike certain big brother systems, could be a strong positive social force as envisioned in the blog post Learning to Trust Strangers. (Iris is evolved from thereby mentioned Identifi.)
+A decentralised web of trust, unlike certain big brother systems, could be a strong positive social force as envisioned in the blog post [Learning to Trust Strangers](https://medium.com/@mmalmi/learning-to-trust-strangers-167b652a654f). (Iris is evolved from thereby mentioned Identifi.)
 
 ## Identity verifications
 Keep your contact details up-to-date and ask for verifications from peers or specialised verifiers trusted by your WoT. Use your Iris account for online authentication or identification on services that support it.
@@ -41,7 +41,7 @@ For example, a crawler can import and sign other people's messages from Twitter.
 Importing content from existing sources helps overcome the network effect. It solves the chicken and egg problem, making Iris a useful medium even with no initial user base.
 
 ## Improving decentralisation
-Currently the weak point of Iris's decentralisation is the list of initial peers, which could easily be blocked by governments or ISPs. By default, the application connects to IPFS default peers and a couple GUN peers. You can always add peers manually on the settings page, but that is cumbersome for the average user.
+Currently the weak point of Iris's decentralisation is the list of initial peers, which could easily be blocked by governments or ISPs. By default, the application connects to [IPFS](https://ipfs.io) default peers and a couple [GUN](https://gun.eco) peers. You can always add peers manually on the [settings page](https://irislib.github.io/#settings), but that is cumbersome for the average user.
 
 We already have a multicast module prototype for GUN which can find peers on the same local area network. Bluetooth modules are not yet implemented, but will enable a network of peers that need to meet each other only occasionally.
 
