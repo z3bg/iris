@@ -1,8 +1,8 @@
 # Iris
 
 Available at:
-* [iris.cx](https://iris.cx)
 * [iris.to](https://iris.to)
+* [iris.cx](https://iris.cx)
 * [irislib.github.io](https://irislib.github.io)
 * [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
 * [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/identifi/)
@@ -48,7 +48,7 @@ We already have a multicast module prototype for GUN which can find peers on the
 On the wide area network level, trusted contacts could exchange network addresses privately to avoid having them blocked or tracked. WebRTC's NAT traversal capabilities can enable direct connections between typical network endpoint users, but you still need a firewall-opened/port-forwarded rendez-vous node for them, and in some cases a relay node.
 
 ## How to help
-If you like the idea, please **create an Iris account** and **share your profile link on your existing social networks**!
+If you like the idea, please [create an Iris account](https://iris.to) and **share your profile link on your existing social networks**!
 
 If you are a developer and want to help, contributions to the browser application and the underlying iris-lib are very much appreciated. If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
 
