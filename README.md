@@ -26,6 +26,7 @@ You can create new Iris accounts (technically: cryptographic keypairs) at will, 
 When you upvote someone, they become your 1st degree contact. The accounts they upvoted become 2nd degree contacts. Then there are 3rd degree contacts and so on. This is the web of trust, which can be used to filter all content on Iris. Hiding users by downvoting is also possible.
 
 **This way we can avoid spam and other unwanted content without giving power to central moderators.**
+
 You can also add to your contacts list and rate people and organisations who are not yet on Iris.
 A decentralised web of trust, unlike certain big brother systems, could be a strong positive social force as envisioned in the blog post [Learning to Trust Strangers](https://medium.com/@mmalmi/learning-to-trust-strangers-167b652a654f). (Iris is evolved from thereby mentioned Identifi.)
 
@@ -51,7 +52,7 @@ On the wide area network level, trusted contacts could exchange network addresse
 ## How to help
 If you like the idea, please [create an Iris account](https://iris.to) and **share your profile link on your existing social networks**!
 
-If you are a developer, contributions to the browser application and the underlying iris-lib are very much appreciated.
+Currently the application is slower than the technology allows and needs bugfixes, but it should give an idea of the intended functionality. If you are a developer, contributions to the browser application and the underlying iris-lib are very much appreciated.
 
 If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
 
