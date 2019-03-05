@@ -11,7 +11,9 @@ Code:
 - https://github.com/irislib/iris-lib Library for reading and writing Iris messages and indexes
 - https://github.com/irislib/iris-angular Angular UI for web, browser extensions and Electron app
 
-#### Want social media where you decide what gets into your feed, not some obscure algorithm? Something that can't be censored by authoritarian governments? No big tech companies that decide what you can post, what gets visibility and who gets to have an account? Yet no harassing troll accounts, spam or ads? Something that works locally even if ISPs are unavailable in an emergency situation?
+---
+
+**Want social media where you decide what gets into your feed, not some obscure algorithm? Something that can't be censored by authoritarian governments? No big tech companies that decide what you can post, what gets visibility and who gets to have an account? Yet no harassing troll accounts, spam or ads? Something that works locally even if ISPs are unavailable in an emergency situation?**
 
 Here comes Iris. Iris is a social networking application that stores and indexes everything on the devices of its users and connects directly with peers who run the application - no corporate gatekeepers needed.
 
@@ -23,7 +25,7 @@ You can create new Iris accounts (technically: cryptographic keypairs) at will, 
 
 When you upvote someone, they become your 1st degree contact. The accounts they upvoted become 2nd degree contacts. Then there are 3rd degree contacts and so on. This is the web of trust, which can be used to filter all content on Iris. Hiding users by downvoting is also possible.
 
-This way we can avoid spam and other unwanted content without giving power to central moderators.
+**This way we can avoid spam and other unwanted content without giving power to central moderators.**
 You can also add to your contacts list and rate people and organisations who are not yet on Iris.
 A decentralised web of trust, unlike certain big brother systems, could be a strong positive social force as envisioned in the blog post Learning to Trust Strangers. (Iris is evolved from thereby mentioned Identifi.)
 
@@ -46,7 +48,7 @@ We already have a multicast module prototype for GUN which can find peers on the
 On the wide area network level, trusted contacts could exchange network addresses privately to avoid having them blocked or tracked. WebRTC's NAT traversal capabilities can enable direct connections between typical network endpoint users, but you still need a firewall-opened/port-forwarded rendez-vous node for them, and in some cases a relay node.
 
 ## How to help
-If you like the idea, please create an Iris account and share your profile link on your existing social networks!
+If you like the idea, please **create an Iris account** and **share your profile link on your existing social networks**!
 
 If you are a developer and want to help, contributions to the browser application and the underlying iris-lib are very much appreciated. If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
 
