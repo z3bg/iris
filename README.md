@@ -59,4 +59,4 @@ Iris is released under the terms of the MIT license. See `COPYING` for more info
 ---
 
 ![The Greek goddess Iris](https://upload.wikimedia.org/wikipedia/commons/7/7b/Venus_supported_by_Iris%2C_complaining_to_Mars_1820.jpg)
-*Iris (middle): the Greek goddess of the rainbow and messenger of the gods.*
+*Iris (middle): Greek goddess of the rainbow and messenger of the gods.*
