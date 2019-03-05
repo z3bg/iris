@@ -52,7 +52,7 @@ On the wide area network level, trusted contacts could exchange network addresse
 ## How to help
 If you like the idea, please [create an Iris account](https://iris.to) and **share your profile link on your existing social networks**!
 
-Currently the application is slower than the technology allows and needs bugfixes, but it should give an idea of the intended functionality. If you are a developer, contributions to the browser application and the underlying iris-lib are very much appreciated.
+Currently the application is glitchy and slower than the technology allows, but it should give an idea of the intended functionality. If you are a developer, contributions to the browser application and the underlying iris-lib are very much appreciated.
 
 If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
 
