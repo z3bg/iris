@@ -4,8 +4,8 @@ Available at:
 * [iris.to](https://iris.to)
 * [iris.cx](https://iris.cx)
 * [irislib.github.io](https://irislib.github.io)
-* [Chrome extension](https://chrome.google.com/webstore/detail/identifi/oelmiikkaikgnmmjaonjlopkmpcahpgh)
-* [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/identifi/)
+* [Chrome extension](https://chrome.google.com/webstore/detail/iris/oelmiikkaikgnmmjaonjlopkmpcahpgh)
+* [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/irisapp/)
 
 Code:
 - https://github.com/irislib/iris-lib Library for reading and writing Iris messages and indexes
