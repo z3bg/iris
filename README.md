@@ -25,7 +25,7 @@ Interface-wise, Iris is not too different from some existing social media. You c
 
 ![Feed](https://github.com/irislib/iris/raw/master/img/feed.png)
 
-Messages and files are stored on [IPFS](https://ipfs.io) and indexed on [GUN](https://gun.eco) - both are decentralised networks that run in your browser. At the time of writing this, Iris supports only public messaging.
+At the time of writing this, Iris supports only public messaging.
 
 ## Web of trust
 You can create new Iris accounts (technically: cryptographic keypairs) at will, without asking for anyone's permission, but only the users whose web of trust upvoted your account will see its posts.
@@ -50,7 +50,7 @@ For example, a crawler can import and sign other people's messages from Twitter.
 Importing content from existing sources helps overcome the network effect. It solves the chicken and egg problem, making Iris a useful medium even with no initial user base.
 
 ## Tech stack
-Iris messages and contacts are stored and indexed on the distributed database [GUN](https://gun.eco). [IPFS](https://ipfs.io) is used to store file attachments and message backups.
+Iris messages and contacts are stored and indexed on [GUN](https://gun.eco). [IPFS](https://ipfs.io) is used to store file attachments and message backups. Both are decentralised networks that run in the browser.
 
 The [browser application](https://github.com/irislib/iris-angular) runs on AngularJS. [Iris-lib](https://github.com/irislib/iris-lib) is written in javascript for the browser and Node.js.
 
