@@ -11,7 +11,7 @@ Code:
 - https://github.com/irislib/iris-lib Library for reading and writing Iris messages and indexes
 - https://github.com/irislib/iris-angular Angular UI for web, browser extensions and Electron app
 
-Note: Iris is still **experimental** software.
+_Note: Iris is still **experimental** software._
 
 ---
 
