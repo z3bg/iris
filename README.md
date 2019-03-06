@@ -22,7 +22,7 @@ Interface-wise, Iris is not too different from some existing social media. You c
 
 ![Feed](https://github.com/irislib/iris/raw/master/img/feed.png)
 
-Messages and files are stored on IPFS and indexed on GUN - both are decentralised networks that run in your browser. At the time of writing this, Iris supports only public messaging.
+Messages and files are stored on [IPFS](https://ipfs.io) and indexed on [GUN](https://gun.eco) - both are decentralised networks that run in your browser. At the time of writing this, Iris supports only public messaging.
 
 ## Web of trust
 You can create new Iris accounts (technically: cryptographic keypairs) at will, without asking for anyone's permission, but only the users whose web of trust upvoted your account will see its posts.
