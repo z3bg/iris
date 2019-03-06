@@ -18,7 +18,11 @@ Code:
 Here comes Iris. Iris is a social networking application that stores and indexes everything on the devices of its users and connects directly with peers who run the application - no corporate gatekeepers needed.
 
 ## Public messaging
-Interface-wise, Iris is not too different from some existing social media. You can post texts, photos, videos, audio or other types of files into your feed. At the time of writing this, all content on Iris is public.
+Interface-wise, Iris is not too different from some existing social media. You can post texts, photos, videos, audio or other types of files into your feed.
+
+![Feed](https://github.com/irislib/iris/raw/master/img/feed.png)
+
+Messages and files are stored on IPFS and indexed on GUN - both are decentralised networks that run in your browser. At the time of writing this, Iris supports only public messaging.
 
 ## Web of trust
 You can create new Iris accounts (technically: cryptographic keypairs) at will, without asking for anyone's permission, but only the users whose web of trust upvoted your account will see its posts.
@@ -52,7 +56,7 @@ On the wide area network level, trusted contacts could exchange network addresse
 ## How to help
 If you like the idea, please [create an Iris account](https://iris.to) and **share your profile link on your existing social networks**!
 
-Currently the application is glitchy and slower than the technology allows, but it should give an idea of the intended functionality. If you are a developer, contributions to the browser application and the underlying iris-lib are very much appreciated.
+Currently the application is glitchy and slower than the technology allows, but it should give an idea of the intended functionality. Contributions to the browser application and the underlying iris-lib are very much appreciated.
 
 If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
 
