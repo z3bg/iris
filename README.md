@@ -4,8 +4,9 @@ Available at:
 * [iris.to](https://iris.to)
 * [iris.cx](https://iris.cx)
 * [irislib.github.io](https://irislib.github.io)
-* [Chrome extension](https://chrome.google.com/webstore/detail/iris/oelmiikkaikgnmmjaonjlopkmpcahpgh)
-* [Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/irisapp/)
+* Browser extension: use Iris even if you are offline. In the future, can be used to sign in to websites.
+  * [Chrome](https://chrome.google.com/webstore/detail/iris/oelmiikkaikgnmmjaonjlopkmpcahpgh)
+  * [Firefox](https://addons.mozilla.org/en-US/firefox/addon/irisapp/)
 
 Code:
 - https://github.com/irislib/iris-lib Library for reading and writing Iris messages and indexes
