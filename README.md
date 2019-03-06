@@ -56,9 +56,9 @@ On the wide area network level, trusted contacts could exchange network addresse
 ## How to help
 If you like the idea, please [create an Iris account](https://iris.to) and **share your profile link on your existing social networks**!
 
-Currently the application is glitchy and slower than the technology allows, but it should give an idea of the intended functionality. Contributions to the browser application and the underlying iris-lib are very much appreciated.
+Currently the application is glitchy and slower than the technology allows, but it should give an idea of the intended functionality. Contributions to the [browser application](https://github.com/irislib/iris-angular) and the underlying [iris-lib](https://github.com/irislib/iris-lib) are very much appreciated.
 
-If you want to integrate Iris with your product or service, please check out iris-lib and open  Github issues if needed.
+If you want to integrate Iris with your product or service, please check out [iris-lib](https://github.com/irislib/iris-lib) and create Github issues if needed.
 
 ## License
 
