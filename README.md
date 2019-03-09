@@ -48,7 +48,7 @@ An Iris message is digitally signed by the entity that verified its origin. In o
 For example, a crawler can import and sign other people's messages from Twitter. Only the users who trust the crawler will see the messages.
 
 ![Feed](https://github.com/irislib/iris/raw/master/img/msg.png)
-*A message imported from the Bitcoin trading site bitcoin-otc.com by "Bitcoin-otc.com crawler".*
+*A message imported from the bitcoin trading site bitcoin-otc.com by "Bitcoin-otc.com crawler".*
 
 Importing content from existing sources helps overcome the network effect. It solves the chicken and egg problem, making Iris a useful medium even with no initial user base.
 
