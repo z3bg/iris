@@ -25,7 +25,7 @@ Interface-wise, Iris is not too different from some existing social media. You c
 
 ![Feed](https://github.com/irislib/iris/raw/master/img/feed.png)
 
-At the time of writing this, Iris supports only public messaging.
+At the time of writing this, all messages on Iris are public.
 
 ## Web of trust
 You can create new Iris accounts (technically: cryptographic keypairs) at will, without asking for anyone's permission, but only the users whose web of trust upvoted your account will see its posts.
